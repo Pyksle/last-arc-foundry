@@ -103,6 +103,13 @@ describe("localisation coverage", () => {
     assert.deepEqual(missing, [], `missing option labels:\n  ${missing.join("\n  ")}`);
   });
 
+  test("every status and curse has a name string", () => {
+    const missing = LASTARC.allStatusIds
+      .map((id) => `LASTARC.Status.${id}`)
+      .filter((k) => !(k in lang));
+    assert.deepEqual(missing, [], `statuses would show a raw key: ${missing.join(", ")}`);
+  });
+
   test("every declared document subtype has a TYPES label", () => {
     const missing = [];
     for (const [doc, subtypes] of Object.entries(systemJson.documentTypes)) {
@@ -253,6 +260,40 @@ describe("sheet wiring", () => {
 });
 
 /* -------------------------------------------------------------------------- */
+
+describe("status assets", () => {
+  /**
+   * REGRESSION GUARD. registerStatusEffects() points every status at
+   * assets/status/<id>.svg. Those files did not exist at first, so every status
+   * badge on every token was a broken image — invisible in code review and
+   * obvious the moment anyone played.
+   */
+  test("every status has an icon file on disk", () => {
+    const icons = new Set(
+      readdirSync(join(root, "assets/status")).filter((f) => f.endsWith(".svg"))
+    );
+    const missing = LASTARC.allStatusIds.filter((id) => !icons.has(`${id}.svg`));
+    assert.deepEqual(missing, [], `statuses with no icon: ${missing.join(", ")}`);
+  });
+
+  test("no orphan icons for statuses that no longer exist", () => {
+    const icons = readdirSync(join(root, "assets/status"))
+      .filter((f) => f.endsWith(".svg"))
+      .map((f) => f.replace(".svg", ""));
+    const orphans = icons.filter((id) => !LASTARC.allStatusIds.includes(id));
+    assert.deepEqual(orphans, [], `icons with no status: ${orphans.join(", ")}`);
+  });
+
+  test("icons are self-contained SVG with no external references", () => {
+    for (const file of readdirSync(join(root, "assets/status"))) {
+      const svg = readFileSync(join(root, "assets/status", file), "utf8");
+      assert.ok(svg.startsWith("<svg"), `${file} is not an SVG`);
+      assert.ok(!/<image|href=|url\(/i.test(svg), `${file} references an external asset`);
+      // currentColor lets Foundry tint the badge; a hardcoded fill would not.
+      assert.ok(svg.includes("currentColor"), `${file} should use currentColor`);
+    }
+  });
+});
 
 describe("templates compile", () => {
   /**

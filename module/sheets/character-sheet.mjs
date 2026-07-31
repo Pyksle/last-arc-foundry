@@ -16,6 +16,7 @@ import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollSkill, rollAttribute } from "../dice/rolls.mjs";
 import { rollAttack } from "../dice/attack.mjs";
+import { heroPointDefenceBoost } from "../dice/hero-points.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -39,7 +40,10 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       editItem: LastArcCharacterSheet.#onEditItem,
       deleteItem: LastArcCharacterSheet.#onDeleteItem,
       toggleEquip: LastArcCharacterSheet.#onToggleEquip,
-      rollAttack: LastArcCharacterSheet.#onRollAttack
+      rollAttack: LastArcCharacterSheet.#onRollAttack,
+      addPersistent: LastArcCharacterSheet.#onAddPersistent,
+      clearPersistent: LastArcCharacterSheet.#onClearPersistent,
+      heroBoost: LastArcCharacterSheet.#onHeroBoost
     }
   };
 
@@ -109,7 +113,17 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
           : `−${Math.abs(penalty)}`
     }));
 
-    context.recoveryTarget = LASTARC.recoveryMinorActions;
+    // Shake it Off can lower this, so read the derived value rather than the
+    // config constant.
+    context.recoveryTarget = sys.breakGauge.recoveryRequired ?? LASTARC.recoveryMinorActions;
+
+    context.persistentSources = sys.breakGauge.persistentSources
+      .map((s, index) => ({ ...s, index }));
+
+    context.canSpendHero = (sys.resources.heroPoints.value ?? 0) > 0;
+    // Surfaced explicitly because §12 flags this interaction: misfortune forbids
+    // rerolling d20s, which silently removes one of the four hero point spends.
+    context.misfortuneBlocksReroll = !!sys.statuses?.blocksD20Reroll;
 
     context.defenceRows = ["ref", "fort", "will"].map((key) => ({
       key,
@@ -328,7 +342,15 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
    */
   static async #onBankRecovery(event, target) {
     const sys = this.document.system;
-    const required = LASTARC.recoveryMinorActions;
+
+    // Disease blocks recovery actions outright (§12), independently of the
+    // persistent floor.
+    if (sys.breakGauge.recoveryBlocked) {
+      ui.notifications?.warn(game.i18n.localize("LASTARC.Warning.RecoveryDisabled"));
+      return;
+    }
+
+    const required = sys.breakGauge.recoveryRequired ?? LASTARC.recoveryMinorActions;
     const banked = sys.breakGauge.recoveryProgress + 1;
 
     if (banked < required) {
@@ -348,6 +370,91 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     if (improved === sys.breakGauge.step) {
       ui.notifications?.warn(game.i18n.localize("LASTARC.Warning.RecoveryBlocked"));
     }
+  }
+
+  /**
+   * Add a named persistent Break condition.
+   *
+   * Adding one WORSENS the gauge if the character is not already at least that
+   * far down — a persistent step is a step, not just a floor. The
+   * `persistentSteps ≤ step` invariant is enforced by `reconcilePersistent`
+   * rather than by arithmetic here.
+   */
+  /**
+   * Spend a hero point to add an exploding 1d6 to a defence until the start of
+   * your next turn (§13).
+   *
+   * Boosting Fortitude also raises Break Threshold when
+   * `heroPointAffectsThreshold` is on, since Threshold is defined as Fortitude
+   * and derived live — that is §15 A2, and it means this button can be used
+   * reactively to shrug off an incoming hit.
+   */
+  static async #onHeroBoost(event, target) {
+    const grassrunner = this.document.items.some(
+      (i) => i.type === "race" && i.system?.slug === "grassrunner"
+    );
+    await heroPointDefenceBoost(this.document, target.dataset.defence, {
+      rerollOnes: grassrunner
+    });
+  }
+
+  static async #onAddPersistent(event, target) {
+    const sys = this.document.system;
+
+    const label = await foundry.applications.api.DialogV2.prompt({
+      window: { title: game.i18n.localize("LASTARC.Dialog.AddPersistent.title") },
+      content:
+        `<p>${game.i18n.localize("LASTARC.Dialog.AddPersistent.content")}</p>` +
+        `<label>${game.i18n.localize("LASTARC.Dialog.AddPersistent.source")}` +
+        `<input type="text" name="label" autofocus></label>` +
+        `<label>${game.i18n.localize("LASTARC.Dialog.AddPersistent.clearedBy")}` +
+        `<input type="text" name="clearedBy"></label>` +
+        `<label><input type="checkbox" name="fromInjury"> ` +
+        `${game.i18n.localize("LASTARC.Dialog.AddPersistent.fromInjury")}</label>`,
+      ok: {
+        callback: (event, button) => ({
+          label: button.form.elements.label.value.trim(),
+          clearedBy: button.form.elements.clearedBy.value.trim(),
+          fromInjury: button.form.elements.fromInjury.checked
+        })
+      },
+      rejectClose: false
+    });
+
+    if (!label?.label) return;
+
+    const sources = [...sys.breakGauge.persistentSources, {
+      id: foundry.utils.randomID(),
+      label: label.label,
+      clearedBy: label.clearedBy,
+      fromInjury: label.fromInjury
+    }];
+
+    const next = D.reconcilePersistent(sys.breakGauge.step, sources.length);
+    await this.document.update({
+      "system.breakGauge.persistentSources": sources,
+      "system.breakGauge.persistentSteps": next.persistentSteps,
+      "system.breakGauge.step": next.step
+    });
+  }
+
+  /**
+   * Clear one persistent condition.
+   *
+   * Clearing the source does NOT improve the gauge on its own — it only lowers
+   * the floor, so a Recovery action can now reach further. That matches §6:
+   * recovery cannot clear persistent steps, but once the underlying condition is
+   * cured the step becomes ordinary and recoverable.
+   */
+  static async #onClearPersistent(event, target) {
+    const sys = this.document.system;
+    const sources = [...sys.breakGauge.persistentSources];
+    sources.splice(Number(target.dataset.index), 1);
+
+    await this.document.update({
+      "system.breakGauge.persistentSources": sources,
+      "system.breakGauge.persistentSteps": sources.length
+    });
   }
 
   static async #onSecondWind(event, target) {

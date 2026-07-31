@@ -2,7 +2,6 @@
   "LASTARC.Sheet.Character": "Last Arc Character",
   "LASTARC.Sheet.Npc": "Last Arc NPC",
   "LASTARC.Sheet.Item": "Last Arc Item",
-
   "TYPES.Actor.character": "Character",
   "TYPES.Actor.npc": "NPC",
   "TYPES.Item.weapon": "Weapon",
@@ -22,7 +21,6 @@
   "TYPES.Item.spellScroll": "Spell Scroll",
   "TYPES.Item.orchestralScore": "Orchestral Score",
   "TYPES.Item.prostheticLimb": "Prosthetic Limb",
-
   "LASTARC.Availability.common": "Common",
   "LASTARC.Availability.uncommon": "Uncommon",
   "LASTARC.Availability.rare": "Rare",
@@ -30,7 +28,6 @@
   "LASTARC.Availability.epic": "Epic",
   "LASTARC.Availability.legendary": "Legendary",
   "LASTARC.Availability.mythic": "Mythic",
-
   "LASTARC.WeaponCategory.axes": "Axes",
   "LASTARC.WeaponCategory.bludgeons": "Bludgeons",
   "LASTARC.WeaponCategory.bows": "Bows",
@@ -39,11 +36,9 @@
   "LASTARC.WeaponCategory.polearms": "Polearms",
   "LASTARC.WeaponCategory.staves": "Staves",
   "LASTARC.WeaponCategory.swords": "Swords",
-
   "LASTARC.ArmourType.light": "Light",
   "LASTARC.ArmourType.heavy": "Heavy",
   "LASTARC.ArmourType.mystic": "Mystic",
-
   "LASTARC.DamageType.blunt": "Blunt",
   "LASTARC.DamageType.piercing": "Piercing",
   "LASTARC.DamageType.slashing": "Slashing",
@@ -53,14 +48,12 @@
   "LASTARC.DamageType.fire": "Fire",
   "LASTARC.DamageType.holy": "Holy",
   "LASTARC.DamageType.unaspected": "Unaspected",
-
   "LASTARC.School.black": "Black",
   "LASTARC.School.blue": "Blue",
   "LASTARC.School.green": "Green",
   "LASTARC.School.red": "Red",
   "LASTARC.School.white": "White",
   "LASTARC.School.highArcana": "High Arcana",
-
   "LASTARC.TechnickFlag.weaponFinesse": "Weapon Finesse — substitute Agility for Strength on light, thrown, unarmed and natural attacks",
   "LASTARC.TechnickFlag.preciseShot": "Precise Shot — negates the penalty for shooting into melee",
   "LASTARC.TechnickFlag.tripleCrit": "Triple Crit — ranged critical multiplier becomes ×3",
@@ -70,12 +63,10 @@
   "LASTARC.TechnickFlag.shieldProficiency": "Shield Proficiency — cumulative block penalty capped at −5",
   "LASTARC.TechnickFlag.hardyAndHearty": "Hale and Hearty — removes the once-per-encounter Second Wind cap",
   "LASTARC.TechnickFlag.debilitatingInjury": "Debilitating Injury — damage over Threshold worsens the gauge by two steps",
-
   "LASTARC.Section.Attacks": "Attacks",
   "LASTARC.Note.NoWeapons": "No weapons equipped.",
   "LASTARC.Tooltip.WieldDerived": "Wield category, derived from your size against the weapon's.",
   "LASTARC.Tooltip.WeaponUnusable": "This weapon is two or more size categories larger than you and cannot be used.",
-
   "LASTARC.Mod.skill": "Weapon skill",
   "LASTARC.Mod.weapon": "Weapon attack bonus",
   "LASTARC.Mod.nonProficient": "Not proficient",
@@ -94,7 +85,6 @@
   "LASTARC.Mod.attributeDoubled": "Attribute modifier (doubled, two-handed)",
   "LASTARC.Mod.weaponBonus": "Weapon damage bonus",
   "LASTARC.Mod.weaponBreak": "Weapon Break Gauge penalty",
-
   "LASTARC.Card.AttackRoll": "Attack",
   "LASTARC.Card.Damage": "Damage",
   "LASTARC.Card.Hit": "Hit",
@@ -118,13 +108,11 @@
   "LASTARC.Card.Immune": "immune",
   "LASTARC.Card.BreakStep": "Break Gauge worsened",
   "LASTARC.Card.Downed": "reduced to 0 HP — unconscious, prone and helpless",
-
   "LASTARC.Error.ActorGone": "That actor no longer exists.",
   "LASTARC.Error.WeaponGone": "That weapon is no longer on the actor.",
   "LASTARC.Warning.NoTargets": "No targets selected. Target one or more tokens first.",
   "LASTARC.Warning.WeaponUnusable": "{weapon} is too large for {actor} to use.",
   "LASTARC.Warning.ComboCapped": "Combo chain reached the configured cap of {cap} and was stopped.",
-
   "LASTARC.Section.Technicks": "Technicks & Talents",
   "LASTARC.Section.Inventory": "Inventory",
   "LASTARC.Note.NoTechnicks": "No technicks or talents yet. Drag them here from a compendium.",
@@ -132,7 +120,6 @@
   "LASTARC.Bulk.encumberedAt": "encumbered",
   "LASTARC.Bulk.overencumberedAt": "over",
   "LASTARC.Tooltip.ToggleEquip": "Equip or unequip. Only one armour and one shield can be equipped at a time.",
-
   "LASTARC.Section.Item": "Item",
   "LASTARC.Section.Items": "Items",
   "LASTARC.Section.Weapon": "Weapon",
@@ -142,7 +129,6 @@
   "LASTARC.Section.Grants": "Grants",
   "LASTARC.Section.Description": "Description",
   "LASTARC.Section.DamageMods": "Weaknesses, Resistances & Immunities",
-
   "LASTARC.Field.Slug": "Slug",
   "LASTARC.Field.SlugPlaceholder": "e.g. improved-initiative",
   "LASTARC.Field.Source": "Source",
@@ -182,7 +168,6 @@
   "LASTARC.Field.Resistance": "Resistance",
   "LASTARC.Field.Immunity": "Immunity",
   "LASTARC.Field.DamageTypeList": "comma-separated damage types",
-
   "LASTARC.Derived.WieldCategory": "Wielded as",
   "LASTARC.Derived.WieldChoice": "(may use 1-Handed or Light Weapon)",
   "LASTARC.Derived.StrMultiplier": "Str to damage",
@@ -190,25 +175,20 @@
   "LASTARC.Derived.EffectiveDR": "Effective DR after Break Gauge:",
   "LASTARC.Derived.PrereqsMet": "Prerequisites met.",
   "LASTARC.Derived.PrereqsUnmet": "Unmet prerequisites:",
-
   "LASTARC.Note.Grants": "Numeric effects entered here are applied to the character automatically. Behavioural effects belong in flags or an Active Effect instead.",
   "LASTARC.Note.NoItems": "No items.",
   "LASTARC.Note.NpcDefences": "Enter the printed statblock values. The Break Gauge penalty is applied on top automatically.",
   "LASTARC.Note.SpellTripleDuty": "The Spellcraft check does triple duty: it determines success, scales damage by how high it rolls, and may inflict a status if it also beats a second defence.",
   "LASTARC.Note.WieldNeedsActor": "Wield category depends on the wielder's size, so it is shown only when this weapon is owned by an actor.",
-
   "LASTARC.Tooltip.MaxAgiBonus": "Hard cap on the Agility contribution to Reflex. Leave blank for no cap.",
   "LASTARC.Tooltip.CheckPenalty": "Enter as a positive number. It is subtracted from affected skills, and only when the wearer is not proficient with this armour type.",
   "LASTARC.Tooltip.InitiativeSteps": "Improved Initiative steps the die DOWN the ladder, because the lowest initiative acts first.",
   "LASTARC.Tooltip.PrintedValue": "The printed statblock value, before the Break Gauge.",
   "LASTARC.Tooltip.FlatFootedOverride": "Statblocks print this in parentheses. Leave blank to derive it as Ref minus the Agility bonus.",
   "LASTARC.Tooltip.ThresholdOverride": "Leave blank to derive Threshold from Fortitude.",
-
   "LASTARC.Dialog.DeleteItem.title": "Delete item?",
   "LASTARC.Dialog.DeleteItem.content": "Permanently delete \"{name}\" from this actor?",
   "LASTARC.Warning.UnknownDamageType": "Unrecognised damage type(s) discarded: {types}",
-
-
   "LASTARC.Attribute.str": "Strength",
   "LASTARC.Attribute.vit": "Vitality",
   "LASTARC.Attribute.agi": "Agility",
@@ -221,7 +201,6 @@
   "LASTARC.Attribute.intAbbr": "Int",
   "LASTARC.Attribute.mndAbbr": "Mnd",
   "LASTARC.Attribute.chrAbbr": "Chr",
-
   "LASTARC.Skill.acrobatics": "Acrobatics",
   "LASTARC.Skill.alchemy": "Alchemy",
   "LASTARC.Skill.athletics": "Athletics",
@@ -247,14 +226,12 @@
   "LASTARC.Skill.PassiveFormula": "10 + Perception",
   "LASTARC.Skill.AddSpecialisation": "Add specialisation",
   "LASTARC.Skill.NewSpecialisation": "New specialisation",
-
   "LASTARC.Class.bard": "Bard",
   "LASTARC.Class.initiate": "Initiate",
   "LASTARC.Class.mage": "Mage",
   "LASTARC.Class.ranger": "Ranger",
   "LASTARC.Class.rogue": "Rogue",
   "LASTARC.Class.warrior": "Warrior",
-
   "LASTARC.Size.fine": "Fine",
   "LASTARC.Size.diminutive": "Diminutive",
   "LASTARC.Size.tiny": "Tiny",
@@ -264,32 +241,27 @@
   "LASTARC.Size.huge": "Huge",
   "LASTARC.Size.gargantuan": "Gargantuan",
   "LASTARC.Size.colossal": "Colossal",
-
   "LASTARC.Ethos.pure": "Pure",
   "LASTARC.Ethos.corrupt": "Corrupt",
   "LASTARC.Ethos.good": "Good",
   "LASTARC.Ethos.evil": "Evil",
   "LASTARC.Ethos.neutral": "Neutral",
-
   "LASTARC.Defence.ref": "Reflex",
   "LASTARC.Defence.fort": "Fortitude",
   "LASTARC.Defence.will": "Will",
   "LASTARC.Defence.flatFooted": "Flat-Footed Ref",
-
   "LASTARC.Section.Attributes": "Attributes",
   "LASTARC.Section.Defences": "Defences",
   "LASTARC.Section.BreakGauge": "Break Gauge",
   "LASTARC.Section.BreakThreshold": "Break Threshold",
   "LASTARC.Section.Skills": "Skills",
   "LASTARC.Section.WeaponSkills": "Weapon Skills",
-
   "LASTARC.Column.Score": "Score",
   "LASTARC.Column.HalfLevel": "½ Lv",
   "LASTARC.Column.Attrib": "Attrib",
   "LASTARC.Column.Trained": "Trained",
   "LASTARC.Column.Focus": "Focus",
   "LASTARC.Column.Bonus": "Bonus",
-
   "LASTARC.Field.Name": "Name",
   "LASTARC.Field.Race": "Race",
   "LASTARC.Field.Gender": "Gender",
@@ -306,7 +278,6 @@
   "LASTARC.Field.Experience": "XP",
   "LASTARC.Field.NextLevel": "Next",
   "LASTARC.Field.None": "None",
-
   "LASTARC.Resource.HitPoints": "Hit Points",
   "LASTARC.Resource.Mana": "Mana",
   "LASTARC.Resource.HeroPoints": "Hero Points",
@@ -317,22 +288,35 @@
   "LASTARC.Resource.Temp": "Temp",
   "LASTARC.Resource.Base": "Base",
   "LASTARC.Resource.LowestFirst": "lowest acts first",
-
   "LASTARC.Break.Normal": "Normal",
   "LASTARC.Break.Unconscious": "Unconscious",
   "LASTARC.Break.AppliesTo": "Applies to attacks, defences, skill checks, and attribute checks",
   "LASTARC.Break.BankMinorAction": "Bank minor action",
   "LASTARC.Break.PersistentFloor": "Persistent floor:",
-
+  "LASTARC.Break.RecoveryBlocked": "Recovery blocked",
+  "LASTARC.Break.AddPersistent": "Add persistent condition",
+  "LASTARC.Break.Injury": "injury",
+  "LASTARC.Tooltip.ClearPersistent": "Mark this condition cured. The step becomes ordinary and can then be recovered normally.",
+  "LASTARC.Tooltip.InjuryStep": "Steps from injuries do not block natural healing, unlike other persistent conditions.",
+  "LASTARC.Warning.NaturalHealingBlocked": "Natural healing is blocked while a non-injury persistent condition or an HP-affecting status is active.",
+  "LASTARC.Warning.RecoveryDisabled": "Recovery actions are unavailable — disease blocks them entirely.",
+  "LASTARC.Dialog.AddPersistent.title": "Add persistent Break condition",
+  "LASTARC.Dialog.AddPersistent.content": "Each persistent step has its own source and its own clearance requirement, and each must be cleared separately.",
+  "LASTARC.Dialog.AddPersistent.source": "Source",
+  "LASTARC.Dialog.AddPersistent.clearedBy": "Cleared by",
+  "LASTARC.Dialog.AddPersistent.fromInjury": "From an injury (does not block natural healing)",
+  "LASTARC.HeroPoint.None": "No hero points remaining.",
+  "LASTARC.HeroPoint.MisfortuneBlocks": "Misfortune prevents rerolling d20s, including with a hero point.",
+  "LASTARC.HeroPoint.DefenceBoost": "Hero Point: +{amount} {defence}",
+  "LASTARC.HeroPoint.DeathPrevented": "Death prevented — unconscious.",
+  "LASTARC.HeroPoint.InjuryTableBlocked": "The Injury & Dismemberment roll has not been made. The transcribed table has overlapping ranges and an uncovered band (spec ambiguity A7), and the readings differ by a factor of three on how often dismemberment occurs. Resolve it manually from the rulebook rather than letting the system guess.",
   "LASTARC.Roll.SkillCheck": "{label} Check",
   "LASTARC.Roll.AttributeCheck": "{label} Check",
   "LASTARC.Roll.Success": "Success",
   "LASTARC.Roll.Failure": "Failure",
   "LASTARC.Roll.AutoSuccess": "Natural 20 — automatic success",
   "LASTARC.Roll.AutoFail": "Natural 1 — automatic failure",
-
   "LASTARC.Note.WeaponSkills": "Weapon skills cannot Take 10 or Take 20. A natural 1 always fails and a natural 20 always succeeds, regardless of modifiers.",
-
   "LASTARC.Tooltip.RollAttribute": "Roll an attribute check",
   "LASTARC.Tooltip.InitiativeInverted": "Initiative is a class die, not a d20. Lowest result acts first; ties go to the higher Agility score.",
   "LASTARC.Tooltip.SecondWind": "Minor action, once per day. Cannot be used above half maximum HP.",
@@ -344,19 +328,15 @@
   "LASTARC.Tooltip.SetBreakStep": "Set the Break Gauge to this step",
   "LASTARC.Tooltip.Recovery": "Three consecutive minor actions improve the gauge by one step. Any other action — including a reaction — resets progress.",
   "LASTARC.Tooltip.RemoveClass": "Remove this class",
-
   "LASTARC.Dialog.RemoveFirstClass.title": "Remove first class?",
   "LASTARC.Dialog.RemoveFirstClass.content": "The first class determines the character's level-1 HP and Mana grant and their class defence bonuses. Removing it promotes the next class into that role, which will change those values.",
-
   "LASTARC.Info.RecoveryBanked": "Recovery: {banked} of {required} consecutive minor actions banked.",
-
   "LASTARC.Warning.Incapacitated": "{name} is at the bottom of the Break Gauge and cannot act.",
   "LASTARC.Warning.WeaponSkillTakeN": "Weapon skills cannot Take 10 or Take 20.",
   "LASTARC.Warning.PersistentFloor": "Recovery cannot clear persistent steps. This character is held at step {steps} until the underlying condition is cured.",
   "LASTARC.Warning.RecoveryBlocked": "Already at the persistent floor — recovery cannot improve the gauge further.",
   "LASTARC.Warning.SecondWind": "Second Wind is unavailable: either already used, or HP is above half maximum.",
   "LASTARC.Warning.LevelMismatch": "Class levels do not sum to the character's total level.",
-
   "LASTARC.Status.blind": "Blind",
   "LASTARC.Status.confusion": "Confusion",
   "LASTARC.Status.disease": "Disease",
@@ -374,7 +354,14 @@
   "LASTARC.Status.pinned": "Pinned",
   "LASTARC.Status.encumbered": "Encumbered",
   "LASTARC.Status.overencumbered": "Overencumbered",
-
+  "LASTARC.Status.agony": "Agony (curse)",
+  "LASTARC.Status.exhaustion": "Exhaustion (curse)",
+  "LASTARC.Status.misfortune": "Misfortune (curse)",
+  "LASTARC.Status.withering": "Withering (curse)",
+  "LASTARC.Status.dim": "Dim (curse)",
+  "LASTARC.Status.doom": "Doom (curse)",
+  "LASTARC.Status.lycanthropy": "Lycanthropy (curse)",
+  "LASTARC.Status.vampyrism": "Vampyrism (curse)",
   "LASTARC.Setting.breakThresholdUsesPostDR.name": "Break Threshold uses post-DR damage",
   "LASTARC.Setting.breakThresholdUsesPostDR.hint": "Whether a hit is compared to Break Threshold before or after Damage Reduction is subtracted. The rules are ambiguous (spec §15 A1) and this changes every Break Gauge interaction in the game. Default: after DR.",
   "LASTARC.Setting.heroPointAffectsThreshold.name": "Hero point defence boost raises Break Threshold",
@@ -384,5 +371,7 @@
   "LASTARC.Setting.multiclassRegrantsLevel1Benefits.name": "Multiclassing re-grants level-1 class benefits",
   "LASTARC.Setting.multiclassRegrantsLevel1Benefits.hint": "Whether a second class grants its own defence bonuses, starting technicks and gold (spec §15 A9). Default: no — granted on the first class only.",
   "LASTARC.Setting.maxComboChain.name": "Maximum Combo chain length",
-  "LASTARC.Setting.maxComboChain.hint": "A melee natural 20 grants a free extra attack, which can itself roll a natural 20. The rules do not state a limit (spec §15 A6); this caps the chain defensively."
+  "LASTARC.Setting.maxComboChain.hint": "A melee natural 20 grants a free extra attack, which can itself roll a natural 20. The rules do not state a limit (spec §15 A6); this caps the chain defensively.",
+  "LASTARC.Tooltip.HeroBoost": "Spend a hero point: add an exploding 1d6 to this defence until the start of your next turn. Boosting Fortitude also raises Break Threshold.",
+  "LASTARC.HeroPoint.NoReroll": "reroll blocked"
 }

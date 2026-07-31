@@ -1,0 +1,192 @@
+/**
+ * Hero point spending (§13).
+ *
+ * Four spends, all free actions usable once per turn and off-turn:
+ *   1. reroll a d20
+ *   2. add 1d6 to a d20 result
+ *   3. add 1d6 to one defence until the start of your next turn
+ *   4. prevent death (→ unconscious + Injury & Dismemberment roll)
+ *
+ * Hero-point bonus d6s EXPLODE (§13), which is why they go through the same
+ * exploding roller as damage rather than being a plain 1d6. Grassrunners reroll
+ * 1s on these dice.
+ *
+ * The misfortune curse blocks d20 rerolls specifically, and §12 calls out that
+ * this interacts with hero points. Spend 1 is therefore gated.
+ */
+
+import { LASTARC } from "../config.mjs";
+import * as D from "../derivation.mjs";
+import { rollExplodingDice } from "./explode.mjs";
+
+/** Spend kinds, kept as constants so callers cannot typo them into no-ops. */
+export const HERO_SPEND = {
+  REROLL: "reroll",
+  BONUS_ROLL: "bonusRoll",
+  BONUS_DEFENCE: "bonusDefence",
+  PREVENT_DEATH: "preventDeath"
+};
+
+/**
+ * Can this actor spend a hero point at all, and on this particular kind?
+ *
+ * Returns a reason rather than a bare boolean so the UI can explain the refusal.
+ * A greyed-out button with no explanation is how rules get argued about at the
+ * table.
+ *
+ * @returns {{allowed: boolean, reason: string|null}}
+ */
+export function canSpendHeroPoint(actor, kind) {
+  const sys = actor.system;
+
+  if ((sys.resources?.heroPoints?.value ?? 0) <= 0) {
+    return { allowed: false, reason: "LASTARC.HeroPoint.None" };
+  }
+
+  if (kind === HERO_SPEND.REROLL && !D.canRerollD20(sys.statuses ?? {})) {
+    return { allowed: false, reason: "LASTARC.HeroPoint.MisfortuneBlocks" };
+  }
+
+  return { allowed: true, reason: null };
+}
+
+/**
+ * Roll a hero-point bonus die.
+ *
+ * @param {boolean} rerollOnes  Grassrunner trait: reroll 1s on these dice (§13).
+ */
+export async function rollHeroDie({ rerollOnes = false } = {}) {
+  const result = await rollExplodingDice({ faces: 6, count: 1 });
+
+  if (!rerollOnes || result.results[0]?.result !== 1) return result;
+
+  // Reroll a 1 and keep the new result. This is the "keep second" kind (§12) —
+  // it is a replacement, not a keep-higher, so a reroll into another 1 stands.
+  const replacement = await rollExplodingDice({ faces: 6, count: 1 });
+  return { ...replacement, rerolledFromOne: true };
+}
+
+/**
+ * Spend a hero point to reroll a d20.
+ *
+ * @param {Roll} originalRoll
+ * @param {"second"|"higher"|"lower"} kind  Which reroll semantics apply (§12).
+ */
+export async function heroPointReroll(actor, originalRoll, { kind = "second" } = {}) {
+  const check = canSpendHeroPoint(actor, HERO_SPEND.REROLL);
+  if (!check.allowed) {
+    ui.notifications?.warn(game.i18n.localize(check.reason));
+    return null;
+  }
+
+  const original = originalRoll.dice[0]?.results?.[0]?.result ?? 0;
+
+  const reroll = new Roll("1d20");
+  await reroll.evaluate();
+  const rerolled = reroll.dice[0]?.results?.[0]?.result ?? 0;
+
+  const kept = D.resolveReroll(original, rerolled, kind);
+
+  await spend(actor, 1);
+
+  return { original, rerolled, kept, kind, roll: reroll };
+}
+
+/**
+ * Spend a hero point to add an exploding 1d6 to a defence until the start of
+ * your next turn.
+ *
+ * §15 A2: Break Threshold is DEFINED as Fortitude, so boosting Fortitude this
+ * way also raises the Threshold if it is derived live — which it is. The
+ * `heroPointAffectsThreshold` setting exposes that reading; when disabled the
+ * bonus is recorded separately so Threshold can ignore it.
+ */
+export async function heroPointDefenceBoost(actor, defence, { rerollOnes = false } = {}) {
+  const check = canSpendHeroPoint(actor, HERO_SPEND.BONUS_DEFENCE);
+  if (!check.allowed) {
+    ui.notifications?.warn(game.i18n.localize(check.reason));
+    return null;
+  }
+
+  const die = await rollHeroDie({ rerollOnes });
+  const affectsThreshold = getSetting("heroPointAffectsThreshold", true);
+
+  // Recorded as an Active Effect on the misc slot, which the derivation reads
+  // as an INPUT — see the note in character.mjs about why effects must not
+  // target the computed fields directly.
+  await actor.createEmbeddedDocuments("ActiveEffect", [{
+    name: game.i18n.format("LASTARC.HeroPoint.DefenceBoost", {
+      defence: game.i18n.localize(`LASTARC.Defence.${defence}`),
+      amount: die.total
+    }),
+    img: `systems/last-arc/assets/status/exhaustion.svg`,
+    changes: [{
+      key: `system.defences.${defence}.misc`,
+      mode: CONST.ACTIVE_EFFECT_MODES.ADD,
+      value: String(die.total)
+    }],
+    duration: { rounds: 1 },
+    flags: { "last-arc": { heroPointBoost: true, affectsThreshold } }
+  }]);
+
+  await spend(actor, 1);
+  return { die, defence, affectsThreshold };
+}
+
+/**
+ * Spend a hero point to prevent death (§5.6).
+ *
+ * The character survives, unconscious, and rolls on the Injury & Dismemberment
+ * table — which is currently BLOCKED, see below.
+ */
+export async function heroPointPreventDeath(actor) {
+  const check = canSpendHeroPoint(actor, HERO_SPEND.PREVENT_DEATH);
+  if (!check.allowed) {
+    ui.notifications?.warn(game.i18n.localize(check.reason));
+    return null;
+  }
+
+  await spend(actor, 1);
+  await actor.update({
+    "system.resources.hp.value": 0,
+    "system.breakGauge.step": LASTARC.BREAK_STEP_MAX
+  });
+  await actor.toggleStatusEffect?.("helpless", { active: true });
+  await actor.toggleStatusEffect?.("prone", { active: true });
+
+  /**
+   * ⚠ The Injury & Dismemberment roll is deliberately NOT performed.
+   *
+   * The transcribed table (spec §5.6, ambiguity A7) is three overlapping `≤`
+   * bands — `≤90 Injury`, `≤10 Severed leg`, `≤5 Severed arm` — with nothing
+   * covering 91–100. The readings are not close to equivalent: one makes
+   * dismemberment a 15% outcome, another 5%. Guessing here permanently maims a
+   * player character on a coin flip we made up, so we refuse and say why.
+   */
+  ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content:
+      `<div class="lastarc-card lastarc-card--blocked">` +
+      `<p class="lastarc-verdict lastarc-verdict--bad">` +
+      `${game.i18n.localize("LASTARC.HeroPoint.DeathPrevented")}</p>` +
+      `<p class="lastarc-reaction">${game.i18n.localize("LASTARC.HeroPoint.InjuryTableBlocked")}</p>` +
+      `</div>`
+  });
+
+  return { prevented: true, injuryRollBlocked: true };
+}
+
+/* -------------------------------------------------------------------------- */
+
+async function spend(actor, n = 1) {
+  const current = actor.system.resources.heroPoints.value;
+  await actor.update({ "system.resources.heroPoints.value": Math.max(0, current - n) });
+}
+
+function getSetting(key, fallback) {
+  try {
+    return game.settings.get("last-arc", key);
+  } catch {
+    return fallback;
+  }
+}

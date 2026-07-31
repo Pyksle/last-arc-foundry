@@ -458,6 +458,160 @@ function toSet(v) {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Statuses & curses (§12)                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Collapse a set of active status ids into a single mechanical payload.
+ *
+ * Multipliers COMPOUND rather than summing — withering and a hypothetical second
+ * halving effect give ¼ max HP, not zero. Summing multipliers is the intuitive
+ * mistake and produces a max HP of 0, which is instant death rather than a
+ * penalty.
+ *
+ * `supersedes` handles the one documented overlap: helpless does not stack with
+ * prone, so an actor with both gets helpless's numbers only.
+ *
+ * @param {Iterable<string>} statusIds
+ * @returns {object} aggregated payload
+ */
+export function aggregateStatuses(statusIds = []) {
+  const ids = new Set(statusIds);
+
+  // Resolve supersession before reading any numbers off the losers.
+  for (const id of [...ids]) {
+    const def = LASTARC.statusEffects[id] ?? LASTARC.curses[id];
+    for (const loser of def?.supersedes ?? []) ids.delete(loser);
+  }
+
+  const out = {
+    active: ids,
+    defences: { ref: 0, fort: 0, will: 0 },
+    attackPenalty: 0,
+    agiDenied: false,
+    agiOverride: null,
+    noActions: false,
+    noReactions: false,
+    speedZero: false,
+    speedReduction: 0,
+    blocksFlying: false,
+    blocksRecovery: false,
+    blocksNaturalHealing: false,
+    currentHpBecomesMax: false,
+    maxHpMultiplier: 1,
+    maxMpMultiplier: 1,
+    stripsResistances: false,
+    stripsImmunities: false,
+    weakToAll: false,
+    blocksD20Reroll: false,
+    rerollKeepLower: false,
+    blocksSkills: new Set(),
+    bonusDamageDice: {},
+    enablesCoupDeGrace: false,
+    incomingAttackBonus: 0
+  };
+
+  for (const id of ids) {
+    const def = LASTARC.statusEffects[id] ?? LASTARC.curses[id];
+    if (!def) continue;
+
+    for (const key of ["ref", "fort", "will"]) {
+      out.defences[key] += def.defences?.[key] ?? 0;
+    }
+
+    out.attackPenalty += def.attackPenalty ?? 0;
+    out.incomingAttackBonus += def.incomingAttackBonus ?? 0;
+    out.speedReduction += def.speedReduction ?? 0;
+
+    out.agiDenied ||= !!def.agiDenied;
+    out.noActions ||= !!def.noActions;
+    out.noReactions ||= !!def.noReactions;
+    out.speedZero ||= !!def.speedZero;
+    out.blocksFlying ||= !!def.blocksFlying;
+    out.blocksRecovery ||= !!def.blocksRecovery;
+    out.blocksNaturalHealing ||= !!def.blocksNaturalHealing;
+    out.currentHpBecomesMax ||= !!def.currentHpBecomesMax;
+    out.stripsResistances ||= !!def.stripsResistances;
+    out.stripsImmunities ||= !!def.stripsImmunities;
+    out.weakToAll ||= !!def.weakToAll;
+    out.blocksD20Reroll ||= !!def.blocksD20Reroll;
+    out.rerollKeepLower ||= !!def.rerollKeepLower;
+    out.enablesCoupDeGrace ||= !!def.enablesCoupDeGrace;
+
+    if (def.agiOverride != null) {
+      out.agiOverride = out.agiOverride === null
+        ? def.agiOverride
+        : Math.min(out.agiOverride, def.agiOverride);
+    }
+
+    // Compound, do not sum.
+    out.maxHpMultiplier *= def.maxHpMultiplier ?? 1;
+    out.maxMpMultiplier *= def.maxMpMultiplier ?? 1;
+
+    for (const key of def.blocksSkills ?? []) out.blocksSkills.add(key);
+
+    for (const [type, dice] of Object.entries(def.bonusDamageDice ?? {})) {
+      out.bonusDamageDice[type] = (out.bonusDamageDice[type] ?? 0) + dice;
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Resolve the effective damage-type modifiers after statuses.
+ *
+ * Agony strips resistances and immunities and makes the creature weak to
+ * everything, which is why this cannot be read straight off the actor.
+ */
+export function effectiveDamageMods(base = {}, statuses = {}) {
+  if (statuses.weakToAll) {
+    return {
+      weakness: [...LASTARC.allDamageTypes],
+      resistance: [],
+      immunity: [],
+      dr: base.dr ?? 0
+    };
+  }
+  return {
+    weakness: base.weakness ?? [],
+    resistance: statuses.stripsResistances ? [] : (base.resistance ?? []),
+    immunity: statuses.stripsImmunities ? [] : (base.immunity ?? []),
+    dr: base.dr ?? 0
+  };
+}
+
+/**
+ * Pick between two rolled results according to the reroll kind (§12).
+ *
+ * These three are deliberately separate rather than a single "reroll" concept:
+ *   - `second` is a player-elected gamble and keeps the new result even if worse
+ *   - `higher` is a benefit granted when a racial trait and a talent stack
+ *   - `lower` is the misfortune penalty
+ *
+ * Conflating `second` with `higher` would silently upgrade a gamble into a
+ * guaranteed improvement.
+ */
+export function resolveReroll(original, rerolled, kind) {
+  switch (kind) {
+    case "second": return rerolled;
+    case "higher": return Math.max(original, rerolled);
+    case "lower": return Math.min(original, rerolled);
+    default: throw new Error(`Unknown reroll kind: ${kind}`);
+  }
+}
+
+/**
+ * May this actor spend a hero point to reroll a d20?
+ *
+ * Misfortune explicitly forbids rerolling d20s, and §12 flags that this
+ * interacts with hero points specifically.
+ */
+export function canRerollD20(statuses = {}) {
+  return !statuses.blocksD20Reroll;
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Bulk & movement (§4.6)                                                     */
 /* -------------------------------------------------------------------------- */
 

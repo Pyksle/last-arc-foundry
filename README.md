@@ -20,6 +20,9 @@ Phase 1 of 6, plus the item layer. What works today:
 - Attack rolls with Combo/Critical riders, and a damage pipeline with exploding
   dice (including the doubled-explosion variant)
 - Chat cards with damage application, mitigation, and Break Threshold checks
+- All 17 statuses and 8 curses with mechanical payloads and original icon art
+- Named persistent Break conditions, each cleared separately
+- Hero point spending, including the misfortune interaction
 - Inverted initiative sorting (lowest acts first)
 
 | Phase | Deliverable | Status |
@@ -27,7 +30,7 @@ Phase 1 of 6, plus the item layer. What works today:
 | 1 | Data models, actor sheet, derived stats, skill rolls | ✅ |
 | 1+ | Item data models, item sheets, technick wiring, inventory | ✅ |
 | 2 | Attack/damage pipeline, exploding dice, weapon rolls | ✅ |
-| 3 | Break Gauge Active Effects | ⬜ |
+| 3 | Break Gauge subsystem, statuses, Active Effects | ✅ |
 | 4 | Initiative + action economy tracking | ⬜ |
 | 5 | Compendium ingestion | ⬜ |
 | 6 | Technick/talent automation | ⬜ |

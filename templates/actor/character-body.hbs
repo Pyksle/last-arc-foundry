@@ -51,6 +51,23 @@
         <span class="la-sep">/</span>
         <span class="la-vital__max">{{system.resources.heroPoints.max}}</span>
       </div>
+      <div class="la-hero-spends">
+        <button type="button" data-action="heroBoost" data-defence="ref"
+                {{#unless canSpendHero}}disabled{{/unless}}
+                data-tooltip="{{localize 'LASTARC.Tooltip.HeroBoost'}}">R</button>
+        <button type="button" data-action="heroBoost" data-defence="fort"
+                {{#unless canSpendHero}}disabled{{/unless}}
+                data-tooltip="{{localize 'LASTARC.Tooltip.HeroBoost'}}">F</button>
+        <button type="button" data-action="heroBoost" data-defence="will"
+                {{#unless canSpendHero}}disabled{{/unless}}
+                data-tooltip="{{localize 'LASTARC.Tooltip.HeroBoost'}}">W</button>
+      </div>
+      {{#if misfortuneBlocksReroll}}
+        <span class="la-hero-blocked"
+              data-tooltip="{{localize 'LASTARC.HeroPoint.MisfortuneBlocks'}}">
+          {{localize "LASTARC.HeroPoint.NoReroll"}}
+        </span>
+      {{/if}}
     </div>
 
     <div class="la-vital la-vital--init">
@@ -143,18 +160,50 @@
 
     <div class="la-break__recovery">
       <button type="button" class="la-button" data-action="bankRecovery"
+              {{#if system.breakGauge.recoveryBlocked}}disabled{{/if}}
               data-tooltip="{{localize 'LASTARC.Tooltip.Recovery'}}">
         {{localize "LASTARC.Break.BankMinorAction"}}
       </button>
       <span class="la-break__progress">
         {{system.breakGauge.recoveryProgress}} / {{recoveryTarget}}
       </span>
+      {{#if system.breakGauge.recoveryBlocked}}
+        <span class="la-break__persistent">{{localize "LASTARC.Break.RecoveryBlocked"}}</span>
+      {{/if}}
       {{#if system.breakGauge.persistentSteps}}
         <span class="la-break__persistent">
           {{localize "LASTARC.Break.PersistentFloor"}} {{system.breakGauge.persistentSteps}}
         </span>
       {{/if}}
     </div>
+
+    {{!-- Each persistent step is a NAMED source with its own clearance
+          requirement, and each must be cleared separately (§6). A bare count
+          would make "which antidote do I still need?" unanswerable. --}}
+    <div class="la-persistent">
+      {{#each persistentSources}}
+        <div class="la-persistent__row {{#if this.fromInjury}}is-injury{{/if}}">
+          <span class="la-persistent__label">{{this.label}}</span>
+          <span class="la-persistent__cleared">{{this.clearedBy}}</span>
+          {{#if this.fromInjury}}
+            <span class="la-persistent__tag"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.InjuryStep'}}">
+              {{localize "LASTARC.Break.Injury"}}
+            </span>
+          {{/if}}
+          <button type="button" class="la-persistent__clear" data-action="clearPersistent"
+                  data-index="{{this.index}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.ClearPersistent'}}">✓</button>
+        </div>
+      {{/each}}
+      <button type="button" class="la-skill__add" data-action="addPersistent">
+        + {{localize "LASTARC.Break.AddPersistent"}}
+      </button>
+    </div>
+
+    {{#if system.resources.naturalHealingBlocked}}
+      <p class="la-warning">{{localize "LASTARC.Warning.NaturalHealingBlocked"}}</p>
+    {{/if}}
   </section>
 
   {{!-- ── Skills · five printed columns ───────────────────────────────────── --}}

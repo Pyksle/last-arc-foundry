@@ -307,6 +307,185 @@ LASTARC.availability = {
 };
 
 /* -------------------------------------------------------------------------- */
+/*  Status effects (§12)                                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Statuses with their mechanical payloads.
+ *
+ * ── Durations ───────────────────────────────────────────────────────────────
+ * §12 is explicit that these do NOT expire at end of turn or end of encounter.
+ * They persist until a specific clearance condition is met. Nothing here carries
+ * a round count, and none should be given one by default. `chanceToClear` is a
+ * per-turn removal ROLL, not a duration — a drenched creature is not drenched
+ * "for 4 rounds", it has a 25% chance each turn of shaking it off.
+ *
+ * ── Stacking ────────────────────────────────────────────────────────────────
+ * A creature may hold many statuses, but no status stacks with ITSELF. Poisons
+ * and curses are the exception in that *different* poisons or curses stack,
+ * while duplicates of the same one do not. `stacksIndependently` marks those.
+ *
+ * ── Fields ──────────────────────────────────────────────────────────────────
+ * Only fields that differ from the defaults are listed on each entry. The
+ * derivation reads these rather than branching on status id, so adding a status
+ * is a data change.
+ */
+LASTARC.statusEffects = {
+  blind: {
+    /** Every target has TOTAL concealment from this creature — not the reverse. */
+    grantsTargetsTotalConcealment: true
+  },
+  confusion: {
+    /** Start of turn: 60% to attack the nearest ally, or itself. */
+    confusionChance: 0.6,
+    /** Cleared when an ally hits it beating BOTH Reflex and Will. */
+    clearedByAllyHit: true
+  },
+  disease: {
+    /**
+     * "Current HP is treated as max HP" — the cap follows the wound rather than
+     * the wound following the cap. Recovery actions are blocked outright.
+     */
+    currentHpBecomesMax: true,
+    blocksRecovery: true,
+    blocksNaturalHealing: true
+  },
+  drench: {
+    /** Cold and electric deal +2 DICE, not +2 damage. */
+    bonusDamageDice: { cold: 2, electric: 2 },
+    chanceToClear: 0.25
+  },
+  oil: {
+    bonusDamageDice: { fire: 2 },
+    chanceToClear: 0.25
+  },
+  paralysis: {
+    /** Start of turn: 25% chance of flat-footed and no actions until next turn. */
+    paralysisChance: 0.25
+  },
+  petrify: {
+    agiDenied: true,
+    noActions: true,
+    /** Explicitly NOT helpless — so no Coup de Grace. */
+    helpless: false,
+    immuneToForcedMovement: true,
+    /** One hour to death, and it IGNORES hero points. */
+    deathAfterMinutes: 60,
+    deathIgnoresHeroPoints: true
+  },
+  poison: {
+    stacksIndependently: true,
+    /** Attacks Fortitude at the start of each of the creature's turns. */
+    attacksDefenceEachTurn: "fort",
+    /** Auto-removed after failing to beat Fort on two CONSECUTIVE turns. */
+    clearAfterConsecutiveFailures: 2,
+    blocksNaturalHealing: true
+  },
+  silence: {
+    /** Skills requiring vocalisation. Perform is sub-skilled; only some qualify. */
+    blocksSkills: ["spellcraft", "persuasion"],
+    blocksPerformSpecialisations: ["instrument", "oratory"]
+  },
+  sleep: {
+    agiDenied: true,
+    noActions: true,
+    helpless: false,
+    /** Any damage wakes it, UNLESS the damage came from a pre-applied effect. */
+    wakesOnDamage: true,
+    wakesOnDamageExceptPreApplied: true,
+    chanceToClear: 0.25
+  },
+  flatFooted: {
+    agiDenied: true,
+    noReactions: true
+  },
+  prone: {
+    /** Modifiers others get when attacking it, and its own melee penalty. */
+    incomingMeleeBonus: 5,
+    incomingRangedPenalty: -5,
+    ownMeleePenalty: -5
+  },
+  helpless: {
+    agiDenied: true,
+    /** Agi is treated as −5 outright, and Coup de Grace becomes available. */
+    agiOverride: -5,
+    incomingAttackBonus: 5,
+    enablesCoupDeGrace: true,
+    /** Does not stack with prone (§10). */
+    supersedes: ["prone"]
+  },
+  grabbed: {
+    speedZero: true,
+    /** Stacks per grabber, unlike most statuses. */
+    stacksIndependently: true,
+    attackPenalty: -2,
+    blocksDefensiveActions: true
+  },
+  pinned: {
+    agiDenied: true,
+    prone: true,
+    maxActions: { minor: 1, secondary: 0, primary: 0 }
+  },
+  encumbered: {
+    speedReduction: 0.25,
+    blocksFlying: true
+  },
+  overencumbered: {
+    speedZero: true,
+    agiDenied: true,
+    blocksFlying: true
+  }
+};
+
+/**
+ * Curses (§12). A sub-type of status: each curse stacks INDEPENDENTLY of the
+ * others, so a creature can carry several at once, but not two of the same one.
+ */
+LASTARC.curses = {
+  agony: {
+    /** Loses all immunities and resistances, and becomes weak to everything. */
+    stripsResistances: true,
+    stripsImmunities: true,
+    weakToAll: true
+  },
+  exhaustion: {
+    defences: { ref: -10, fort: -10, will: -10 }
+  },
+  misfortune: {
+    /**
+     * Reroll all attacks and skill checks keeping the LOWER result — and
+     * explicitly CANNOT reroll d20s, which is what blocks the hero point
+     * reroll. See §12's three distinct reroll kinds; this is the penalty one.
+     */
+    rerollKeepLower: true,
+    blocksD20Reroll: true
+  },
+  withering: { maxHpMultiplier: 0.5 },
+  dim: { maxMpMultiplier: 0.5 },
+  doom: {
+    /** A death effect: dies in 1d4+1 turns. */
+    deathAfterTurns: "1d4+1",
+    isDeathEffect: true
+  },
+  lycanthropy: {},
+  vampyrism: {}
+};
+
+/** Every status id, curses included — the set registered with Foundry. */
+LASTARC.allStatusIds = [
+  ...Object.keys(LASTARC.statusEffects),
+  ...Object.keys(LASTARC.curses)
+];
+
+/**
+ * The three reroll kinds (§12), which must not be conflated:
+ *   1. `second`  — reroll and keep the second result even if worse (a gamble)
+ *   2. `higher`  — keep the better of the two (a racial trait plus a talent)
+ *   3. `lower`   — keep the worse of the two (the misfortune penalty)
+ */
+LASTARC.rerollKinds = ["second", "higher", "lower"];
+
+/* -------------------------------------------------------------------------- */
 /*  Ethos (§12)                                                                */
 /* -------------------------------------------------------------------------- */
 

@@ -135,11 +135,19 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
         /** 0..5, HIGHER IS WORSE (§6 rev2). Never treat as a penalty value. */
         step: new fields.NumberField({ initial: 0, integer: true, min: 0, max: 5 }),
         persistentSteps: new fields.NumberField({ initial: 0, integer: true, min: 0, max: 5 }),
+        /**
+         * Each persistent step has its OWN named source and clearance
+         * requirement, and multiple stack independently (§6). This is an array
+         * rather than a count because "cleared by an antidote" and "cleared by
+         * a specific spell" have to be tracked and satisfied separately.
+         */
         persistentSources: new fields.ArrayField(
           new fields.SchemaField({
             id: new fields.StringField(),
             label: new fields.StringField(),
-            clearedBy: new fields.StringField({ initial: "" })
+            clearedBy: new fields.StringField({ initial: "" }),
+            /** Injury steps do NOT block natural healing; other sources do (§6). */
+            fromInjury: new fields.BooleanField({ initial: false })
           }),
           { initial: [] }
         ),
@@ -235,10 +243,18 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     // 4. Equipped armour ----------------------------------------------------
     const armour = this.#equippedArmour();
 
-    // 5. Status -------------------------------------------------------------
+    // 5. Statuses -----------------------------------------------------------
+    // Statuses ARE Foundry Active Effects — they are applied to the actor the
+    // normal way. What is computed in code is their DERIVED consequences, for
+    // the reason in the class docstring: an AE targeting a field this method
+    // writes would be silently overwritten. So we read which statuses are
+    // active and do the arithmetic here.
+    const statuses = D.aggregateStatuses(this.parent?.statuses ?? []);
+    this.statuses = statuses;
+
     const step = D.clampStep(this.breakGauge.step);
     const incapacitated = D.isIncapacitated(step) || this.resources.hp.value <= 0;
-    const agiDenied = this.#hasAnyStatus(["flatFooted", "pinned", "helpless"]);
+    const agiDenied = statuses.agiDenied;
 
     this.breakGauge.penalty = D.breakPenaltyOrZero(step);
     this.breakGauge.incapacitated = incapacitated;
@@ -246,6 +262,9 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     // Shake it Off lowers the Recovery requirement from three minors to two.
     this.breakGauge.recoveryRequired =
       grants.recoveryMinorActions ?? LASTARC.recoveryMinorActions;
+    // Disease blocks recovery actions outright, independently of the
+    // persistent-step floor (§12).
+    this.breakGauge.recoveryBlocked = statuses.blocksRecovery;
 
     // 6. Class bonuses ------------------------------------------------------
     let classBonus;
@@ -266,6 +285,16 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     this.defences.fort.technicks = grants.defences.fort;
     this.defences.will.technicks = grants.defences.will;
 
+    // Status penalties (exhaustion is -10 to all three) ride in the misc slot so
+    // they flow through the same single computation as everything else, rather
+    // than being subtracted from the finished total afterwards — which would
+    // bypass the Fortitude the Threshold is about to read.
+    const miscWithStatus = {
+      ref: this.defences.ref.misc + statuses.defences.ref,
+      fort: this.defences.fort.misc + statuses.defences.fort,
+      will: this.defences.will.misc + statuses.defences.will
+    };
+
     // 7. Defences -----------------------------------------------------------
     const sizeMod = LASTARC.sizes[this.details.size]?.mod ?? 0;
     const computed = D.computeDefences({
@@ -281,11 +310,7 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
         fort: this.defences.fort.technicks,
         will: this.defences.will.technicks
       },
-      misc: {
-        ref: this.defences.ref.misc,
-        fort: this.defences.fort.misc,
-        will: this.defences.will.misc
-      },
+      misc: miscWithStatus,
       breakStep: step,
       agiDenied,
       incapacitated
@@ -304,7 +329,7 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       mndMod: this.attributes.mnd.mod,
       classBonus, armour, sizeMod,
       technicks: { ref: this.defences.ref.technicks },
-      misc: { ref: this.defences.ref.misc },
+      misc: { ref: miscWithStatus.ref },
       breakStep: step,
       agiDenied: true,
       incapacitated
@@ -331,6 +356,27 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     } catch (err) {
       console.warn(`Last Arc | ${this.parent?.name}: ${err.message}`);
     }
+
+    // Withering and dim halve the maxima. Multipliers COMPOUND in
+    // aggregateStatuses rather than summing — two halvings give a quarter, not
+    // zero, and zero max HP would be instant death rather than a penalty.
+    this.resources.hp.unmodifiedMax = this.resources.hp.max;
+    this.resources.mp.unmodifiedMax = this.resources.mp.max;
+    this.resources.hp.max = Math.max(1, D.rd(this.resources.hp.max * statuses.maxHpMultiplier));
+    this.resources.mp.max = Math.max(0, D.rd(this.resources.mp.max * statuses.maxMpMultiplier));
+
+    /**
+     * Disease: "current HP is treated as max HP" (§12). The cap follows the
+     * wound rather than the wound following the cap — a diseased character at
+     * 12/40 has an effective maximum of 12 and cannot heal above it until the
+     * disease is cured. Applied AFTER the multipliers so a withered, diseased
+     * character is capped by whichever bites harder.
+     */
+    if (statuses.currentHpBecomesMax) {
+      this.resources.hp.max = Math.max(1, Math.min(this.resources.hp.max, this.resources.hp.value));
+      this.resources.hp.diseasedCap = true;
+    }
+
     this.resources.hp.value = Math.clamp(this.resources.hp.value, 0, this.resources.hp.max);
     this.resources.mp.value = Math.clamp(this.resources.mp.value, 0, this.resources.mp.max);
 
@@ -356,10 +402,15 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     const reductions = [];
     if (this.bulk.state === "encumbered") reductions.push(0.25);
     if (armour?.type === "heavy") reductions.push(0.25);   // heavy armour = encumbered (§11)
+    if (statuses.speedReduction) reductions.push(statuses.speedReduction);
 
     const baseSpeed = Math.max(0, this.movement.base + grants.speed);
 
-    if (this.bulk.state === "overencumbered") {
+    if (statuses.speedZero) {
+      this.movement.value = 0;
+      this.movement.fly = 0;
+      this.movement.hover = false;
+    } else if (this.bulk.state === "overencumbered") {
       this.movement.value = 0;
       this.movement.fly = 0;
       this.movement.hover = false;
@@ -376,6 +427,26 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
 
     // 12. Initiative --------------------------------------------------------
     this.initiative.effectiveDie = this.#initiativeDie(grants.initiativeSteps);
+
+    // 13. Effective damage modifiers ----------------------------------------
+    // Agony strips resistances and immunities and adds universal weakness, so
+    // the combat pipeline must read THIS rather than the raw arrays.
+    this.effectiveDamageMods = D.effectiveDamageMods(this.damageMods, statuses);
+
+    // 14. Natural healing ---------------------------------------------------
+    /**
+     * Blocked by persistent Break steps and by HP/MP-affecting statuses (§6, §13).
+     *
+     * The exception in §6 is deliberate: steps that came from INJURIES do not
+     * block healing, while steps from poison, disease and the like do. That is
+     * why persistent sources carry a `fromInjury` flag rather than being an
+     * undifferentiated count — a maimed character can still recover from rest,
+     * a poisoned one cannot.
+     */
+    const nonInjuryPersistent = this.breakGauge.persistentSources
+      .some((s) => !s.fromInjury);
+    this.resources.naturalHealingBlocked =
+      nonInjuryPersistent || statuses.blocksNaturalHealing;
   }
 
   /* ------------------------------------------------------------------------ */

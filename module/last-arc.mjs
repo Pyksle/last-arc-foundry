@@ -17,6 +17,7 @@ import { LastArcItemSheet } from "./sheets/item-sheet.mjs";
 import { rollSkill, rollAttribute, takeN } from "./dice/rolls.mjs";
 import { rollAttack, rollDamage, applyDamage } from "./dice/attack.mjs";
 import { explodeDice, rollExplodingDice } from "./dice/explode.mjs";
+import * as heroPoints from "./dice/hero-points.mjs";
 import { registerChatListeners } from "./chat.mjs";
 
 const SYSTEM_ID = "last-arc";
@@ -41,7 +42,8 @@ Hooks.once("init", () => {
     rollDamage,
     applyDamage,
     explodeDice,
-    rollExplodingDice
+    rollExplodingDice,
+    heroPoints
   };
 
   CONFIG.Actor.dataModels.character = LastArcCharacterData;
@@ -165,17 +167,21 @@ function registerHandlebarsHelpers() {
  * clearance condition is met. Do not add round-based durations to these.
  */
 function registerStatusEffects() {
-  const statuses = [
-    "blind", "confusion", "disease", "drench", "oil", "paralysis", "petrify",
-    "poison", "silence", "sleep", "flatFooted", "prone", "helpless", "grabbed",
-    "pinned", "encumbered", "overencumbered"
-  ];
+  CONFIG.statusEffects = LASTARC.allStatusIds.map((id) => {
+    const isCurse = id in LASTARC.curses;
+    return {
+      id,
+      name: `LASTARC.Status.${id}`,
+      img: `systems/${SYSTEM_ID}/assets/status/${id}.svg`,
+      // Curses are a sub-type: different curses stack, duplicates do not.
+      ...(isCurse ? { flags: { [SYSTEM_ID]: { curse: true } } } : {})
+    };
+  });
 
-  CONFIG.statusEffects = statuses.map((id) => ({
-    id,
-    name: `LASTARC.Status.${id}`,
-    img: `systems/${SYSTEM_ID}/assets/status/${id}.svg`
-  }));
+  // Foundry's default "dead" overlay does not apply here — a Last Arc character
+  // at 0 HP is unconscious, prone and helpless rather than dead, and death is a
+  // separate outcome of the Vitality check (§5.6).
+  CONFIG.specialStatusEffects.DEFEATED = "helpless";
 }
 
 /* -------------------------------------------------------------------------- */

@@ -126,6 +126,7 @@ function buildContext() {
         hp: { value: 21, max: hpMax, temp: 4 },
         mp: { value: 6, max: D.mpMax(classes, attrs.mnd.mod) },
         heroPoints: { value: 1, max: D.heroPointMax(level) },
+        naturalHealingBlocked: true,
         secondWind: { used: 0, max: 1, canUse: true, healAmount: D.secondWindHeal(14, hpMax) }
       },
       defences: {
@@ -133,7 +134,10 @@ function buildContext() {
         fort: { value: defs.fort, beforeBreak: defs.fort - defs.breakPenalty, classBonus: classBonus.fort, technicks: 0, misc: 0 },
         will: { value: defs.will, beforeBreak: defs.will - defs.breakPenalty, classBonus: classBonus.will, technicks: 0, misc: 0 }
       },
-      breakGauge: { step: breakStep, persistentSteps, threshold, recoveryProgress: 1, penalty: defs.breakPenalty },
+      breakGauge: {
+        step: breakStep, persistentSteps, threshold, recoveryProgress: 1,
+        penalty: defs.breakPenalty, recoveryRequired: 3, recoveryBlocked: false
+      },
       movement: { base: 6, value: D.speedAfterPenalties(6, [0.25]) },
       bulk: { value: 5.4, max: D.bulkLimits(16).max, overMax: D.bulkLimits(16).overMax, state: "encumbered" },
       initiative: { effectiveDie: "d10" },
@@ -157,6 +161,15 @@ function buildContext() {
            : `−${Math.abs(penalty)}`
     })),
     recoveryTarget: LASTARC.recoveryMinorActions,
+
+    // One poison step (blocks natural healing) and one injury step (does not),
+    // so the visual distinction between the two is actually exercised.
+    persistentSources: [
+      { index: 0, label: "Serpent venom", clearedBy: "Antidote or Remedy", fromInjury: false },
+      { index: 1, label: "Cracked ribs", clearedBy: "Medicine DC 15, one week", fromInjury: true }
+    ],
+    canSpendHero: true,
+    misfortuneBlocksReroll: true,
     defenceRows: ["ref", "fort", "will"].map((key) => ({
       key, label: `LASTARC.Defence.${key}`,
       value: defs[key],

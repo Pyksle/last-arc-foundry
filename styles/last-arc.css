@@ -353,6 +353,34 @@
 .la-vital--hp { border-color: var(--la-oxblood); }
 .la-vital--hp .la-vital__max { color: var(--la-oxblood); }
 
+.la-hero-spends { display: flex; gap: 0.2rem; justify-content: center; margin-top: 0.25rem; }
+.la-hero-spends button {
+  flex: 1 1 0;
+  background: transparent;
+  border: 1px solid var(--la-bronze);
+  border-radius: 2px;
+  color: var(--la-bronze);
+  cursor: pointer;
+  font-family: var(--la-font-head);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0;
+}
+.la-hero-spends button:hover:not(:disabled) {
+  background: var(--la-bronze);
+  color: var(--la-paper);
+}
+.la-hero-spends button:disabled { opacity: 0.3; cursor: not-allowed; }
+.la-hero-blocked {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--la-oxblood);
+}
+
 .la-button {
   background: var(--la-ink);
   color: var(--la-paper);
@@ -519,6 +547,47 @@
   border: 1px solid var(--la-oxblood);
   border-radius: 999px;
   padding: 0.1rem 0.5rem;
+}
+
+.la-persistent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 0.5rem;
+}
+.la-persistent__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.4rem;
+  border-left: 3px solid var(--la-oxblood);
+  background: color-mix(in srgb, var(--la-oxblood) 8%, transparent);
+}
+/* Injury steps read differently because they behave differently: they are the
+   one persistent source that does NOT block natural healing (§6). */
+.la-persistent__row.is-injury {
+  border-left-color: var(--la-bronze);
+  background: color-mix(in srgb, var(--la-bronze) 8%, transparent);
+}
+.la-persistent__label { flex: 1 1 auto; font-weight: 600; }
+.la-persistent__cleared { color: var(--la-ink-faint); font-style: italic; font-size: 0.66rem; }
+.la-persistent__tag {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--la-bronze);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  color: var(--la-bronze);
+}
+.la-persistent__clear {
+  background: none;
+  border: none;
+  color: var(--la-good);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
 }
 
 /* -------------------------------------------------------------------------- */
