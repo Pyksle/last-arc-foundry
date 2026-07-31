@@ -63,6 +63,7 @@ Hooks.once("init", () => {
 
   registerSettings();
   registerTokenDefaults();
+  registerResourceDefaults();
   registerSheets();
   registerHandlebarsHelpers();
   registerStatusEffects();
@@ -107,6 +108,36 @@ function registerTokenDefaults() {
         sight: { enabled: isCharacter }
       }
     });
+  });
+}
+
+/**
+ * Start new actors at full HP and MP.
+ *
+ * Both resources default to their schema initial (10 and 0) while the MAXIMUM
+ * is derived from class and attributes, so a freshly created level-6 character
+ * arrives at 10/53 hit points and 0/36 mana. In a playtest the front-liner was
+ * dropped in round one by an attack he should have shrugged off, and the caster
+ * could not cast at all.
+ *
+ * Runs on `createActor` rather than `preCreateActor` because the maximum is
+ * DERIVED — it does not exist until the document has been prepared.
+ *
+ * Only fills a resource that is still sitting at its schema default, so an
+ * import or a duplicate that carries real values is left alone.
+ */
+function registerResourceDefaults() {
+  Hooks.on("createActor", async (actor, options, userId) => {
+    if (game.user.id !== userId) return;
+
+    const updates = {};
+    const hp = actor.system.resources?.hp;
+    const mp = actor.system.resources?.mp;
+
+    if (hp && hp.value === 10 && hp.max > 10) updates["system.resources.hp.value"] = hp.max;
+    if (mp && mp.value === 0 && mp.max > 0) updates["system.resources.mp.value"] = mp.max;
+
+    if (Object.keys(updates).length) await actor.update(updates);
   });
 }
 

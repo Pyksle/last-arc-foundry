@@ -50,6 +50,13 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.system = sys;
     context.config = LASTARC;
 
+    // Same guard as the character sheet: a statblock with 0 max MP is common
+    // and must not render NaN%.
+    const pct = (value, max) =>
+      max > 0 ? Math.max(0, Math.min(100, Math.round((value / max) * 100))) : 0;
+    context.hpPercent = pct(sys.resources.hp.value, sys.resources.hp.max);
+    context.mpPercent = pct(sys.resources.mp.value, sys.resources.mp.max);
+
     context.attributes = LASTARC.attributeOrder.map((key) => ({
       key,
       label: LASTARC.attributes[key].label,

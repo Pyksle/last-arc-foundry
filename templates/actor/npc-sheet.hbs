@@ -76,6 +76,9 @@
         <span class="la-sep">/</span>
         <input type="number" name="system.resources.hp.max" value="{{system.resources.hp.max}}">
       </div>
+      {{!-- A GM tracking six monsters benefits from this more than a player
+            tracking one character does. --}}
+      <div class="la-gauge" style="--fill: {{hpPercent}}%"><span></span></div>
     </div>
     <div class="la-vital la-vital--mp">
       <h3>{{localize "LASTARC.Resource.Mana"}}</h3>
@@ -84,6 +87,7 @@
         <span class="la-sep">/</span>
         <input type="number" name="system.resources.mp.max" value="{{system.resources.mp.max}}">
       </div>
+      <div class="la-gauge" style="--fill: {{mpPercent}}%"><span></span></div>
     </div>
     <div class="la-vital">
       <h3>{{localize "LASTARC.Resource.Initiative"}}</h3>

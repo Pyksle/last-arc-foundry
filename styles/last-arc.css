@@ -1596,3 +1596,37 @@
 }
 .la-vital--hp::before { background: var(--la-oxblood); }
 .la-vital--mp::before { background: #4d8cb0; }
+
+/* -------------------------------------------------------------------------- */
+/*  Surface-specific corrections                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The ornate portrait frame is sized for a CHARACTER portrait, which is the one
+ * image on any sheet a player looks at for its own sake. On an item sheet the
+ * same treatment wraps a 32px inventory glyph in a heavy bronze slab and reads
+ * as more important than the weapon's own damage.
+ */
+.la-body--item .la-header__portrait { padding: 2px; }
+.la-body--item .la-header__portrait img { width: 56px; height: 56px; }
+.la-body--item .la-header__portrait::after { display: none; }
+
+/* Item names are not sheet titles the way a character's name is. */
+.la-body--item .la-field--name input { font-size: 1.05rem; }
+
+/**
+ * Spell and performance rows carried less weight than the inventory rows above
+ * them, which made the panels read as secondary. The MP cost is the number a
+ * caster budgets around, so it gets the accent treatment the attack bonus gets
+ * in the Attacks panel.
+ */
+.la-spell { padding: 0.3rem 0.35rem; }
+.la-spell__name { font-size: 0.95rem; }
+.la-spell__cost { font-size: 1.05rem; }
+
+/* School reads as a label, not a tag, when it has no plate behind it. */
+.la-spell__school {
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+}
