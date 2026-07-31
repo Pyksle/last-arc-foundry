@@ -29,6 +29,7 @@
   {{#if arcanaLabel}}
     <p class="lastarc-rider lastarc-rider--arcana"
        data-tooltip="{{localize 'LASTARC.Tooltip.HighArcana'}}">{{arcanaLabel}}</p>
+    {{#each arcanaNotes}}<p class="lastarc-note">{{this}}</p>{{/each}}
   {{/if}}
 
   {{#if achieved}}

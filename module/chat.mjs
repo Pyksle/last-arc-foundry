@@ -10,13 +10,74 @@ import { LASTARC } from "./config.mjs";
 import {
   rollDamage, applyDamage, rollAttack, rollNpcAttack, rollNpcDamage
 } from "./dice/attack.mjs";
+import {
+  canSpendHeroPoint, heroPointReroll, heroPointBonusRoll,
+  heroPointPreventDeath, HERO_SPEND
+} from "./dice/hero-points.mjs";
 
 export function registerChatListeners() {
   Hooks.on("renderChatMessageHTML", (message, element) => {
+    offerHeroReroll(message, element);
+
     element.querySelectorAll("[data-action^='lastarc']").forEach((button) => {
       button.addEventListener("click", (event) => onChatAction(event, message));
     });
   });
+}
+
+/**
+ * Add a hero-point reroll button to any d20 result the viewer could spend on.
+ *
+ * Injected here rather than baked into each card template so it covers skill
+ * checks, attribute checks, attacks and spells from one place — and so a future
+ * roll type gets it for free instead of silently missing it.
+ *
+ * Deliberately NOT shown when it cannot be used: no hero points, the misfortune
+ * curse forbidding d20 rerolls, or the roll already having been rerolled. A
+ * button that explains its own refusal is better than one that lies, but a
+ * button that cannot ever work is just noise.
+ */
+function offerHeroReroll(message, element) {
+  const flags = message.flags?.["last-arc"] ?? {};
+  const actor = game.actors.get(flags.actorId);
+  if (!actor?.isOwner) return;
+  if (flags.heroRerolled) return;
+  if (!message.rolls?.[0]?.dice?.some((d) => d.faces === 20)) return;
+
+  // Offer the panel if EITHER spend is available; misfortune blocks the reroll
+  // but not the bonus roll, and suppressing both would quietly remove a legal
+  // option from a cursed character.
+  const canReroll = canSpendHeroPoint(actor, HERO_SPEND.REROLL).allowed;
+  const canBonus = canSpendHeroPoint(actor, HERO_SPEND.BONUS_ROLL).allowed;
+  if (!canReroll && !canBonus) return;
+
+  const wrap = document.createElement("div");
+  wrap.className = "lastarc-hero-spends";
+
+  const make = (action, labelKey, tipKey) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "lastarc-hero-reroll";
+    b.dataset.action = action;
+    b.dataset.actorId = actor.id;
+    b.textContent = game.i18n.localize(labelKey);
+    b.dataset.tooltip = game.i18n.localize(tipKey);
+    return b;
+  };
+
+  if (canReroll) {
+    wrap.appendChild(make("lastarcHeroReroll",
+      "LASTARC.HeroPoint.Reroll", "LASTARC.HeroPoint.RerollTooltip"));
+  }
+
+  // The bonus roll is NOT blocked by misfortune — that curse forbids rerolling
+  // a d20, and this keeps the die and adds to it.
+  if (canBonus) {
+    wrap.appendChild(make("lastarcHeroBonus",
+      "LASTARC.HeroPoint.BonusRoll", "LASTARC.HeroPoint.BonusRollTooltip"));
+  }
+
+  element.querySelector(".message-content")?.appendChild(wrap);
 }
 
 async function onChatAction(event, message) {
@@ -29,6 +90,9 @@ async function onChatAction(event, message) {
       case "lastarcRollDamage": return await onRollDamage(button, message);
       case "lastarcComboAttack": return await onComboAttack(button, message);
       case "lastarcApplyDamage": return await onApplyDamage(button);
+      case "lastarcHeroReroll": return await onHeroReroll(button, message);
+      case "lastarcHeroBonus": return await onHeroBonus(button, message);
+      case "lastarcPreventDeath": return await onPreventDeath(button);
     }
   } catch (err) {
     console.error("Last Arc | Chat action failed", err);
@@ -37,6 +101,66 @@ async function onChatAction(event, message) {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Spend a hero point to reroll the d20 in this message.
+ *
+ * The message is flagged as rerolled so the button cannot be used twice on the
+ * same roll — a hero point buys one reroll, not a slot machine.
+ */
+async function onHeroReroll(button, message) {
+  const actor = resolveActor(button);
+  const original = message.rolls?.[0];
+  if (!original) return;
+
+  const result = await heroPointReroll(actor, original);
+  if (!result) return;
+
+  await message.setFlag("last-arc", "heroRerolled", true);
+
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content:
+      `<div class="lastarc-card lastarc-card--hero">` +
+      `<p class="lastarc-verdict">${game.i18n.format("LASTARC.HeroPoint.Rerolled", {
+        original: result.original, rerolled: result.rerolled, kept: result.kept
+      })}</p></div>`,
+    rolls: [result.roll]
+  });
+}
+
+/** Spend a hero point to add an exploding 1d6 to this roll's result. */
+async function onHeroBonus(button, message) {
+  const actor = resolveActor(button);
+  const original = message.rolls?.[0]?.total;
+  if (original == null) return;
+
+  const result = await heroPointBonusRoll(actor, original);
+  if (!result) return;
+
+  await message.setFlag("last-arc", "heroRerolled", true);
+
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content:
+      `<div class="lastarc-card lastarc-card--hero">` +
+      `<p class="lastarc-verdict">${game.i18n.format("LASTARC.HeroPoint.BonusApplied", {
+        bonus: result.bonus, original: result.original, total: result.total
+      })}</p></div>`
+  });
+}
+
+/**
+ * Spend a hero point to prevent death.
+ *
+ * Offered from the damage-application card when a hit drops someone to 0, since
+ * that is the only moment it is legal and the moment a player will want it.
+ */
+async function onPreventDeath(button) {
+  const actor = resolveActor(button);
+  await heroPointPreventDeath(actor);
+  button.disabled = true;
+}
 
 function resolveActor(button) {
   const actor = game.actors.get(button.dataset.actorId);
@@ -155,7 +279,18 @@ function describeApplication(target, result) {
   if (result.breaks) bits.push(game.i18n.localize("LASTARC.Card.BreakStep"));
   if (result.droppedToZero) bits.push(game.i18n.localize("LASTARC.Card.Downed"));
 
-  return `<p class="lastarc-applied"><strong>${target.name}</strong> — ${bits.join(" · ")}</p>`;
+  let line = `<p class="lastarc-applied"><strong>${target.name}</strong> — ${bits.join(" · ")}</p>`;
+
+  // Prevent Death is only legal at the moment of dropping, and this is that
+  // moment. Offering it here rather than on the sheet means a player does not
+  // have to know the rule exists to be given the choice.
+  if (result.droppedToZero && canSpendHeroPoint(target, HERO_SPEND.PREVENT_DEATH).allowed) {
+    line += `<button type="button" data-action="lastarcPreventDeath" ` +
+            `data-actor-id="${target.id}">` +
+            `${game.i18n.localize("LASTARC.HeroPoint.PreventDeath")}</button>`;
+  }
+
+  return line;
 }
 
 async function postDamageCard({ actor, name, img, result }) {

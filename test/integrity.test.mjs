@@ -420,9 +420,7 @@ describe("no orphaned exports", () => {
     ["sequenceComplete", "banked Recovery/Aim completion is not consumed anywhere yet"],
     ["surpriseActions", "surprise-round action limits are not enforced yet"],
     ["holderPriority", "Hold Turn ordering helper, not yet needed by the tracker"],
-    ["initiativeDieFor", "die lookup superseded by the derived actor value"],
-    ["heroPointReroll", "hero point spend with no UI — 2 of 4 spends are unreachable"],
-    ["heroPointPreventDeath", "hero point spend with no UI — 2 of 4 spends are unreachable"]
+    ["initiativeDieFor", "die lookup superseded by the derived actor value"]
   ]);
 
   test("every exported function is called somewhere, or explained", () => {
@@ -466,5 +464,83 @@ describe("no orphaned exports", () => {
     }
 
     assert.deepEqual(stale, [], `stale allowlist entries:\n  ` + stale.join("\n  "));
+  });
+});
+
+
+/* -------------------------------------------------------------------------- */
+
+describe("declared options are all implemented", () => {
+  /**
+   * The orphan guard catches a function that exists and is never called. It
+   * structurally CANNOT catch a declared option with no function at all —
+   * `HERO_SPEND.BONUS_ROLL` sat in the enum from the start with nothing behind
+   * it, and because the constant was referenced by the enum itself, nothing
+   * flagged it. Three of the four hero point spends were unreachable and the
+   * count looked like two.
+   *
+   * This closes that gap: every value in a "kinds of thing you can do" enum must
+   * be reachable from somewhere in module/.
+   */
+  const moduleSources = readdirSync(join(root, "module"), { recursive: true })
+    .filter((f) => typeof f === "string" && f.endsWith(".mjs"))
+    .map((f) => readFileSync(join(root, "module", f), "utf8"))
+    .join("\n");
+
+  test("every hero point spend kind is consumed by real code", async () => {
+    const { HERO_SPEND } = await import("../module/dice/hero-points.mjs");
+
+    const unreachable = [];
+    for (const [name, value] of Object.entries(HERO_SPEND)) {
+      // Count references to the CONSTANT, ignoring its own declaration.
+      const uses = [...moduleSources.matchAll(
+        new RegExp(`HERO_SPEND\\.${name}\\b`, "g")
+      )].length;
+      if (uses === 0) unreachable.push(`${name} ("${value}")`);
+    }
+
+    assert.deepEqual(unreachable, [],
+      `hero point spends declared but never used:\n  ${unreachable.join("\n  ")}`);
+  });
+
+  /**
+   * Behavioural, not a source scan. An earlier version looked for each id as a
+   * quoted literal, which is wrong for options looked up dynamically by key —
+   * it reported four working High Arcana as dead. Asking whether calling it
+   * DOES anything is both stricter and correct.
+   */
+  test("every High Arcana actually does something when applied", async () => {
+    const { applyHighArcana } = await import("../module/dice/magic.mjs");
+
+    const baseline = { range: 6, durationTurns: 3, mndMod: 3, isSingleTarget: true };
+    const inert = [];
+
+    for (const id of LASTARC.highArcanaIds) {
+      const before = applyHighArcana(null, baseline);
+      const after = applyHighArcana(id, baseline);
+
+      const changed =
+        after.range !== before.range ||
+        after.durationTurns !== before.durationTurns ||
+        after.extraTargets !== before.extraTargets ||
+        after.notes.length > 0;
+
+      // `adamant` and `intensified` act inside castSpell rather than here, so
+      // they are allowed to be inert in this function specifically.
+      if (!changed && !["adamant", "intensified"].includes(id)) inert.push(id);
+    }
+
+    assert.deepEqual(inert, [],
+      `High Arcana that are selectable but do nothing: ${inert.join(", ")}`);
+  });
+
+  test("adamant and intensified are handled in the casting pipeline itself", () => {
+    const src = readFileSync(join(root, "module/dice/magic.mjs"), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    for (const id of ["adamant", "intensified"]) {
+      assert.match(src, new RegExp(`["'\`]${id}["'\`]`),
+        `${id} changes the roll or the dice, so castSpell must name it`);
+    }
   });
 });

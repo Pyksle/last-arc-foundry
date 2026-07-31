@@ -123,7 +123,11 @@ export async function evaluateCheck({ actor, label, mod, dc, isWeaponSkill, flav
 
   await roll.toMessage({
     speaker: ChatMessage.getSpeaker({ actor }),
-    flavor: buildFlavour({ flavour, dc, success, autoSuccess, autoFail })
+    flavor: buildFlavour({ flavour, dc, success, autoSuccess, autoFail }),
+    // Tagged so the hero-point reroll button can find its actor. The speaker
+    // alone is not enough: it may name a token rather than the actor, and an
+    // unlinked token's actor is a different document.
+    flags: { "last-arc": { type: "check", actorId: actor.id, natural } }
   });
 
   return { roll, natural, total: roll.total, isWeaponSkill, autoSuccess, autoFail, success };

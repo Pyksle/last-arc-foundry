@@ -1405,3 +1405,26 @@
   font-size: 0.72rem;
   color: var(--la-ink-faint);
 }
+
+/* Hero point reroll, injected into any d20 message the viewer can spend on.
+   Deliberately understated: it appears on a lot of cards, and a loud button on
+   every roll would read as the primary action rather than a rare resource. */
+.lastarc-hero-reroll {
+  display: block;
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.2rem;
+  background: color-mix(in srgb, var(--la-bronze) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--la-bronze) 50%, transparent);
+  border-radius: var(--la-radius);
+  color: var(--la-bronze-bright);
+  font-family: var(--la-font-body);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.lastarc-hero-reroll:hover {
+  background: color-mix(in srgb, var(--la-bronze) 22%, transparent);
+}
+
+.lastarc-card--hero .lastarc-verdict { color: var(--la-bronze-bright); }

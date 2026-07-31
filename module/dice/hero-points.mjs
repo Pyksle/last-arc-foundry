@@ -93,6 +93,27 @@ export async function heroPointReroll(actor, originalRoll, { kind = "second" } =
 }
 
 /**
+ * Spend a hero point to add an exploding 1d6 to a d20 RESULT (§13).
+ *
+ * Distinct from the reroll: this keeps the original die and adds to it, so it
+ * can rescue a roll that missed by a little without risking a worse one. It was
+ * declared in HERO_SPEND from the start and never implemented — the enum
+ * constant was referenced, so nothing flagged it as missing.
+ */
+export async function heroPointBonusRoll(actor, originalTotal, { rerollOnes = false } = {}) {
+  const check = canSpendHeroPoint(actor, HERO_SPEND.BONUS_ROLL);
+  if (!check.allowed) {
+    ui.notifications?.warn(game.i18n.localize(check.reason));
+    return null;
+  }
+
+  const die = await rollHeroDie({ rerollOnes });
+  await spend(actor, 1);
+
+  return { die, bonus: die.total, original: originalTotal, total: originalTotal + die.total };
+}
+
+/**
  * Spend a hero point to add an exploding 1d6 to a defence until the start of
  * your next turn.
  *
@@ -151,6 +172,10 @@ export async function heroPointPreventDeath(actor) {
     "system.resources.hp.value": 0,
     "system.breakGauge.step": LASTARC.BREAK_STEP_MAX
   });
+  // The same trio §5.6 applies at 0 HP. `unconscious` was missing here while
+  // the card said "Death prevented — unconscious", so the text and the token
+  // badges disagreed.
+  await actor.toggleStatusEffect?.("unconscious", { active: true });
   await actor.toggleStatusEffect?.("helpless", { active: true });
   await actor.toggleStatusEffect?.("prone", { active: true });
 

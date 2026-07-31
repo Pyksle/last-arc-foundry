@@ -485,5 +485,17 @@
   "LASTARC.Card.SubstitutesDefence": "Allies may use {total} in place of their {defence} Defence until the start of your next turn.",
   "LASTARC.Card.PerformanceReplaces": "A creature carries one allied and one enemy performance at most; a new one of the same side replaces the old.",
   "LASTARC.Card.PerformanceDisrupted": "{name} was disrupted by a counterattack — the performance fails.",
-  "LASTARC.Tooltip.Perform": "Perform. Shift-click to perform defensively (Instrument −5, Dance and Oratory −2, per threatening creature)."
+  "LASTARC.Tooltip.Perform": "Perform. Shift-click to perform defensively (Instrument −5, Dance and Oratory −2, per threatening creature).",
+  "LASTARC.HeroPoint.Reroll": "Hero Point: Reroll",
+  "LASTARC.HeroPoint.RerollTooltip": "Spend a hero point to reroll this d20. You keep the second result even if it is worse.",
+  "LASTARC.HeroPoint.Rerolled": "Hero point spent — rerolled {original} into {rerolled}, keeping {kept}.",
+  "LASTARC.HeroPoint.PreventDeath": "Hero Point: Prevent Death",
+  "LASTARC.HeroPoint.BonusRoll": "Hero Point: +1d6",
+  "LASTARC.HeroPoint.BonusRollTooltip": "Spend a hero point to add an exploding 1d6 to this result. Keeps the original die, so it cannot make the roll worse.",
+  "LASTARC.HeroPoint.BonusApplied": "Hero point spent — +{bonus} to {original}, for {total}.",
+  "LASTARC.HighArcana.note.distant": "Range doubled.",
+  "LASTARC.HighArcana.note.enlarged": "Targeted area doubled — secondary effects are not extended.",
+  "LASTARC.HighArcana.note.lingering": "Duration doubled, where the duration scales.",
+  "LASTARC.HighArcana.note.multi": "May target additional creatures equal to your Mnd modifier.",
+  "LASTARC.HighArcana.note.multiInapplicable": "Multi-Spell has no effect: it only works on spells that target a single creature."
 }

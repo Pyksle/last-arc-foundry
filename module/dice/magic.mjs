@@ -118,6 +118,55 @@ export function decayTicks(initialDamage, fractions = []) {
 }
 
 /**
+ * Apply a High Arcana's effect to a casting (§18.5, p.155).
+ *
+ * Returns the modified values plus notes for the card, rather than mutating the
+ * spell — the item is the printed entry and must stay that way.
+ *
+ * `enlarged` cannot be computed: the printed area is free text ("a 4 square
+ * cone"), so it is reported for the GM to apply rather than parsed. Saying so is
+ * better than silently doing nothing, which is what all four of these did before
+ * — declared, selectable, and inert.
+ *
+ * @returns {{range:number, extraTargets:number, durationTurns:number, notes:string[]}}
+ */
+export function applyHighArcana(arcanaId, {
+  range = 0, durationTurns = 0, mndMod = 0, isSingleTarget = true
+} = {}) {
+  const out = { range, extraTargets: 0, durationTurns, notes: [] };
+  const def = LASTARC.highArcana[arcanaId];
+  if (!def) return out;
+
+  if (def.rangeMultiplier) {
+    out.range = range * def.rangeMultiplier;
+    out.notes.push("LASTARC.HighArcana.note.distant");
+  }
+
+  if (def.areaMultiplier) {
+    // Free text; the GM doubles it. Explicitly NOT extended to secondary
+    // effects, per the book.
+    out.notes.push("LASTARC.HighArcana.note.enlarged");
+  }
+
+  if (def.durationMultiplier) {
+    // "Only affects spells with a scaling duration" — a fixed-duration spell
+    // gains nothing, so a zero stays zero rather than becoming a free buff.
+    if (durationTurns > 0) out.durationTurns = durationTurns * def.durationMultiplier;
+    out.notes.push("LASTARC.HighArcana.note.lingering");
+  }
+
+  if (def.extraTargetsFromMnd) {
+    // Single-target spells only; areas may not overlap.
+    if (isSingleTarget) out.extraTargets = Math.max(1, mndMod);
+    out.notes.push(isSingleTarget
+      ? "LASTARC.HighArcana.note.multi"
+      : "LASTARC.HighArcana.note.multiInapplicable");
+  }
+
+  return out;
+}
+
+/**
  * Does a counterattack destroy the casting? (§18.4)
  *
  * Not merely damage: a counterattack whose damage beats the caster's Break
@@ -383,10 +432,20 @@ export async function castSpell(actor, spell, options = {}) {
   // the spell is a disrupting counterattack, handled by the caller before this.
   await actor.update({ "system.resources.mp.value": available - cost });
 
+  const arcanaEffect = arcana
+    ? applyHighArcana(arcana, {
+        range: sp.range,
+        durationTurns: outcome?.durationTurns ?? 0,
+        mndMod: sys.attributes?.mnd?.mod ?? 0,
+        isSingleTarget: !sp.isArea
+      })
+    : null;
+
   const result = {
     roll, parts, cost, outcome, opposed,
     achieved: !!outcome,
     highArcana: arcana,
+    arcanaEffect,
     damage: null
   };
 
@@ -482,6 +541,7 @@ async function postSpellCard({ actor, spell, result, target }) {
       arcanaLabel: result.highArcana
         ? game.i18n.localize(LASTARC.highArcana[result.highArcana].label)
         : null,
+      arcanaNotes: (result.arcanaEffect?.notes ?? []).map((k) => game.i18n.localize(k)),
       achieved: result.achieved,
       dc: result.outcome?.dc ?? null,
       opposed: result.opposed.opposed,
