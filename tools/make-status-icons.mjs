@@ -124,6 +124,14 @@ stroke-dasharray="5 4"/>
 
   charmed: `<path d="M32 54S12 40 12 27a10 10 0 0 1 20-4 10 10 0 0 1 20 4c0 13-20 27-20 27z"/>`,
 
+  // A squat toad, seen head-on: wide body, two raised eyes, splayed feet.
+  // Nothing else in the set is wider than it is tall, which is the read.
+  toad: `<path d="M10 46c0-10 10-16 22-16s22 6 22 16-10 12-22 12-22-2-22-12z"/>
+<circle cx="23" cy="24" r="6"/><circle cx="41" cy="24" r="6"/>
+<circle cx="23" cy="24" r="1.5" fill="currentColor" stroke="none"/>
+<circle cx="41" cy="24" r="1.5" fill="currentColor" stroke="none"/>
+<path d="M10 52l-5 5M54 52l5 5"/>`,
+
   // Dismemberment. A limb with a clean break across it — the break line is the
   // read at badge size, so both keep the same stroke and differ in silhouette.
   severedLeg: `<path d="M26 8h12v18l6 14v16h-9l-2-14-4-10"/>

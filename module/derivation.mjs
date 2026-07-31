@@ -590,6 +590,15 @@ export function aggregateStatuses(statusIds = []) {
     blocksD20Reroll: false,
     rerollKeepLower: false,
     blocksSkills: new Set(),
+    skillPenalties: {},
+    skillCheckPenalty: 0,
+    damageRollPenalty: 0,
+    healingBecomesDamage: false,
+    noEquipmentBenefit: false,
+    noAbilities: false,
+    treatedAsSize: null,
+    speedMinimum: 0,
+    speedMultiplier: null,
     bonusDamageDice: {},
     enablesCoupDeGrace: false,
     incomingAttackBonus: 0
@@ -604,6 +613,22 @@ export function aggregateStatuses(statusIds = []) {
     }
 
     out.attackPenalty += def.attackPenalty ?? 0;
+    out.skillCheckPenalty += def.skillCheckPenalty ?? 0;
+    out.damageRollPenalty += def.damageRollPenalty ?? 0;
+    out.healingBecomesDamage ||= !!def.healingBecomesDamage;
+    out.noEquipmentBenefit ||= !!def.noEquipmentBenefit;
+    out.noAbilities ||= !!def.noAbilities;
+    if (def.treatedAsSize) out.treatedAsSize = def.treatedAsSize;
+    if (def.speedMinimum) out.speedMinimum = Math.max(out.speedMinimum, def.speedMinimum);
+    if (def.speedMultiplier != null) {
+      out.speedMultiplier = (out.speedMultiplier ?? 1) * def.speedMultiplier;
+    }
+
+    // Per-skill penalties, e.g. slow's −10 to Acrobatics and Athletics. Summed
+    // rather than replaced so two sources both land.
+    for (const [skill, value] of Object.entries(def.skillPenalties ?? {})) {
+      out.skillPenalties[skill] = (out.skillPenalties[skill] ?? 0) + value;
+    }
     out.incomingAttackBonus += def.incomingAttackBonus ?? 0;
     out.speedReduction += def.speedReduction ?? 0;
 

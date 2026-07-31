@@ -506,5 +506,6 @@
   "LASTARC.Injury.None": "No lasting harm.",
   "LASTARC.Injury.Permanent": "A missing limb cannot be restored — only a prosthetic reduces the penalties.",
   "LASTARC.Status.severedLeg": "Severed Leg",
-  "LASTARC.Status.severedArm": "Severed Arm"
+  "LASTARC.Status.severedArm": "Severed Arm",
+  "LASTARC.Status.toad": "Toad"
 }

@@ -416,6 +416,15 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       this.movement.hover = false;
     } else {
       this.movement.value = D.speedAfterPenalties(baseSpeed, reductions);
+
+      // Slow halves movement to a MINIMUM of 1 square (§12, book p.189). Applied
+      // after the fractional reductions and floored separately, because the
+      // floor is a stated rule rather than a rounding artefact — a speed-2
+      // creature must end at 1, not 0.
+      if (statuses.speedMultiplier || statuses.speedMinimum) {
+        const halved = Math.floor(this.movement.value * (statuses.speedMultiplier ?? 1));
+        this.movement.value = Math.max(statuses.speedMinimum ?? 0, halved);
+      }
       if (reductions.length) {
         this.movement.fly = 0;      // encumbered: no flying, lose hover (§4.6)
         this.movement.hover = false;
@@ -477,6 +486,10 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       // contract. Kept per-skill so the sheet can show WHY a total is lower
       // than its visible columns — see the breakdown built in the sheet.
       skill.armourCheckPenalty = appliesArmourPenalty ? acp : 0;
+      // Per-skill status penalties, e.g. slow's −10 to Acrobatics and Athletics,
+      // plus any blanket skill-check penalty such as toad's −10.
+      skill.statusPenalty =
+        (this.statuses?.skillPenalties?.[key] ?? 0) + (this.statuses?.skillCheckPenalty ?? 0);
 
       skill.total = D.skillModifier({
         level,
@@ -484,7 +497,7 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
         trained,
         focus: skill.focus + granted.focus,
         technicks: granted.bonus,
-        misc: skill.misc,
+        misc: skill.misc + skill.statusPenalty,
         armourCheckPenalty: acp,
         appliesArmourPenalty,
         breakStep: step

@@ -405,13 +405,27 @@ LASTARC.statusEffects = {
   /* ── Applied by spells (§18.8). These are referenced by Chapter 8 entries and
      were absent from the table; an unregistered id throws at toggle time, the
      same way `unconscious` did. ──────────────────────────────────────────── */
-  /** Black Magick. The target is animated but not itself — treated as undead. */
+  /**
+   * Book p.189. The previous payload (`treatedAsUndead`) was inferred from the
+   * name and is not what the status does. Healing is INVERTED — an attempt to
+   * heal a zombified creature deals that much unaspected damage instead — and
+   * rest does nothing. Modelling it as "undead" would have made a cleric's heal
+   * simply fail rather than actively hurt the target.
+   */
   zombified: {
-    treatedAsUndead: true
+    healingBecomesDamage: true,
+    healingDamageType: "unaspected",
+    blocksNaturalHealing: true
   },
-  /** Blue Magick. Halved speed; the book pairs it with a paralysis upgrade. */
+  /**
+   * Book p.189. Movement halved to a MINIMUM OF 1 SQUARE — the floor matters,
+   * since a speed-1 creature would otherwise round to zero — plus a −10 to
+   * Acrobatics and Athletics, which the first version omitted entirely.
+   */
   slowed: {
-    speedMultiplier: 0.5
+    speedMultiplier: 0.5,
+    speedMinimum: 1,
+    skillPenalties: { acrobatics: -10, athletics: -10 }
   },
   /**
    * Blue Magick, with a duration that scales off the check (2–5 turns).
@@ -422,6 +436,23 @@ LASTARC.statusEffects = {
   incorporeal: {},
   /** Blue Magick. Retargeting is a GM ruling; the badge is the mechanical part. */
   charmed: {},
+
+  /**
+   * Book p.189. The most sweeping status in the game and it was missing
+   * outright: −10 to defences, attacks, skill checks AND damage rolls, treated
+   * as Tiny, no benefit from equipment, and no class features, talents, spells,
+   * technicks or other abilities. Effectively removes a character from the
+   * fight without removing their turn.
+   */
+  toad: {
+    defences: { ref: -10, fort: -10, will: -10 },
+    attackPenalty: -10,
+    skillCheckPenalty: -10,
+    damageRollPenalty: -10,
+    treatedAsSize: "tiny",
+    noEquipmentBenefit: true,
+    noAbilities: true
+  },
 
   /* ── Dismemberment (book p.170). PERMANENT — these are not cleared by rest
      or by clearing statuses; only a prosthetic reduces them. ────────────── */

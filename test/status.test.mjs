@@ -263,3 +263,82 @@ describe("status config integrity", () => {
     }
   });
 });
+
+/* -------------------------------------------------------------------------- */
+
+describe("§12 status payloads verified against the book (p.188-189)", () => {
+  /**
+   * These three were wrong or missing when checked against the printed Status
+   * Effects table. Two had been INFERRED from the status name rather than read,
+   * which is the failure mode this suite exists to catch.
+   */
+
+  test("zombify inverts healing rather than making the target undead", () => {
+    // The original payload was `treatedAsUndead`, guessed from the name. The
+    // book says healing DEALS that much unaspected damage — a cleric helping
+    // makes it worse, which is the opposite of a heal simply failing.
+    const z = LASTARC.statusEffects.zombified;
+    assert.equal(z.healingBecomesDamage, true);
+    assert.equal(z.healingDamageType, "unaspected");
+    assert.equal(z.blocksNaturalHealing, true, "no healing from rest either");
+    assert.ok(!("treatedAsUndead" in z), "the inferred payload must be gone");
+  });
+
+  test("slow halves movement AND penalises Acrobatics and Athletics", () => {
+    const s = LASTARC.statusEffects.slowed;
+    assert.equal(s.speedMultiplier, 0.5);
+    assert.equal(s.speedMinimum, 1, "floors at 1 square, a stated rule not a rounding artefact");
+    assert.equal(s.skillPenalties.acrobatics, -10);
+    assert.equal(s.skillPenalties.athletics, -10);
+  });
+
+  test("toad exists and is as sweeping as the book says", () => {
+    const t = LASTARC.statusEffects.toad;
+    assert.ok(t, "toad was missing from the table entirely");
+    assert.deepEqual(t.defences, { ref: -10, fort: -10, will: -10 });
+    assert.equal(t.attackPenalty, -10);
+    assert.equal(t.skillCheckPenalty, -10);
+    assert.equal(t.damageRollPenalty, -10);
+    assert.equal(t.treatedAsSize, "tiny");
+    assert.equal(t.noEquipmentBenefit, true);
+    assert.equal(t.noAbilities, true);
+  });
+
+  test("the aggregate surfaces every new field", () => {
+    const a = aggregateStatuses(["toad"]);
+    assert.equal(a.attackPenalty, -10);
+    assert.equal(a.skillCheckPenalty, -10);
+    assert.equal(a.damageRollPenalty, -10);
+    assert.equal(a.treatedAsSize, "tiny");
+    assert.equal(a.noAbilities, true);
+
+    const s = aggregateStatuses(["slowed"]);
+    assert.equal(s.skillPenalties.acrobatics, -10);
+    assert.equal(s.speedMultiplier, 0.5);
+    assert.equal(s.speedMinimum, 1);
+  });
+
+  test("two sources of a per-skill penalty sum rather than replace", () => {
+    // slow and toad both hit Acrobatics, by different routes.
+    const a = aggregateStatuses(["slowed", "toad"]);
+    assert.equal(a.skillPenalties.acrobatics, -10, "slow's share");
+    assert.equal(a.skillCheckPenalty, -10, "toad's blanket share");
+  });
+
+  test("every status the book names is registered", () => {
+    // Read off the printed Status Effects section, p.188-189.
+    const printed = [
+      "blind", "confusion", "disease", "drench", "oil", "paralysis", "petrify",
+      "poison", "silence", "sleep", "slowed", "toad", "zombified"
+    ];
+    const missing = printed.filter((id) => !LASTARC.allStatusIds.includes(id));
+    assert.deepEqual(missing, [], `statuses in the book but not the system: ${missing.join(", ")}`);
+  });
+
+  test("every curse the book names is registered", () => {
+    const printed = ["agony", "exhaustion", "misfortune", "withering", "dim",
+                     "doom", "lycanthropy", "vampyrism"];
+    const missing = printed.filter((id) => !(id in LASTARC.curses));
+    assert.deepEqual(missing, [], `curses in the book but not the system: ${missing.join(", ")}`);
+  });
+});
