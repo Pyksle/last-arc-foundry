@@ -63,9 +63,20 @@ export function registerCombat() {
   /**
    * Roll initiative with the actor's CLASS DIE, not a d20, and with no
    * modifiers by default (§8).
+   *
+   * This MUST hang off Combatant, not Combat, and MUST take no arguments.
+   * v13 calls `combatant.getInitiativeRoll()` → `this._getInitiativeFormula()`
+   * with `this` being the Combatant. An override on `Combat.prototype` is never
+   * consulted: core then falls back to
+   * `String(CONFIG.Combat.initiative.formula || game.system.initiative)`, and
+   * with neither set that stringifies to the literal "undefined", which fails
+   * to parse as "Unresolved StringTerm undefined". The effect was that rolling
+   * initiative from the tracker threw outright.
    */
-  Combat.prototype._getInitiativeFormula = function (combatant) {
-    return combatant?.actor?.system?.initiative?.effectiveDie ?? "1d10";
+  Combatant.prototype._getInitiativeFormula = function () {
+    const die = this.actor?.system?.initiative?.effectiveDie;
+    // Stored as "d10"; make the count explicit rather than trusting the parser.
+    return die ? `1${die}` : "1d10";
   };
 
   // Seed the ordering key whenever initiative is rolled.
@@ -75,22 +86,62 @@ export function registerCombat() {
     await combatant.setFlag(SYSTEM_ID, FLAG_ORDER, changed.initiative);
   });
 
-  // Fresh slots each turn — but banked minor progress survives, per §9.
-  Hooks.on("combatTurn", async (combat) => {
-    const combatant = combat.combatant;
-    if (!combatant) return;
-    await setTurnState(combatant, AE.beginTurn(getTurnState(combatant)));
-  });
+  /**
+   * Turn and round bookkeeping, driven from `updateCombat`.
+   *
+   * NOT from `combatTurn` / `combatRound` / `combatStart`, all three of which
+   * Foundry fires with `Hooks.callAll(...)` BEFORE `await this.update(...)`.
+   * That has two consequences, and the original code was wrong on both:
+   *
+   *   1. `combat.combatant`, `combat.round` and `combat.turn` are all still the
+   *      OLD values. Resetting action slots there reset them for the OUTGOING
+   *      combatant, so everyone acted on someone else's budget, and the
+   *      round-2 flat-footed sweep was permanently one round late.
+   *   2. `callAll` is synchronous and does not await handlers, so any document
+   *      write raced the combat update — turns visibly failed to advance.
+   *
+   * `updateCombat` fires after the document has changed, so everything read
+   * here is current, and it is awaited properly.
+   *
+   * Guarded to a single GM: without this every connected client would race to
+   * apply the same status toggles.
+   */
+  Hooks.on("updateCombat", async (combat, changed) => {
+    if (!game.users?.activeGM?.isSelf) return;
+    if (!("turn" in changed) && !("round" in changed)) return;
 
-  Hooks.on("combatRound", async (combat) => {
-    // Round 1 flat-footed lapses once a combatant has acted; from round 2 the
-    // "has not yet acted" trigger no longer applies to anyone.
-    if (combat.round <= 1) return;
-    for (const c of combat.combatants) {
-      if (c.actor?.statuses?.has("flatFooted")) {
-        await c.actor.toggleStatusEffect?.("flatFooted", { active: false });
+    const combatant = combat.combatant;
+    const startedThisUpdate = changed.round === 1 && combat.turn === 0;
+
+    // Combat has just begun: everyone who has not yet acted is flat-footed (§8).
+    // Nothing previously SET this status — the lifecycle only ever cleared it —
+    // so the surprise round simply never happened in play.
+    if (startedThisUpdate) {
+      for (const c of combat.combatants) {
+        if (!c.actor || c.id === combatant?.id) continue;
+        await c.actor.toggleStatusEffect?.("flatFooted", { active: true });
       }
     }
+
+    // From round 2 the "has not yet acted" trigger no longer applies to anyone.
+    if (combat.round > 1 && "round" in changed) {
+      for (const c of combat.combatants) {
+        if (c.actor?.statuses?.has("flatFooted")) {
+          await c.actor.toggleStatusEffect?.("flatFooted", { active: false });
+        }
+      }
+    }
+
+    if (!combatant) return;
+
+    // Acting ends round-1 flat-footed for the combatant whose turn it now is.
+    if (combatant.actor?.statuses?.has("flatFooted")) {
+      await combatant.actor.toggleStatusEffect?.("flatFooted", { active: false });
+    }
+
+    // Fresh slots for the INCOMING combatant — but banked minor progress
+    // survives the turn boundary, per §9.
+    await setTurnState(combatant, AE.beginTurn(getTurnState(combatant)));
   });
 
   // Surface genuine ties for a coin flip rather than settling them invisibly.
@@ -106,6 +157,61 @@ export function registerCombat() {
       `§8 settles these with a coin flip.`
     );
   });
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Surprise                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Resolve a surprise round: roll each ambusher's Stealth, compare it against
+ * every defender's Passive Perception, and flat-foot the ones who were caught.
+ *
+ * Awareness is decided PER ATTACKER-DEFENDER PAIR (§8) — a guard can spot one
+ * ambusher and miss another. Foundry's status system is a flat set on the actor
+ * and cannot express "flat-footed against Nim but not against Vera", so the
+ * status is applied when a defender missed AT LEAST ONE attacker, and the full
+ * pairing is reported back for the GM to adjudicate the rest.
+ *
+ * @param {Combatant[]} attackers
+ * @param {Combatant[]} defenders
+ * @returns {Promise<{stealth:Object, unnoticed:Object, flatFooted:string[]}>}
+ */
+export async function rollSurprise(attackers, defenders) {
+  const stealth = {};
+  const rolled = [];
+
+  for (const a of attackers) {
+    const mod = a.actor?.system?.skills?.stealth?.total ?? 0;
+    const roll = new Roll("1d20 + @mod", { mod });
+    await roll.evaluate();
+    stealth[a.name] = roll.total;
+    rolled.push({ id: a.id, name: a.name, stealth: roll.total });
+  }
+
+  const defs = defenders.map((d) => ({
+    id: d.id,
+    name: d.name,
+    passivePerception:
+      d.actor?.system?.skills?.perception?.passive
+      ?? d.actor?.system?.passivePerception
+      ?? 0
+  }));
+
+  const unnoticed = INIT.surpriseAwareness(rolled, defs);
+
+  const flatFooted = [];
+  const report = {};
+  for (const d of defs) {
+    const missed = unnoticed.get(d.id) ?? new Set();
+    report[d.name] = rolled.filter((a) => missed.has(a.id)).map((a) => a.name);
+    if (missed.size) {
+      await d.actor?.toggleStatusEffect?.("flatFooted", { active: true });
+      flatFooted.push(d.name);
+    }
+  }
+
+  return { stealth, unnoticed: report, flatFooted };
 }
 
 /* -------------------------------------------------------------------------- */

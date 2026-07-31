@@ -13,6 +13,8 @@ import { LASTARC } from "../module/config.mjs";
 import {
   rd,
   signed,
+  weaponSkillFor,
+  wieldCategory as wieldCat,
   skillAdjustmentParts,
   attributeModifier,
   breakPenalty,
@@ -733,5 +735,59 @@ describe("skill adjustment breakdown", () => {
     assert.equal(signed(0), "+0");
     assert.equal(signed(-2), "−2");
     assert.notEqual(signed(-2), "-2");
+  });
+});
+
+
+/* -------------------------------------------------------------------------- */
+
+describe("wield category to weapon skill mapping", () => {
+  /**
+   * REGRESSION GUARD. These are two different vocabularies. The wield category
+   * for a small weapon is `light`; the SKILL is `lightWeapon`. Looking the skill
+   * up by wield category resolved to undefined and the attack rolled with no
+   * skill bonus at all — a bare d20 for every rogue, silently.
+   */
+  test("every wield category maps to a real weapon skill", () => {
+    const categories = ["oneHanded", "twoHanded", "light", "ranged", "unarmed"];
+    for (const cat of categories) {
+      const key = weaponSkillFor(cat);
+      assert.ok(
+        key in LASTARC.weaponSkills,
+        `wield category "${cat}" maps to "${key}", which is not a weapon skill`
+      );
+    }
+  });
+
+  test("light maps to lightWeapon, not to itself", () => {
+    assert.equal(weaponSkillFor("light"), "lightWeapon");
+  });
+
+  test("throws rather than returning a default", () => {
+    // The bug being guarded against was a silent zero, so an unknown category
+    // must be loud.
+    assert.throws(() => weaponSkillFor("unusable"), /No weapon skill maps/);
+    assert.throws(() => weaponSkillFor(undefined), /No weapon skill maps/);
+  });
+
+  test("every category wieldCategory can return is mapped", () => {
+    // Drive it from the real function rather than a hand-copied list, so a new
+    // category added there cannot slip past this test.
+    const sizes = LASTARC.sizeOrder;
+    const produced = new Set();
+    for (const a of sizes) {
+      for (const w of sizes) {
+        for (const c of [null, "bows"]) {
+          const cat = wieldCat(a, w, c);
+          if (cat !== "unusable") produced.add(cat);
+        }
+      }
+    }
+    for (const cat of produced) {
+      assert.doesNotThrow(
+        () => weaponSkillFor(cat),
+        `wieldCategory can return "${cat}" but nothing maps it to a skill`
+      );
+    }
   });
 });

@@ -19,6 +19,7 @@
 import { LASTARC } from "./config.mjs";
 import * as AE from "./action-economy.mjs";
 import * as ATK from "./dice/attack.mjs";
+import * as CB from "./combat.mjs";
 
 const SYSTEM_ID = "last-arc";
 
@@ -59,6 +60,19 @@ async function withNpc(data, fn) {
   } finally {
     await actor?.delete();
   }
+}
+
+/**
+ * Wait for detached hook side effects to land.
+ *
+ * Every Foundry hook is dispatched with `Hooks.callAll`, which is SYNCHRONOUS
+ * and does not await handlers. A system that does document writes in response
+ * to a turn change — as every system must — therefore finishes those writes
+ * some ticks after `nextTurn()` resolves. Tests have to wait for that; so does
+ * teardown, or the combat gets deleted out from under a running handler.
+ */
+async function settle(ms = 300) {
+  await new Promise((r) => setTimeout(r, ms));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -444,7 +458,11 @@ function registerCombatBatch(quench) {
               const [combatant] = await combat.createEmbeddedDocuments(
                 "Combatant", [{ actorId: actor.id }]
               );
-              const formula = combat._getInitiativeFormula(combatant);
+              // Via the COMBATANT, which is what Foundry actually calls. The
+              // earlier version of this test asked `combat._getInitiativeFormula`
+              // — the same wrong API the implementation used — so it passed
+              // while rolling initiative from the tracker threw outright.
+              const formula = combatant._getInitiativeFormula();
               assert.include(formula, "d4");
               assert.notInclude(formula, "d20");
             } finally {
@@ -530,6 +548,182 @@ function registerCombatBatch(quench) {
           });
         });
       });
+      describe("turn lifecycle", function () {
+        /**
+         * Build a live 2-combatant encounter and tear it down afterwards.
+         * These need real turn advancement — the bugs they guard were entirely
+         * in WHEN Foundry fires its hooks and what is current at that moment,
+         * which no pure test can see.
+         */
+        async function withEncounter(fn) {
+          const a = await Actor.create({ name: "Q First", type: "character",
+            system: { classes: [{ name: "rogue", levels: 1 }] } });
+          const b = await Actor.create({ name: "Q Second", type: "character",
+            system: { classes: [{ name: "warrior", levels: 1 }] } });
+          const combat = await Combat.create({});
+          try {
+            const cs = await combat.createEmbeddedDocuments("Combatant",
+              [{ actorId: a.id }, { actorId: b.id }]);
+            // Explicit initiative so turn order is deterministic: lowest first.
+            await combat.updateEmbeddedDocuments("Combatant",
+              [{ _id: cs[0].id, initiative: 1 }, { _id: cs[1].id, initiative: 9 }]);
+            const result = await fn(combat, a, b);
+            await settle();   // let in-flight hook writes finish before teardown
+            return result;
+          } finally {
+            await combat.delete();
+            await a.delete();
+            await b.delete();
+          }
+        }
+
+        /**
+         * REGRESSION GUARD — the worst of the lifecycle bugs.
+         *
+         * The slot reset ran in `combatTurn`, which Foundry fires BEFORE it
+         * applies the update. `combat.combatant` there is still the OUTGOING
+         * combatant, so every turn refreshed the slots of the character who had
+         * just finished and left the incoming one with whatever they had left
+         * over. Nothing in the pure action-economy suite could see it: the state
+         * machine was right, it was being handed the wrong combatant.
+         */
+        it("gives fresh action slots to the INCOMING combatant", async function () {
+          this.timeout(20_000);
+          await withEncounter(async (combat) => {
+            await combat.startCombat();
+            await settle();
+            const first = combat.combatant;
+
+            // Spend the first combatant's primary.
+            await CB.spendAction(first, "attack");
+            assert.isFalse(CB.getTurnState(first).primary, "primary should be spent");
+
+            await combat.nextTurn();
+            await settle();
+            const second = combat.combatant;
+            assert.notEqual(second.id, first.id, "the turn must actually advance");
+
+            assert.isTrue(
+              CB.getTurnState(second).primary,
+              "the combatant whose turn it now is must have a fresh primary"
+            );
+            assert.isFalse(
+              CB.getTurnState(first).primary,
+              "the combatant who just acted must NOT have been refreshed"
+            );
+          });
+        });
+
+        /**
+         * REGRESSION GUARD. Nothing ever SET flat-footed — the lifecycle only
+         * cleared it — so round-1 flat-footed and the whole surprise round never
+         * happened in play despite `isFlatFooted` being correct and tested.
+         */
+        it("flat-foots everyone who has not yet acted when combat begins", async function () {
+          this.timeout(20_000);
+          await withEncounter(async (combat, a, b) => {
+            assert.isFalse(a.statuses.has("flatFooted"), "not flat-footed before combat");
+
+            await combat.startCombat();
+            await settle();
+            const first = combat.combatant.actor;
+            const other = first === a ? b : a;
+
+            assert.isFalse(first.statuses.has("flatFooted"), "the one acting is not flat-footed");
+            assert.isTrue(other.statuses.has("flatFooted"), "everyone else is");
+          });
+        });
+
+        it("clears flat-footed from the combatant whose turn it becomes", async function () {
+          this.timeout(20_000);
+          await withEncounter(async (combat) => {
+            await combat.startCombat();
+            await settle();
+            await combat.nextTurn();
+            await settle();
+            assert.isFalse(
+              combat.combatant.actor.statuses.has("flatFooted"),
+              "acting ends round-1 flat-footed for the ACTIVE combatant"
+            );
+          });
+        });
+
+        /**
+         * The round guard read `combat.round` inside a pre-update hook, so it
+         * saw the OLD round and the sweep was permanently one round late — a
+         * combatant could stay flat-footed through the whole of round 2.
+         */
+        it("no one is flat-footed once round 2 begins", async function () {
+          this.timeout(20_000);
+          await withEncounter(async (combat) => {
+            await combat.startCombat();
+            await settle();
+            await combat.nextTurn();
+            await settle();
+            await combat.nextTurn();   // wraps into round 2
+            await settle();
+
+            assert.equal(combat.round, 2);
+            for (const c of combat.combatants) {
+              assert.isFalse(
+                c.actor.statuses.has("flatFooted"),
+                `${c.name} is still flat-footed in round ${combat.round}`
+              );
+            }
+          });
+        });
+      });
+
+      describe("rolling initiative through Foundry", function () {
+        /**
+         * REGRESSION GUARD. The override originally sat on `Combat.prototype`
+         * and took a combatant argument. v13 calls it on the COMBATANT with no
+         * arguments, so ours was never consulted and core fell back to
+         * `String(undefined)` — rolling initiative from the tracker threw
+         * "Unresolved StringTerm undefined".
+         *
+         * Nothing in the node suite could see this: the die-selection logic was
+         * correct and well tested, it simply was not plugged in.
+         */
+        it("uses the class die via the real Foundry roll path", async function () {
+          this.timeout(15_000);
+          await withActor({
+            system: { classes: [{ name: "rogue", levels: 1 }] }
+          }, async (actor) => {
+            const combat = await Combat.create({});
+            try {
+              const [c] = await combat.createEmbeddedDocuments("Combatant", [{ actorId: actor.id }]);
+
+              assert.equal(c._getInitiativeFormula(), "1d4", "rogue rolls its class die");
+
+              const roll = c.getInitiativeRoll();
+              await roll.evaluate();
+              assert.isNumber(roll.total);
+              assert.isAtLeast(roll.total, 1);
+              assert.isAtMost(roll.total, 4, "a d4 cannot exceed 4 — a d20 fallback would");
+
+              // The whole path, as the tracker calls it.
+              await combat.rollInitiative([c.id]);
+              assert.isNumber(combat.combatants.get(c.id).initiative);
+            } finally {
+              await combat.delete();
+            }
+          });
+        });
+
+        it("falls back to a parseable formula when an actor has no die", async function () {
+          const combat = await Combat.create({});
+          try {
+            const [c] = await combat.createEmbeddedDocuments("Combatant", [{}]);
+            const formula = c._getInitiativeFormula();
+            assert.notInclude(formula, "undefined");
+            assert.doesNotThrow(() => foundry.dice.Roll.create(formula));
+          } finally {
+            await combat.delete();
+          }
+        });
+      });
+
       describe("statblock attacks", function () {
         const lurker = {
           system: {

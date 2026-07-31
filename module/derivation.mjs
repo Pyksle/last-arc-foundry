@@ -715,6 +715,31 @@ export function wieldCategory(actorSize, weaponSize, weaponCategory = null) {
   return "light";                         // two+ smaller: MUST use Light Weapon
 }
 
+/**
+ * Map a derived wield category to the weapon SKILL key it rolls against.
+ *
+ * These two vocabularies are not the same and must not be assumed to be. The
+ * wield category for a small weapon is `light`; the skill is `lightWeapon`.
+ * `sys.skills[wieldCategory]` therefore resolved to undefined and the attack
+ * silently rolled with NO skill bonus — every light-weapon attack in the game,
+ * which is to say every rogue, was rolling a bare d20.
+ *
+ * Throws on anything unmapped rather than returning a default, because the
+ * failure mode this replaces was exactly a silent zero.
+ */
+export function weaponSkillFor(wieldCat) {
+  const key = {
+    oneHanded: "oneHanded",
+    twoHanded: "twoHanded",
+    light: "lightWeapon",
+    ranged: "ranged",
+    unarmed: "unarmed"
+  }[wieldCat];
+
+  if (!key) throw new Error(`No weapon skill maps to wield category "${wieldCat}".`);
+  return key;
+}
+
 /** True when the wielder may choose between 1-Handed and Light Weapon (§5.4). */
 export function lightWeaponAllowsChoice(actorSize, weaponSize) {
   const a = LASTARC.sizeOrder.indexOf(actorSize);

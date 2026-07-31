@@ -249,8 +249,15 @@ export async function rollAttack(actor, weapon, options = {}) {
     return null;
   }
 
-  const skillKey = wield === "light" && options.useOneHanded ? "oneHanded" : wield;
+  // A light weapon one size down may use 1-Handed instead, at the wielder's
+  // choice (§5.4). Everything else maps straight through — via weaponSkillFor,
+  // because the wield vocabulary and the skill vocabulary differ.
+  const skillKey = wield === "light" && options.useOneHanded
+    ? "oneHanded"
+    : D.weaponSkillFor(wield);
+
   const skill = sys.skills[skillKey];
+  if (!skill) throw new Error(`Actor has no "${skillKey}" skill for a ${wield} attack.`);
   const isMelee = !LASTARC.rangedWeaponCategories.has(weapon.system.category);
 
   const mods = attackModifiers({
