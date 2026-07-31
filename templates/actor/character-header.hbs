@@ -1,0 +1,106 @@
+{{!-- Identity block. Field set mirrors the printed sheet (book p.263):
+      Name / Race · Gender / Class · Advanced Class / Multiclass · Ethos /
+      Experience · Next Level. --}}
+<header class="la-header">
+  <div class="la-header__portrait">
+    <img src="{{document.img}}" alt="{{document.name}}" data-edit="img">
+  </div>
+
+  <div class="la-header__fields">
+    <div class="la-field la-field--name">
+      <input type="text" name="name" value="{{document.name}}" placeholder="{{localize 'LASTARC.Field.Name'}}">
+      <label>{{localize "LASTARC.Field.Name"}}</label>
+    </div>
+
+    <div class="la-field-row">
+      <div class="la-field">
+        <input type="text" name="system.details.race" value="{{system.details.race}}">
+        <label>{{localize "LASTARC.Field.Race"}}</label>
+      </div>
+      <div class="la-field">
+        <input type="text" name="system.details.gender" value="{{system.details.gender}}">
+        <label>{{localize "LASTARC.Field.Gender"}}</label>
+      </div>
+      <div class="la-field">
+        <select name="system.details.size">
+          {{#each sizeOptions}}
+            <option value="{{this.value}}" {{#if (laeq this.value ../system.details.size)}}selected{{/if}}>{{localize this.label}}</option>
+          {{/each}}
+        </select>
+        <label>{{localize "LASTARC.Field.Size"}}</label>
+      </div>
+    </div>
+
+    {{!-- Class repeater. Entry 0 is the FIRST class taken and is load-bearing:
+          it grants the level-1 HP/MP values and (by default) the only set of
+          class defence bonuses, so its position is shown and it cannot be
+          removed while it is the only class. --}}
+    {{#each classes}}
+      <div class="la-field-row la-class-row">
+        <div class="la-field">
+          <select name="system.classes.{{this.index}}.name">
+            {{#each ../classOptions}}
+              <option value="{{this.value}}" {{#if (laeq this.value ../this.name)}}selected{{/if}}>{{localize this.label}}</option>
+            {{/each}}
+          </select>
+          <label>
+            {{#if this.isFirst}}{{localize "LASTARC.Field.ClassFirst"}}{{else}}{{localize "LASTARC.Field.Multiclass"}}{{/if}}
+          </label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.classes.{{this.index}}.levels" value="{{this.levels}}" min="1">
+          <label>{{localize "LASTARC.Field.ClassLevel"}}</label>
+        </div>
+        <div class="la-field">
+          <input type="text" name="system.classes.{{this.index}}.advanced" value="{{this.advanced}}"
+                 placeholder="{{localize 'LASTARC.Field.None'}}">
+          <label>{{localize "LASTARC.Field.AdvancedClass"}}</label>
+        </div>
+        {{#unless this.isOnly}}
+          <button type="button" class="la-class-row__remove" data-action="removeClass"
+                  data-index="{{this.index}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.RemoveClass'}}">×</button>
+        {{/unless}}
+      </div>
+    {{/each}}
+
+    <button type="button" class="la-class-add" data-action="addClass">
+      + {{localize "LASTARC.Field.AddClass"}}
+    </button>
+
+    <div class="la-field-row">
+      <div class="la-field la-field--narrow">
+        <input type="number" name="system.details.level" value="{{system.details.level}}" min="1">
+        <label>{{localize "LASTARC.Field.Level"}}</label>
+      </div>
+      <div class="la-field">
+        <select name="system.details.ethosPurity">
+          {{#each ethosPurityOptions}}
+            <option value="{{this.value}}" {{#if (laeq this.value ../system.details.ethosPurity)}}selected{{/if}}>{{localize this.label}}</option>
+          {{/each}}
+        </select>
+        <label>{{localize "LASTARC.Field.EthosPurity"}}</label>
+      </div>
+      <div class="la-field">
+        <select name="system.details.ethosMorality">
+          {{#each ethosMoralityOptions}}
+            <option value="{{this.value}}" {{#if (laeq this.value ../system.details.ethosMorality)}}selected{{/if}}>{{localize this.label}}</option>
+          {{/each}}
+        </select>
+        <label>{{localize "LASTARC.Field.EthosMorality"}}</label>
+      </div>
+      <div class="la-field la-field--narrow">
+        <input type="number" name="system.details.xp" value="{{system.details.xp}}" min="0">
+        <label>{{localize "LASTARC.Field.Experience"}}</label>
+      </div>
+      <div class="la-field la-field--narrow">
+        <input type="number" name="system.details.xpNext" value="{{system.details.xpNext}}" min="0">
+        <label>{{localize "LASTARC.Field.NextLevel"}}</label>
+      </div>
+    </div>
+
+    {{#if levelMismatch}}
+      <p class="la-warning">{{localize "LASTARC.Warning.LevelMismatch"}}</p>
+    {{/if}}
+  </div>
+</header>

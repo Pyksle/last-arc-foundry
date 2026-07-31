@@ -1,0 +1,17 @@
+{
+  "name": "last-arc-foundry",
+  "version": "0.1.0",
+  "description": "Foundry VTT system implementation of Last Arc: Tactics Analogue",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "test:watch": "node --test --watch \"test/**/*.test.mjs\""
+  },
+  "devDependencies": {
+    "handlebars": "^4.7.9"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "id": "last-arc",
+  "title": "Last Arc: Tactics Analogue",
+  "description": "An unofficial Foundry VTT implementation of Last Arc: Tactics Analogue. Ships with empty compendia — populate them from your own licensed copy of the rulebook.",
+  "version": "0.1.0",
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13"
+  },
+  "authors": [
+    {
+      "name": "<YOUR NAME HERE>"
+    }
+  ],
+  "esmodules": ["module/last-arc.mjs"],
+  "styles": ["styles/last-arc.css"],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ],
+
+  "documentTypes": {
+    "Actor": {
+      "character": {},
+      "npc": {}
+    },
+    "Item": {
+      "weapon": {},
+      "armour": {},
+      "shield": {},
+      "ammunition": {},
+      "accessory": {},
+      "consumable": {},
+      "technick": {},
+      "talent": {},
+      "spell": {},
+      "performance": {},
+      "race": {},
+      "class": {},
+      "resourceItem": {},
+      "mount": {},
+      "spellScroll": {},
+      "orchestralScore": {},
+      "prostheticLimb": {}
+    }
+  },
+
+  "grid": {
+    "distance": 1,
+    "units": "sq",
+    "diagonals": 3
+  },
+
+  "primaryTokenAttribute": "resources.hp",
+  "secondaryTokenAttribute": "resources.mp",
+
+  "packs": [
+    { "name": "races",        "label": "Races",                   "path": "packs/races",        "type": "Item",  "system": "last-arc" },
+    { "name": "classes",      "label": "Classes",                 "path": "packs/classes",      "type": "Item",  "system": "last-arc" },
+    { "name": "technicks",    "label": "Technicks",               "path": "packs/technicks",    "type": "Item",  "system": "last-arc" },
+    { "name": "talents",      "label": "Talents",                 "path": "packs/talents",      "type": "Item",  "system": "last-arc" },
+    { "name": "weapons",      "label": "Weapons",                 "path": "packs/weapons",      "type": "Item",  "system": "last-arc" },
+    { "name": "armour",       "label": "Armour & Shields",        "path": "packs/armour",       "type": "Item",  "system": "last-arc" },
+    { "name": "equipment",    "label": "Accessories & Consumables","path": "packs/equipment",   "type": "Item",  "system": "last-arc" },
+    { "name": "spells",       "label": "Spells",                  "path": "packs/spells",       "type": "Item",  "system": "last-arc" },
+    { "name": "performances", "label": "Performances",            "path": "packs/performances", "type": "Item",  "system": "last-arc" },
+    { "name": "bestiary",     "label": "Bestiary",                "path": "packs/bestiary",     "type": "Actor", "system": "last-arc" }
+  ],
+
+  "license": "LICENSE",
+  "readme": "README.md",
+  "url": "",
+  "manifest": "",
+  "download": ""
+}

@@ -1,0 +1,311 @@
+<div class="la-body">
+
+  {{!-- ── Attributes · printed order Str·Vit·Agi·Int·Mnd·Chr ──────────────── --}}
+  <section class="la-panel la-panel--attributes">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Attributes"}}</h2>
+    <div class="la-attributes">
+      {{#each attributes}}
+        <div class="la-attribute">
+          <button type="button" class="la-attribute__abbr" data-action="rollAttribute"
+                  data-attribute="{{this.key}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.RollAttribute'}}">
+            {{localize this.abbr}}
+          </button>
+          <input class="la-attribute__score" type="number"
+                 name="system.attributes.{{this.key}}.value" value="{{this.value}}" min="1">
+          <div class="la-attribute__mod">{{lasignal this.mod}}</div>
+          <label class="la-attribute__label">{{localize this.label}}</label>
+        </div>
+      {{/each}}
+    </div>
+  </section>
+
+  {{!-- ── Vitals ──────────────────────────────────────────────────────────── --}}
+  <section class="la-panel la-panel--vitals">
+    <div class="la-vital la-vital--hp">
+      <h3>{{localize "LASTARC.Resource.HitPoints"}}</h3>
+      <div class="la-vital__pair">
+        <input type="number" name="system.resources.hp.value" value="{{system.resources.hp.value}}">
+        <span class="la-sep">/</span>
+        <span class="la-vital__max">{{system.resources.hp.max}}</span>
+      </div>
+      <label class="la-vital__sub">
+        {{localize "LASTARC.Resource.Temp"}}
+        <input type="number" name="system.resources.hp.temp" value="{{system.resources.hp.temp}}" min="0">
+      </label>
+    </div>
+
+    <div class="la-vital la-vital--mp">
+      <h3>{{localize "LASTARC.Resource.Mana"}}</h3>
+      <div class="la-vital__pair">
+        <input type="number" name="system.resources.mp.value" value="{{system.resources.mp.value}}">
+        <span class="la-sep">/</span>
+        <span class="la-vital__max">{{system.resources.mp.max}}</span>
+      </div>
+    </div>
+
+    <div class="la-vital la-vital--hero">
+      <h3>{{localize "LASTARC.Resource.HeroPoints"}}</h3>
+      <div class="la-vital__pair">
+        <input type="number" name="system.resources.heroPoints.value" value="{{system.resources.heroPoints.value}}" min="0">
+        <span class="la-sep">/</span>
+        <span class="la-vital__max">{{system.resources.heroPoints.max}}</span>
+      </div>
+    </div>
+
+    <div class="la-vital la-vital--init">
+      <h3>{{localize "LASTARC.Resource.Initiative"}}</h3>
+      <div class="la-vital__single" data-tooltip="{{localize 'LASTARC.Tooltip.InitiativeInverted'}}">
+        {{system.initiative.effectiveDie}}
+      </div>
+      <label class="la-vital__sub">{{localize "LASTARC.Resource.LowestFirst"}}</label>
+    </div>
+
+    <div class="la-vital la-vital--dr">
+      <h3>{{localize "LASTARC.Resource.DamageReduction"}}</h3>
+      <div class="la-vital__single">{{system.damageMods.dr}}</div>
+    </div>
+
+    <div class="la-vital la-vital--speed">
+      <h3>{{localize "LASTARC.Resource.Speed"}}</h3>
+      <div class="la-vital__single">{{system.movement.value}}</div>
+      <label class="la-vital__sub">
+        {{localize "LASTARC.Resource.Base"}}
+        <input type="number" name="system.movement.base" value="{{system.movement.base}}" min="0">
+      </label>
+    </div>
+
+    <div class="la-vital la-vital--secondwind">
+      <h3>{{localize "LASTARC.Resource.SecondWind"}}</h3>
+      <button type="button" class="la-button" data-action="secondWind"
+              {{#unless system.resources.secondWind.canUse}}disabled{{/unless}}
+              data-tooltip="{{localize 'LASTARC.Tooltip.SecondWind'}}">
+        +{{system.resources.secondWind.healAmount}}
+      </button>
+    </div>
+  </section>
+
+  {{!-- ── Defences · Threshold ────────────────────────────────────────────── --}}
+  <section class="la-panel la-panel--defences">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Defences"}}</h2>
+    <div class="la-defences">
+      {{#each defenceRows}}
+        <div class="la-defence">
+          <span class="la-defence__label">{{localize this.label}}</span>
+          <span class="la-defence__value"
+                data-tooltip="{{localize 'LASTARC.Tooltip.BeforeBreak'}} {{this.beforeBreak}}">
+            {{this.value}}
+          </span>
+          <div class="la-defence__parts">
+            <span data-tooltip="{{localize 'LASTARC.Tooltip.ClassBonus'}}">{{lasignal this.classBonus}}</span>
+            <input type="number" name="system.defences.{{this.key}}.technicks" value="{{this.technicks}}"
+                   data-tooltip="{{localize 'LASTARC.Tooltip.Technicks'}}">
+            <input type="number" name="system.defences.{{this.key}}.misc" value="{{this.misc}}"
+                   data-tooltip="{{localize 'LASTARC.Tooltip.Misc'}}">
+          </div>
+        </div>
+      {{/each}}
+
+      <div class="la-defence la-defence--flatfooted">
+        <span class="la-defence__label">{{localize "LASTARC.Defence.flatFooted"}}</span>
+        <span class="la-defence__value">{{system.defences.ref.flatFooted}}</span>
+      </div>
+
+      <div class="la-defence la-defence--threshold"
+           data-tooltip="{{localize 'LASTARC.Tooltip.Threshold'}}">
+        <span class="la-defence__label">{{localize "LASTARC.Section.BreakThreshold"}}</span>
+        <span class="la-defence__value la-defence__value--accent">{{system.breakGauge.threshold}}</span>
+      </div>
+    </div>
+  </section>
+
+  {{!-- ── Break Gauge · the signature mechanic ────────────────────────────── --}}
+  <section class="la-panel la-panel--break">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.BreakGauge"}}</h2>
+
+    <div class="la-break">
+      {{#each breakTrack}}
+        <button type="button"
+                class="la-break__cell
+                       {{#if this.isCurrent}}is-current{{/if}}
+                       {{#if this.isPassed}}is-passed{{/if}}
+                       {{#if this.isPersistent}}is-persistent{{/if}}
+                       {{#if this.isTerminal}}is-terminal{{/if}}"
+                data-action="setBreakStep" data-step="{{this.step}}"
+                data-tooltip="{{localize 'LASTARC.Tooltip.SetBreakStep'}}">
+          <span class="la-break__penalty">{{this.label}}</span>
+          <span class="la-break__index">{{this.step}}</span>
+        </button>
+      {{/each}}
+    </div>
+
+    <p class="la-break__legend">{{localize "LASTARC.Break.AppliesTo"}}</p>
+
+    <div class="la-break__recovery">
+      <button type="button" class="la-button" data-action="bankRecovery"
+              data-tooltip="{{localize 'LASTARC.Tooltip.Recovery'}}">
+        {{localize "LASTARC.Break.BankMinorAction"}}
+      </button>
+      <span class="la-break__progress">
+        {{system.breakGauge.recoveryProgress}} / {{recoveryTarget}}
+      </span>
+      {{#if system.breakGauge.persistentSteps}}
+        <span class="la-break__persistent">
+          {{localize "LASTARC.Break.PersistentFloor"}} {{system.breakGauge.persistentSteps}}
+        </span>
+      {{/if}}
+    </div>
+  </section>
+
+  {{!-- ── Skills · five printed columns ───────────────────────────────────── --}}
+  <section class="la-panel la-panel--skills">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Skills"}}</h2>
+
+    <div class="la-skills">
+      <div class="la-skills__head">
+        <span class="la-skills__col-name"></span>
+        <span>{{localize "LASTARC.Column.Score"}}</span>
+        <span>{{localize "LASTARC.Column.HalfLevel"}}</span>
+        <span>{{localize "LASTARC.Column.Attrib"}}</span>
+        <span>{{localize "LASTARC.Column.Trained"}}</span>
+        <span>{{localize "LASTARC.Column.Focus"}}</span>
+        <span>{{localize "LASTARC.Column.Bonus"}}</span>
+      </div>
+
+      {{#each skills}}
+        <div class="la-skill {{#if this.appliesArmourPenalty}}has-acp{{/if}}">
+          <button type="button" class="la-skill__name" data-action="rollSkill" data-skill="{{this.key}}">
+            {{localize this.label}}
+            <span class="la-skill__attr">{{localize this.attrAbbr}}</span>
+          </button>
+          <span class="la-skill__total">{{lasignal this.total}}</span>
+          <span class="la-skill__cell">{{this.halfLevel}}</span>
+          <span class="la-skill__cell">{{lasignal this.attrMod}}</span>
+          <input type="checkbox" name="system.skills.{{this.key}}.trained" {{#if this.trained}}checked{{/if}}>
+          <input type="number" name="system.skills.{{this.key}}.focus" value="{{this.focus}}">
+          <input type="number" name="system.skills.{{this.key}}.misc" value="{{this.misc}}">
+        </div>
+
+        {{#if this.subskilled}}
+          {{#each this.subskills}}
+            <div class="la-skill la-skill--sub">
+              <button type="button" class="la-skill__name" data-action="rollSkill"
+                      data-skill="{{../this.key}}" data-subskill="{{this.name}}">
+                <input type="text" class="la-skill__subname"
+                       name="system.skills.{{../this.key}}.subskills.{{this.index}}.name"
+                       value="{{this.name}}">
+              </button>
+              <span class="la-skill__total">{{lasignal this.total}}</span>
+              <span class="la-skill__cell"></span>
+              <span class="la-skill__cell"></span>
+              <input type="checkbox" name="system.skills.{{../this.key}}.subskills.{{this.index}}.trained" {{#if this.trained}}checked{{/if}}>
+              <input type="number" name="system.skills.{{../this.key}}.subskills.{{this.index}}.focus" value="{{this.focus}}">
+              <button type="button" class="la-skill__remove" data-action="removeSubskill"
+                      data-skill="{{../this.key}}" data-index="{{this.index}}">×</button>
+            </div>
+          {{/each}}
+          <button type="button" class="la-skill__add" data-action="addSubskill" data-skill="{{this.key}}">
+            + {{localize "LASTARC.Skill.AddSpecialisation"}}
+          </button>
+        {{/if}}
+      {{/each}}
+
+      <div class="la-skill la-skill--passive">
+        <span class="la-skill__name">{{localize "LASTARC.Skill.passivePerception"}}</span>
+        <span class="la-skill__total">{{passivePerception}}</span>
+        <span class="la-skill__formula">{{localize "LASTARC.Skill.PassiveFormula"}}</span>
+      </div>
+    </div>
+  </section>
+
+  {{!-- ── Technicks & talents ─────────────────────────────────────────────── --}}
+  <section class="la-panel la-panel--technicks">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Technicks"}}</h2>
+
+    <div class="la-items">
+      {{#each technicks}}
+        <div class="la-item {{#unless this.prereqsMet}}is-invalid{{/unless}}">
+          <img class="la-item__img" src="{{this.img}}" alt="">
+          <button type="button" class="la-item__name" data-action="editItem"
+                  data-item-id="{{this.id}}">{{this.name}}</button>
+          <span class="la-item__type">{{this.kindLabel}}</span>
+          {{#if this.summary}}<span class="la-item__summary">{{this.summary}}</span>{{/if}}
+          {{#unless this.prereqsMet}}
+            <span class="la-item__warn"
+                  data-tooltip="{{this.unmetText}}">{{localize "LASTARC.Item.PrereqsUnmet"}}</span>
+          {{/unless}}
+          <button type="button" class="la-item__delete" data-action="deleteItem"
+                  data-item-id="{{this.id}}">×</button>
+        </div>
+      {{else}}
+        <p class="la-note">{{localize "LASTARC.Note.NoTechnicks"}}</p>
+      {{/each}}
+    </div>
+  </section>
+
+  {{!-- ── Inventory ───────────────────────────────────────────────────────── --}}
+  <section class="la-panel la-panel--inventory">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Inventory"}}</h2>
+
+    <div class="la-bulk {{#if bulkState}}is-{{bulkState}}{{/if}}">
+      <span>{{localize "LASTARC.Field.Bulk"}}</span>
+      <strong>{{system.bulk.value}}</strong>
+      <span class="la-bulk__limits">
+        / {{system.bulk.max}} {{localize "LASTARC.Bulk.encumberedAt"}}
+        · {{system.bulk.overMax}} {{localize "LASTARC.Bulk.overencumberedAt"}}
+      </span>
+      {{#if bulkStateLabel}}
+        <span class="la-bulk__state">{{localize bulkStateLabel}}</span>
+      {{/if}}
+    </div>
+
+    <div class="la-items">
+      {{#each inventory}}
+        <div class="la-item {{#if this.equipped}}is-equipped{{/if}}
+                    {{#if this.broken}}is-broken{{/if}}">
+          <img class="la-item__img" src="{{this.img}}" alt="">
+          <button type="button" class="la-item__name" data-action="editItem"
+                  data-item-id="{{this.id}}">{{this.name}}</button>
+          <span class="la-item__type">{{this.typeLabel}}</span>
+          <span class="la-item__bulk">{{this.totalBulk}}</span>
+          {{#if this.quantity}}<span class="la-item__qty">×{{this.quantity}}</span>{{/if}}
+          {{#if this.equippable}}
+            <button type="button" class="la-item__equip" data-action="toggleEquip"
+                    data-item-id="{{this.id}}"
+                    data-tooltip="{{localize 'LASTARC.Tooltip.ToggleEquip'}}">
+              {{#if this.equipped}}●{{else}}○{{/if}}
+            </button>
+          {{/if}}
+          <button type="button" class="la-item__delete" data-action="deleteItem"
+                  data-item-id="{{this.id}}">×</button>
+        </div>
+      {{else}}
+        <p class="la-note">{{localize "LASTARC.Note.NoItems"}}</p>
+      {{/each}}
+    </div>
+  </section>
+
+  {{!-- ── Weapon skills · different rules from standard skills ────────────── --}}
+  <section class="la-panel la-panel--weaponskills">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.WeaponSkills"}}</h2>
+    <p class="la-note">{{localize "LASTARC.Note.WeaponSkills"}}</p>
+
+    <div class="la-skills">
+      {{#each weaponSkills}}
+        <div class="la-skill {{#if this.appliesArmourPenalty}}has-acp{{/if}}">
+          <button type="button" class="la-skill__name" data-action="rollSkill" data-skill="{{this.key}}">
+            {{localize this.label}}
+            <span class="la-skill__attr">{{localize this.attrAbbr}}</span>
+          </button>
+          <span class="la-skill__total">{{lasignal this.total}}</span>
+          <span class="la-skill__cell">{{this.halfLevel}}</span>
+          <span class="la-skill__cell">{{lasignal this.attrMod}}</span>
+          <input type="checkbox" name="system.skills.{{this.key}}.trained" {{#if this.trained}}checked{{/if}}>
+          <input type="number" name="system.skills.{{this.key}}.focus" value="{{this.focus}}">
+          <input type="number" name="system.skills.{{this.key}}.misc" value="{{this.misc}}">
+        </div>
+      {{/each}}
+    </div>
+  </section>
+
+</div>

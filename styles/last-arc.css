@@ -1,0 +1,835 @@
+/* ==========================================================================
+   Last Arc: Tactics Analogue — sheet styling
+
+   Deliberately CSS-ONLY. No book art is shipped (see spec §17); the parchment,
+   rules, and ornament here are drawn with gradients, borders and pseudo-elements
+   so the public build looks finished without distributing anything protected.
+
+   Typography follows the book's actual stack where the faces are freely
+   available: Georgia is the printed sheet's heading face and is a system font on
+   every target platform, so it is referenced by name rather than embedded. The
+   body face (Minion Pro) and the display face (Runic MT Condensed) are
+   commercial; the stacks below fall back through openly-licensed analogues.
+
+   v13 note: these rules are intentionally UNLAYERED. Foundry v13 moved core
+   styles into CSS layers, and unlayered author styles beat every layer
+   regardless of specificity — which is exactly what a system sheet wants.
+   ========================================================================== */
+
+.last-arc {
+  /* ---- Palette: warm parchment, iron-gall ink, bronze ornament ---------- */
+  --la-paper: #f5f0e4;
+  --la-paper-2: #ece4d2;
+  --la-paper-3: #e0d5bd;
+  --la-ink: #1c1815;
+  --la-ink-soft: #4a423a;
+  --la-ink-faint: #8a7f70;
+  --la-rule: #b9ab8f;
+  --la-bronze: #8b6f3f;
+  --la-bronze-bright: #b08d4f;
+  --la-oxblood: #7a2e2e;
+  --la-oxblood-bright: #9c3a3a;
+  --la-good: #3f6b46;
+
+  /* The terminal Break Gauge state is deliberately NOT theme-relative. Built
+     from --la-ink it inverts in dark mode, rendering the worst state on the
+     track as the brightest, cleanest cell — reading as the safe end. These two
+     stay fixed in both themes so "unconscious" always looks like a wound. */
+  --la-terminal-bg: #2a1214;
+  --la-terminal-fg: #e6d6c4;
+  /* The track's frame and inter-cell gaps, likewise fixed. Built from --la-ink
+     these invert to a light cream in dark mode, and because `.is-passed` cells
+     are translucent they then blend UP against it into a pale grey — making
+     already-lost steps read as the healthiest ones on the track. */
+  --la-break-frame: #17100f;
+
+  --la-radius: 3px;
+  --la-gap: 0.5rem;
+
+  --la-font-body: "Palatino Linotype", Palatino, "Book Antiqua", "Source Serif 4", Georgia, serif;
+  --la-font-head: Georgia, "Times New Roman", serif;
+  --la-font-num: "Iowan Old Style", Georgia, serif;
+
+  color: var(--la-ink);
+  font-family: var(--la-font-body);
+}
+
+/* Dark theme. Foundry v13 stamps a theme onto the root; support both the OS
+   signal and the explicit toggle so neither can strand the sheet mid-palette. */
+@media (prefers-color-scheme: dark) {
+  .last-arc {
+    --la-paper: #1d1a17;
+    --la-paper-2: #262220;
+    --la-paper-3: #322c28;
+    --la-ink: #ece3d2;
+    --la-ink-soft: #bdb2a0;
+    --la-ink-faint: #857a6b;
+    --la-rule: #4d443a;
+    --la-bronze: #b08d4f;
+    --la-bronze-bright: #d4ac66;
+    --la-oxblood: #a34444;
+    --la-oxblood-bright: #c25555;
+    --la-good: #6b9c73;
+  }
+}
+:root[data-theme="dark"] .last-arc {
+  --la-paper: #1d1a17;
+  --la-paper-2: #262220;
+  --la-paper-3: #322c28;
+  --la-ink: #ece3d2;
+  --la-ink-soft: #bdb2a0;
+  --la-ink-faint: #857a6b;
+  --la-rule: #4d443a;
+  --la-bronze: #b08d4f;
+  --la-bronze-bright: #d4ac66;
+  --la-oxblood: #a34444;
+  --la-oxblood-bright: #c25555;
+  --la-good: #6b9c73;
+}
+:root[data-theme="light"] .last-arc {
+  --la-paper: #f5f0e4;
+  --la-paper-2: #ece4d2;
+  --la-paper-3: #e0d5bd;
+  --la-ink: #1c1815;
+  --la-ink-soft: #4a423a;
+  --la-ink-faint: #8a7f70;
+  --la-rule: #b9ab8f;
+  --la-bronze: #8b6f3f;
+  --la-bronze-bright: #b08d4f;
+  --la-oxblood: #7a2e2e;
+  --la-oxblood-bright: #9c3a3a;
+  --la-good: #3f6b46;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Shell                                                                      */
+/* -------------------------------------------------------------------------- */
+
+.last-arc .last-arc-sheet-body,
+.last-arc .window-content {
+  background:
+    radial-gradient(ellipse at 20% 0%, color-mix(in srgb, var(--la-paper) 92%, #fff) 0%, transparent 60%),
+    linear-gradient(180deg, var(--la-paper) 0%, var(--la-paper-2) 100%);
+  color: var(--la-ink);
+  padding: 0.75rem;
+  overflow-y: auto;
+}
+
+.last-arc input,
+.last-arc select {
+  background: color-mix(in srgb, var(--la-paper) 60%, transparent);
+  border: 1px solid var(--la-rule);
+  border-radius: var(--la-radius);
+  color: var(--la-ink);
+  font-family: var(--la-font-num);
+  padding: 0.15rem 0.3rem;
+}
+.last-arc input:focus,
+.last-arc select:focus {
+  border-color: var(--la-bronze);
+  outline: 2px solid color-mix(in srgb, var(--la-bronze) 35%, transparent);
+  outline-offset: 1px;
+}
+.last-arc input[type="number"] { text-align: center; }
+
+/* -------------------------------------------------------------------------- */
+/*  Panels — the book's black title cartouches                                 */
+/* -------------------------------------------------------------------------- */
+
+.la-panel {
+  position: relative;
+  background: color-mix(in srgb, var(--la-paper) 70%, transparent);
+  border: 1px solid var(--la-rule);
+  border-radius: var(--la-radius);
+  padding: 1.6rem 0.75rem 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+/* Double-rule inset, echoing the printed frames. */
+.la-panel::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px solid color-mix(in srgb, var(--la-rule) 45%, transparent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.la-panel__title {
+  position: absolute;
+  top: -0.7rem;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.15rem 1.5rem;
+  background: var(--la-ink);
+  color: var(--la-paper);
+  font-family: var(--la-font-head);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-radius: 2px;
+  z-index: 1;
+}
+/* Flared ends on the title bar, standing in for the engraved finials. */
+.la-panel__title::before,
+.la-panel__title::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--la-ink);
+  transform: translateY(-50%) rotate(45deg);
+}
+.la-panel__title::before { left: -0.25rem; }
+.la-panel__title::after { right: -0.25rem; }
+
+/* -------------------------------------------------------------------------- */
+/*  Header                                                                     */
+/* -------------------------------------------------------------------------- */
+
+.la-header {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+.la-header__portrait img {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border: 2px solid var(--la-bronze);
+  border-radius: var(--la-radius);
+  background: var(--la-paper-3);
+}
+.la-header__fields { display: flex; flex-direction: column; gap: 0.35rem; }
+.la-field-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.la-field { display: flex; flex-direction: column-reverse; flex: 1 1 8rem; min-width: 0; }
+.la-field--name { flex-basis: 100%; }
+.la-field--narrow { flex: 0 1 5rem; }
+.la-field label {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--la-ink-faint);
+  padding-left: 0.15rem;
+}
+.la-field input,
+.la-field select {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--la-rule);
+  border-radius: 0;
+  font-family: var(--la-font-body);
+  font-size: 0.95rem;
+}
+.la-field--name input { font-size: 1.35rem; font-family: var(--la-font-head); }
+
+.la-class-row { align-items: flex-end; }
+.la-class-row__remove {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  color: var(--la-oxblood);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 0.2rem 0.2rem;
+}
+.la-class-add {
+  align-self: flex-start;
+  background: none;
+  border: 1px dashed var(--la-rule);
+  border-radius: var(--la-radius);
+  color: var(--la-ink-faint);
+  cursor: pointer;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+}
+.la-class-add:hover { color: var(--la-bronze); border-color: var(--la-bronze); }
+
+/* -------------------------------------------------------------------------- */
+/*  Attributes                                                                 */
+/* -------------------------------------------------------------------------- */
+
+.la-attributes {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--la-gap);
+}
+.la-attribute {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+.la-attribute__abbr {
+  width: 100%;
+  background: var(--la-ink);
+  color: var(--la-paper);
+  border: none;
+  border-radius: 2px;
+  font-family: var(--la-font-head);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.2rem 0;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.la-attribute__abbr:hover { background: var(--la-bronze); }
+.la-attribute__score {
+  width: 100%;
+  font-size: 1.5rem;
+  font-weight: 600;
+  padding: 0.2rem 0;
+}
+/* The modifier is the number actually used in play — give it the visual weight. */
+.la-attribute__mod {
+  font-family: var(--la-font-num);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--la-bronze);
+  border: 1px solid var(--la-rule);
+  border-radius: 999px;
+  width: 2.4rem;
+  text-align: center;
+  background: var(--la-paper);
+}
+.la-attribute__label {
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--la-ink-faint);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Vitals                                                                     */
+/* -------------------------------------------------------------------------- */
+
+.la-panel--vitals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: var(--la-gap);
+  padding-top: 0.75rem;
+}
+.la-vital {
+  background: color-mix(in srgb, var(--la-paper-3) 45%, transparent);
+  border: 1px solid var(--la-rule);
+  border-radius: var(--la-radius);
+  padding: 0.4rem;
+  text-align: center;
+}
+.la-vital h3 {
+  margin: 0 0 0.3rem;
+  font-family: var(--la-font-head);
+  font-size: 0.6rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--la-ink-soft);
+  border-bottom: 1px solid color-mix(in srgb, var(--la-rule) 60%, transparent);
+  padding-bottom: 0.2rem;
+}
+.la-vital__pair { display: flex; align-items: center; justify-content: center; gap: 0.2rem; }
+.la-vital__pair input { width: 3rem; font-size: 1.25rem; border: none; background: transparent; }
+.la-vital__max { font-size: 1.25rem; font-family: var(--la-font-num); color: var(--la-ink-soft); }
+.la-vital__single { font-size: 1.4rem; font-family: var(--la-font-num); font-weight: 600; }
+.la-sep { color: var(--la-ink-faint); }
+.la-vital__sub {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--la-ink-faint);
+}
+.la-vital__sub input { width: 2.6rem; font-size: 0.8rem; }
+.la-vital--hp { border-color: var(--la-oxblood); }
+.la-vital--hp .la-vital__max { color: var(--la-oxblood); }
+
+.la-button {
+  background: var(--la-ink);
+  color: var(--la-paper);
+  border: none;
+  border-radius: 2px;
+  font-family: var(--la-font-head);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+.la-button:hover:not(:disabled) { background: var(--la-bronze); }
+.la-button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* -------------------------------------------------------------------------- */
+/*  Defences                                                                   */
+/* -------------------------------------------------------------------------- */
+
+.la-defences {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--la-gap);
+}
+.la-defence {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "label value" "parts parts";
+  align-items: center;
+  gap: 0.2rem 0.4rem;
+  background: color-mix(in srgb, var(--la-paper-3) 40%, transparent);
+  border: 1px solid var(--la-rule);
+  border-radius: var(--la-radius);
+  padding: 0.4rem 0.5rem;
+}
+.la-defence__label {
+  grid-area: label;
+  font-family: var(--la-font-head);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--la-ink-soft);
+}
+.la-defence__value {
+  grid-area: value;
+  font-family: var(--la-font-num);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.la-defence__value--accent { color: var(--la-oxblood); }
+.la-defence__parts { grid-area: parts; display: flex; gap: 0.25rem; align-items: center; }
+.la-defence__parts input { width: 2.4rem; font-size: 0.75rem; }
+.la-defence__parts > span {
+  font-size: 0.75rem;
+  font-family: var(--la-font-num);
+  color: var(--la-ink-faint);
+  min-width: 1.6rem;
+  text-align: center;
+}
+.la-defence--threshold { border-color: var(--la-oxblood); border-width: 2px; }
+
+/* -------------------------------------------------------------------------- */
+/*  Break Gauge — the signature widget                                         */
+/* -------------------------------------------------------------------------- */
+
+.la-break {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 2px;
+  border: 2px solid var(--la-break-frame);
+  border-radius: var(--la-radius);
+  overflow: hidden;
+  background: var(--la-break-frame);
+}
+
+.la-break__cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  min-height: 3.4rem;
+  border: none;
+  cursor: pointer;
+  font-family: var(--la-font-num);
+  /* The track darkens toward the terminal state — the gradient IS the warning. */
+  background: color-mix(in srgb, var(--la-paper) 88%, var(--la-oxblood));
+  color: var(--la-ink);
+  transition: background 140ms ease, transform 100ms ease;
+}
+.la-break__cell:nth-child(1) { background: var(--la-paper); }
+.la-break__cell:nth-child(2) { background: color-mix(in srgb, var(--la-paper) 92%, var(--la-oxblood)); }
+.la-break__cell:nth-child(3) { background: color-mix(in srgb, var(--la-paper) 82%, var(--la-oxblood)); }
+.la-break__cell:nth-child(4) { background: color-mix(in srgb, var(--la-paper) 68%, var(--la-oxblood)); }
+.la-break__cell:nth-child(5) { background: color-mix(in srgb, var(--la-paper) 50%, var(--la-oxblood)); }
+.la-break__cell.is-terminal {
+  background: var(--la-terminal-bg);
+  color: var(--la-terminal-fg);
+}
+
+.la-break__cell:hover { transform: translateY(-1px); }
+
+.la-break__penalty {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.la-break__cell.is-terminal .la-break__penalty {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-family: var(--la-font-head);
+}
+/* The step INDEX is shown small and muted, deliberately subordinate to the
+   penalty. They are different number sequences (0..5 vs 0,−1,−2,−5,−10) and
+   conflating them is the classic Break Gauge bug — the UI should not invite it. */
+.la-break__index {
+  font-size: 0.55rem;
+  opacity: 0.45;
+}
+
+.la-break__cell.is-current {
+  box-shadow: inset 0 0 0 3px var(--la-bronze-bright);
+  font-weight: 800;
+}
+.la-break__cell.is-passed { opacity: 0.55; }
+/* Persistent steps are hatched: recovery cannot clear them. */
+.la-break__cell.is-persistent::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent 0 4px,
+    color-mix(in srgb, var(--la-ink) 25%, transparent) 4px 5px
+  );
+  pointer-events: none;
+}
+
+.la-break__legend {
+  margin: 0.4rem 0 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: var(--la-ink-faint);
+  font-style: italic;
+}
+
+.la-break__recovery {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.la-break__progress { font-family: var(--la-font-num); font-size: 0.9rem; }
+.la-break__persistent {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--la-oxblood);
+  border: 1px solid var(--la-oxblood);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Skills                                                                     */
+/* -------------------------------------------------------------------------- */
+
+.la-skills { display: flex; flex-direction: column; gap: 1px; }
+
+.la-skills__head,
+.la-skill {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) 3rem 2.4rem 2.4rem 2.4rem 3rem 3rem;
+  align-items: center;
+  gap: 0.3rem;
+}
+.la-skills__head span {
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--la-ink-faint);
+  text-align: center;
+}
+.la-skills__col-name { text-align: left !important; }
+
+.la-skill {
+  padding: 0.12rem 0.25rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--la-rule) 40%, transparent);
+}
+.la-skill:nth-child(even) { background: color-mix(in srgb, var(--la-paper-3) 25%, transparent); }
+
+.la-skill__name {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  color: var(--la-ink);
+  font-family: var(--la-font-body);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.1rem 0;
+}
+.la-skill__name:hover { color: var(--la-bronze); }
+.la-skill__attr {
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--la-ink-faint);
+}
+.la-skill__total {
+  font-family: var(--la-font-num);
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: center;
+}
+.la-skill__cell {
+  text-align: center;
+  font-family: var(--la-font-num);
+  font-size: 0.8rem;
+  color: var(--la-ink-faint);
+}
+.la-skill input[type="number"] { font-size: 0.8rem; }
+.la-skill input[type="checkbox"] { justify-self: center; }
+
+.la-skill--sub { padding-left: 1.2rem; }
+.la-skill__subname {
+  background: transparent;
+  border: none;
+  border-bottom: 1px dotted var(--la-rule);
+  font-style: italic;
+  width: 100%;
+}
+.la-skill__remove {
+  background: none;
+  border: none;
+  color: var(--la-oxblood);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+.la-skill__add {
+  align-self: flex-start;
+  background: none;
+  border: 1px dashed var(--la-rule);
+  border-radius: var(--la-radius);
+  color: var(--la-ink-faint);
+  cursor: pointer;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0.15rem 0 0.4rem 1.2rem;
+  padding: 0.15rem 0.5rem;
+}
+.la-skill__add:hover { color: var(--la-bronze); border-color: var(--la-bronze); }
+
+/* Armour check penalty is currently biting this skill. */
+.la-skill.has-acp .la-skill__total { color: var(--la-oxblood); }
+.la-skill.has-acp .la-skill__name::after {
+  content: "▲";
+  font-size: 0.5rem;
+  color: var(--la-oxblood);
+}
+
+.la-skill--passive {
+  grid-template-columns: minmax(8rem, 1fr) 3rem 1fr;
+  border-top: 2px solid var(--la-rule);
+  border-bottom: none;
+  margin-top: 0.3rem;
+  padding-top: 0.3rem;
+}
+.la-skill--passive .la-skill__name { font-weight: 600; }
+.la-skill__formula {
+  font-size: 0.6rem;
+  font-style: italic;
+  color: var(--la-ink-faint);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Items, technicks, inventory                                                */
+/* -------------------------------------------------------------------------- */
+
+.la-items { display: flex; flex-direction: column; gap: 1px; }
+
+.la-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.3rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--la-rule) 40%, transparent);
+}
+.la-item:nth-child(even) { background: color-mix(in srgb, var(--la-paper-3) 25%, transparent); }
+
+.la-item__img {
+  width: 1.5rem; height: 1.5rem;
+  object-fit: cover;
+  border: 1px solid var(--la-rule);
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+.la-item__name {
+  flex: 1 1 auto;
+  background: none;
+  border: none;
+  color: var(--la-ink);
+  font-family: var(--la-font-body);
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.la-item__name:hover { color: var(--la-bronze); }
+.la-item__type,
+.la-item__summary,
+.la-item__bulk,
+.la-item__qty {
+  font-size: 0.62rem;
+  color: var(--la-ink-faint);
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+.la-item__summary {
+  flex: 1 1 auto;
+  font-style: italic;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.la-item__equip,
+.la-item__delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+  flex: 0 0 auto;
+  padding: 0 0.2rem;
+}
+.la-item__equip { color: var(--la-ink-faint); font-size: 0.9rem; }
+.la-item.is-equipped .la-item__equip { color: var(--la-bronze-bright); }
+.la-item.is-equipped .la-item__name { font-weight: 600; }
+.la-item__delete { color: var(--la-oxblood); font-size: 1rem; }
+
+.la-item__warn {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--la-oxblood);
+  border: 1px solid var(--la-oxblood);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  flex: 0 0 auto;
+}
+.la-item.is-invalid { background: color-mix(in srgb, var(--la-oxblood) 8%, transparent); }
+.la-item.is-broken .la-item__name { text-decoration: line-through; opacity: 0.6; }
+
+.la-bulk {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--la-ink-soft);
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--la-rule) 50%, transparent);
+}
+.la-bulk strong { font-family: var(--la-font-num); font-size: 1rem; }
+.la-bulk__limits { color: var(--la-ink-faint); font-size: 0.62rem; }
+.la-bulk__state {
+  margin-left: auto;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.6rem;
+  color: var(--la-oxblood);
+  border: 1px solid var(--la-oxblood);
+  border-radius: 999px;
+  padding: 0 0.5rem;
+}
+.la-bulk.is-overencumbered strong { color: var(--la-oxblood); }
+
+/* -------------------------------------------------------------------------- */
+/*  Item sheet                                                                 */
+/* -------------------------------------------------------------------------- */
+
+.la-checkfield {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--la-ink-faint);
+  align-self: flex-end;
+  padding-bottom: 0.2rem;
+}
+.la-derived {
+  margin: 0.4rem 0 0;
+  font-size: 0.72rem;
+  color: var(--la-ink-soft);
+  background: color-mix(in srgb, var(--la-paper-3) 40%, transparent);
+  border-left: 3px solid var(--la-bronze);
+  padding: 0.25rem 0.5rem;
+}
+.la-derived--good { border-left-color: var(--la-good); }
+.la-derived strong { font-family: var(--la-font-num); }
+.la-prereq {
+  display: inline-block;
+  font-size: 0.62rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  margin: 0.1rem 0.2rem 0 0;
+}
+.la-description { font-size: 0.85rem; line-height: 1.5; }
+
+.la-damagemods { display: flex; flex-direction: column; gap: 0.3rem; }
+.la-damagemod { display: flex; align-items: center; gap: 0.5rem; }
+.la-damagemod > span {
+  flex: 0 0 6rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--la-ink-faint);
+}
+.la-damagemod input { flex: 1 1 auto; }
+
+/* -------------------------------------------------------------------------- */
+/*  Notes & warnings                                                           */
+/* -------------------------------------------------------------------------- */
+
+.la-note {
+  margin: 0 0 0.5rem;
+  font-size: 0.65rem;
+  font-style: italic;
+  color: var(--la-ink-faint);
+  text-align: center;
+}
+.la-warning {
+  margin: 0.2rem 0 0;
+  font-size: 0.68rem;
+  color: var(--la-oxblood);
+  border-left: 3px solid var(--la-oxblood);
+  padding-left: 0.4rem;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Chat cards                                                                 */
+/* -------------------------------------------------------------------------- */
+
+.lastarc-dc,
+.lastarc-result,
+.lastarc-auto {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  margin-left: 0.3rem;
+}
+.lastarc-dc { border: 1px solid currentColor; opacity: 0.7; }
+.lastarc-result--good, .lastarc-auto--good { background: #3f6b46; color: #fff; }
+.lastarc-result--bad, .lastarc-auto--bad { background: #7a2e2e; color: #fff; }
+.lastarc-auto { font-weight: 700; }
+
+/* -------------------------------------------------------------------------- */
+/*  Narrow windows                                                             */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 720px) {
+  .la-attributes { grid-template-columns: repeat(3, 1fr); }
+  .la-skills__head { display: none; }
+  .la-skill { grid-template-columns: minmax(6rem, 1fr) 2.6rem 2rem 2rem 2rem; }
+  .la-skill input[name$=".misc"] { display: none; }
+}
