@@ -14,6 +14,7 @@ import { compareTurnOrder } from "../module/initiative.mjs";
 import {
   rd,
   signed,
+  resolveInjuryRoll,
   weaponSkillFor,
   wieldCategory as wieldCat,
   skillAdjustmentParts,
@@ -328,10 +329,25 @@ describe("§4.5 skill modifiers", () => {
     assert.equal(skillModifier({ level: 2, attrMod: 0, breakStep: 2 }), 1 - 2);
   });
 
-  test("trained-skill count throws for classes not yet ingested", () => {
-    assert.equal(trainedSkillCount("rogue", 2), 10);
+  /**
+   * Read from the "Number of Trained Skills" table (book p.35). Four of these
+   * were null and the function threw rather than guess; all six are now known.
+   */
+  test("trained-skill count is the class base plus Int modifier", () => {
+    assert.equal(trainedSkillCount("rogue", 2), 10, "rogue 8 + 2");
+    assert.equal(trainedSkillCount("bard", 2), 8, "bard 6 + 2");
+    assert.equal(trainedSkillCount("ranger", 0), 6);
+    assert.equal(trainedSkillCount("warrior", 0), 6);
+    assert.equal(trainedSkillCount("mage", 3), 7, "mage 4 + 3");
+    assert.equal(trainedSkillCount("initiate", 0), 4);
+  });
+
+  test("half-elves get one more", () => {
     assert.equal(trainedSkillCount("warrior", 0, true), 7);
-    assert.throws(() => trainedSkillCount("bard", 2), /not yet known/);
+  });
+
+  test("an unknown class still throws rather than guessing", () => {
+    assert.throws(() => trainedSkillCount("archmage", 2), /Unknown class/);
   });
 });
 
@@ -788,6 +804,54 @@ describe("wield category to weapon skill mapping", () => {
         () => weaponSkillFor(cat),
         `wieldCategory can return "${cat}" but nothing maps it to a skill`
       );
+    }
+  });
+});
+
+
+/* -------------------------------------------------------------------------- */
+
+describe("§5.6 Injury & Dismemberment (A7, resolved)", () => {
+  /**
+   * The resolution that unblocked this. The chart is NOT three mutually
+   * exclusive bands — the book says "rolling the % shown, OR LESS, will impose
+   * the listed effect", so each row is an independent threshold on one roll and
+   * they stack. Read as exclusive bands, dismemberment would be a 15% outcome;
+   * read correctly it is 10% and 5% independently, and 91–100 is unharmed.
+   */
+  test("a low roll imposes every effect it reaches, not just one", () => {
+    const ids = resolveInjuryRoll(3).map((r) => r.id);
+    assert.deepEqual(ids, ["severedArm", "severedLeg", "injury"],
+      "3 is ≤5, ≤10 and ≤90, so all three apply");
+  });
+
+  test("a middling roll imposes only what it reaches", () => {
+    assert.deepEqual(resolveInjuryRoll(8).map((r) => r.id), ["severedLeg", "injury"]);
+    assert.deepEqual(resolveInjuryRoll(50).map((r) => r.id), ["injury"]);
+  });
+
+  test("91-100 is unharmed — the 'gap' is the escape", () => {
+    assert.deepEqual(resolveInjuryRoll(91), []);
+    assert.deepEqual(resolveInjuryRoll(100), []);
+  });
+
+  test("the boundaries are inclusive — 'the % shown, or less'", () => {
+    assert.ok(resolveInjuryRoll(90).some((r) => r.id === "injury"));
+    assert.ok(resolveInjuryRoll(10).some((r) => r.id === "severedLeg"));
+    assert.ok(resolveInjuryRoll(5).some((r) => r.id === "severedArm"));
+    assert.ok(!resolveInjuryRoll(11).some((r) => r.id === "severedLeg"));
+  });
+
+  test("results come back worst first", () => {
+    const rolled = resolveInjuryRoll(1);
+    assert.equal(rolled[0].id, "severedArm", "the rarest outcome leads");
+  });
+
+  test("both dismemberment statuses are registered and permanent", () => {
+    for (const id of ["severedLeg", "severedArm"]) {
+      assert.ok(LASTARC.allStatusIds.includes(id), `${id} not registered`);
+      assert.equal(LASTARC.statusEffects[id].permanent, true,
+        "a missing limb is not cleared by rest");
     }
   });
 });

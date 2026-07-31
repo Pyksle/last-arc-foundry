@@ -126,16 +126,19 @@ LASTARC.trainedBonus = 5;
  * ref/fort/will are granted ONCE at class level 1 (see §15 A9 for the multiclass
  * question and the `multiclassRegrantsLevel1Benefits` setting).
  *
- * ⚠ `trainedSkills` is INCOMPLETE. §4.5 gives only Rogue 8 and Warrior 6; the
- * remaining four are marked null and must be filled from the class tables
- * (book pp.34–55) during Phase 5 ingestion. `trainedSkillCount()` throws on null
- * rather than guessing, so this cannot silently ship wrong.
+ * `trainedSkills` is the class base; the total is that plus the Int modifier.
+ * Read from the "Number of Trained Skills" table (book p.35): Rogue 8;
+ * Bard, Ranger and Warrior 6; Initiate and Mage 4. Previously four of these were
+ * null and `trainedSkillCount()` threw rather than guess — resolved.
+ *
+ * HP, MP and initiative dice below were verified against the same page in the
+ * same pass and needed no correction.
  */
 LASTARC.classes = {
-  bard:     { label: "LASTARC.Class.bard",     hp1: 24, hpPer: 5, mp1: 6,  mpPer: 2, initDie: "d6",  ref: 2, fort: 0, will: 1, trainedSkills: null },
-  initiate: { label: "LASTARC.Class.initiate", hp1: 18, hpPer: 4, mp1: 12, mpPer: 3, initDie: "d12", ref: 0, fort: 1, will: 2, trainedSkills: null },
-  mage:     { label: "LASTARC.Class.mage",     hp1: 18, hpPer: 4, mp1: 12, mpPer: 3, initDie: "d12", ref: 1, fort: 0, will: 2, trainedSkills: null },
-  ranger:   { label: "LASTARC.Class.ranger",   hp1: 30, hpPer: 6, mp1: 6,  mpPer: 2, initDie: "d8",  ref: 1, fort: 2, will: 0, trainedSkills: null },
+  bard:     { label: "LASTARC.Class.bard",     hp1: 24, hpPer: 5, mp1: 6,  mpPer: 2, initDie: "d6",  ref: 2, fort: 0, will: 1, trainedSkills: 6 },
+  initiate: { label: "LASTARC.Class.initiate", hp1: 18, hpPer: 4, mp1: 12, mpPer: 3, initDie: "d12", ref: 0, fort: 1, will: 2, trainedSkills: 4 },
+  mage:     { label: "LASTARC.Class.mage",     hp1: 18, hpPer: 4, mp1: 12, mpPer: 3, initDie: "d12", ref: 1, fort: 0, will: 2, trainedSkills: 4 },
+  ranger:   { label: "LASTARC.Class.ranger",   hp1: 30, hpPer: 6, mp1: 6,  mpPer: 2, initDie: "d8",  ref: 1, fort: 2, will: 0, trainedSkills: 6 },
   rogue:    { label: "LASTARC.Class.rogue",    hp1: 24, hpPer: 5, mp1: 6,  mpPer: 2, initDie: "d4",  ref: 2, fort: 1, will: 0, trainedSkills: 8 },
   warrior:  { label: "LASTARC.Class.warrior",  hp1: 30, hpPer: 6, mp1: 6,  mpPer: 2, initDie: "d10", ref: 0, fort: 2, will: 1, trainedSkills: 6 }
 };
@@ -419,6 +422,22 @@ LASTARC.statusEffects = {
   incorporeal: {},
   /** Blue Magick. Retargeting is a GM ruling; the badge is the mechanical part. */
   charmed: {},
+
+  /* ── Dismemberment (book p.170). PERMANENT — these are not cleared by rest
+     or by clearing statuses; only a prosthetic reduces them. ────────────── */
+  severedLeg: {
+    permanent: true,
+    attributeCheckPenalty: { agi: -5 },
+    speedMultiplier: 0.5,
+    maxBulkMultiplier: 0.5,
+    blocksCharge: true
+  },
+  severedArm: {
+    permanent: true,
+    attributeCheckPenalty: { str: -5, agi: -5 },
+    blocksTwoHandedWeapons: true,
+    reloadStepIncrease: 1
+  },
   /**
    * Applied at 0 HP alongside `prone` and `helpless` (§5.6).
    *
@@ -569,6 +588,51 @@ LASTARC.highArcanaIds = Object.keys(LASTARC.highArcana);
 
 /** MP cost multiplier applied when any High Arcana is used. */
 LASTARC.highArcanaCostMultiplier = 2;
+
+/**
+ * Injury & Dismemberment (book p.170), rolled when a hero point prevents death.
+ *
+ * RESOLVED — this was ambiguity A7, and the resolution is not what the spec
+ * assumed. The entries are NOT mutually exclusive bands on a lookup table.
+ * The book says:
+ *
+ *   "Roll a d%, rolling the % shown, OR LESS, will impose the listed effect."
+ *
+ * So each row is an INDEPENDENT threshold against one roll, and they stack:
+ *
+ *   roll  3 → Injury AND Severed Leg AND Severed Arm
+ *   roll  8 → Injury AND Severed Leg
+ *   roll 50 → Injury
+ *   roll 95 → nothing
+ *
+ * That explains both things that looked broken about the transcription: the
+ * "overlapping ≤ bands" are deliberate, and the uncovered 91–100 is the
+ * escape-unharmed case. Read as exclusive bands, dismemberment would have been
+ * a 15% outcome; read correctly it is 10% and 5% independently.
+ *
+ * Missing limbs CANNOT be restored — only prosthetics reduce the penalties.
+ */
+LASTARC.injuryTable = Object.freeze([
+  {
+    id: "injury",
+    threshold: 90,
+    label: "LASTARC.Injury.injury",
+    /** A persistent Break condition, the same mechanism as §6. */
+    persistentCondition: true
+  },
+  {
+    id: "severedLeg",
+    threshold: 10,
+    label: "LASTARC.Injury.severedLeg",
+    status: "severedLeg"
+  },
+  {
+    id: "severedArm",
+    threshold: 5,
+    label: "LASTARC.Injury.severedArm",
+    status: "severedArm"
+  }
+]);
 
 /**
  * Perform specialisations, and the penalty each takes to perform defensively

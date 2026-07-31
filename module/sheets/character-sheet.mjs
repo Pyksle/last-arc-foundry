@@ -342,6 +342,8 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       ? D.knownSpellLimit(sys.attributes.int.mod)
       : null;
     context.overSpellLimit = spells.length > (context.knownSpellLimit ?? Infinity);
+    context.knownPerformanceLimit = D.knownPerformanceLimit(sys.attributes.int.mod);
+    context.overPerformanceLimit = performances.length > context.knownPerformanceLimit;
     context.highArcanaOptions = LASTARC.highArcanaIds.map((id) => ({
       value: id, label: game.i18n.localize(LASTARC.highArcana[id].label)
     }));

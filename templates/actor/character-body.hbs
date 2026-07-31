@@ -406,6 +406,9 @@
   {{#if performances.length}}
     <section class="la-panel la-panel--performances">
       <h2 class="la-panel__title">{{localize "LASTARC.Section.Performances"}}</h2>
+      <p class="la-note {{#if overPerformanceLimit}}is-warning{{/if}}">
+        {{performances.length}} / {{knownPerformanceLimit}}
+      </p>
       <div class="la-spells">
         {{#each performances}}
           <div class="la-spell {{#unless this.affordable}}is-unaffordable{{/unless}}">

@@ -364,6 +364,21 @@ export function skillAdjustmentParts(skill = {}, breakPenalty = 0) {
 }
 
 /**
+ * Resolve the Injury & Dismemberment chart for a d% result (book p.170).
+ *
+ * Each row is an INDEPENDENT threshold, not a band — "rolling the % shown, or
+ * less, will impose the listed effect" — so a low roll imposes several at once.
+ * Returns every row the result triggered, worst first.
+ *
+ * Pure, so the outcome of a permanent maiming is testable without dice.
+ */
+export function resolveInjuryRoll(percentile) {
+  return LASTARC.injuryTable
+    .filter((row) => percentile <= row.threshold)
+    .sort((a, b) => a.threshold - b.threshold);
+}
+
+/**
  * Spells a caster may know = 1 + Int modifier (§18.1, book p.140).
  *
  * Learned from scrolls. If the Int modifier later rises the limit increases
@@ -374,6 +389,19 @@ export function skillAdjustmentParts(skill = {}, breakPenalty = 0) {
  * owing the game a spell.
  */
 export function knownSpellLimit(intMod = 0) {
+  return Math.max(0, 1 + intMod);
+}
+
+/**
+ * Performances a character may know = 1 + Int modifier (§19.1, book p.156).
+ *
+ * The same FORMULA as spells but a different gate and a different source: the
+ * Bardic Study technick rather than Arcane Study, and orchestral scores rather
+ * than spell scrolls. Kept as its own function rather than aliased, because the
+ * two limits are independent — a character with both technicks tracks each
+ * separately, and collapsing them would silently share one pool.
+ */
+export function knownPerformanceLimit(intMod = 0) {
   return Math.max(0, 1 + intMod);
 }
 

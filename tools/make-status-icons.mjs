@@ -124,6 +124,14 @@ stroke-dasharray="5 4"/>
 
   charmed: `<path d="M32 54S12 40 12 27a10 10 0 0 1 20-4 10 10 0 0 1 20 4c0 13-20 27-20 27z"/>`,
 
+  // Dismemberment. A limb with a clean break across it — the break line is the
+  // read at badge size, so both keep the same stroke and differ in silhouette.
+  severedLeg: `<path d="M26 8h12v18l6 14v16h-9l-2-14-4-10"/>
+<path d="M14 34h36" stroke-dasharray="4 3"/>`,
+
+  severedArm: `<path d="M22 10a6 6 0 0 1 12 0v18l10 10-5 5-11-9"/>
+<path d="M12 30h40" stroke-dasharray="4 3"/>`,
+
   grabbed: `<path d="M18 40V20a4 4 0 0 1 8 0v14M26 34V16a4 4 0 0 1 8 0v18M34 34V20a4 4 0 0 1 8 0v16
 M42 30a4 4 0 0 1 8 0v10c0 10-8 16-16 16s-16-6-16-16"/>`,
 

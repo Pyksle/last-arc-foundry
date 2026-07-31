@@ -180,25 +180,56 @@ export async function heroPointPreventDeath(actor) {
   await actor.toggleStatusEffect?.("prone", { active: true });
 
   /**
-   * ⚠ The Injury & Dismemberment roll is deliberately NOT performed.
+   * Roll the Injury & Dismemberment chart (book p.170).
    *
-   * The transcribed table (spec §5.6, ambiguity A7) is three overlapping `≤`
-   * bands — `≤90 Injury`, `≤10 Severed leg`, `≤5 Severed arm` — with nothing
-   * covering 91–100. The readings are not close to equivalent: one makes
-   * dismemberment a 15% outcome, another 5%. Guessing here permanently maims a
-   * player character on a coin flip we made up, so we refuse and say why.
+   * This used to REFUSE, because the transcribed table looked like three
+   * overlapping `≤` bands with an uncovered 91–100. It is not a band table:
+   * each row is an independent threshold on one roll, and they stack. See
+   * `LASTARC.injuryTable`.
    */
-  ChatMessage.create({
+  const roll = new Roll("1d100");
+  await roll.evaluate();
+  const results = D.resolveInjuryRoll(roll.total);
+
+  for (const row of results) {
+    if (row.status) {
+      await actor.toggleStatusEffect?.(row.status, { active: true });
+    }
+    if (row.persistentCondition) {
+      const sources = actor.system.toObject().breakGauge.persistentSources ?? [];
+      await actor.update({
+        "system.breakGauge.persistentSteps":
+          Math.min(LASTARC.BREAK_STEP_MAX, actor.system.breakGauge.persistentSteps + 1),
+        "system.breakGauge.persistentSources": [...sources, {
+          id: `injury-${roll.total}-${sources.length}`,
+          label: game.i18n.localize("LASTARC.Injury.injury"),
+          clearedBy: game.i18n.localize("LASTARC.Injury.clearedByCare"),
+          fromInjury: true
+        }]
+      });
+    }
+  }
+
+  await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
     content:
-      `<div class="lastarc-card lastarc-card--blocked">` +
+      `<div class="lastarc-card lastarc-card--injury">` +
       `<p class="lastarc-verdict lastarc-verdict--bad">` +
       `${game.i18n.localize("LASTARC.HeroPoint.DeathPrevented")}</p>` +
-      `<p class="lastarc-reaction">${game.i18n.localize("LASTARC.HeroPoint.InjuryTableBlocked")}</p>` +
-      `</div>`
+      `<p class="lastarc-card__natural">` +
+      `${game.i18n.format("LASTARC.Injury.Rolled", { roll: roll.total })}</p>` +
+      (results.length
+        ? results.map((r) =>
+            `<p class="lastarc-rider">${game.i18n.localize(r.label)}</p>`).join("")
+        : `<p class="lastarc-note">${game.i18n.localize("LASTARC.Injury.None")}</p>`) +
+      (results.some((r) => r.status)
+        ? `<p class="lastarc-note">${game.i18n.localize("LASTARC.Injury.Permanent")}</p>`
+        : "") +
+      `</div>`,
+    rolls: [roll]
   });
 
-  return { prevented: true, injuryRollBlocked: true };
+  return { prevented: true, injuryRoll: roll.total, injuries: results };
 }
 
 /* -------------------------------------------------------------------------- */

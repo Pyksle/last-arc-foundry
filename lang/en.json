@@ -497,5 +497,14 @@
   "LASTARC.HighArcana.note.enlarged": "Targeted area doubled — secondary effects are not extended.",
   "LASTARC.HighArcana.note.lingering": "Duration doubled, where the duration scales.",
   "LASTARC.HighArcana.note.multi": "May target additional creatures equal to your Mnd modifier.",
-  "LASTARC.HighArcana.note.multiInapplicable": "Multi-Spell has no effect: it only works on spells that target a single creature."
+  "LASTARC.HighArcana.note.multiInapplicable": "Multi-Spell has no effect: it only works on spells that target a single creature.",
+  "LASTARC.Injury.injury": "Injury — one persistent condition",
+  "LASTARC.Injury.severedLeg": "Severed leg — −5 Agi checks, speed and max bulk halved, cannot charge",
+  "LASTARC.Injury.severedArm": "Severed arm — −5 Str and Agi checks, no two-handed weapons, reload one step slower",
+  "LASTARC.Injury.clearedByCare": "Intensive care",
+  "LASTARC.Injury.Rolled": "Injury & Dismemberment: rolled {roll}",
+  "LASTARC.Injury.None": "No lasting harm.",
+  "LASTARC.Injury.Permanent": "A missing limb cannot be restored — only a prosthetic reduces the penalties.",
+  "LASTARC.Status.severedLeg": "Severed Leg",
+  "LASTARC.Status.severedArm": "Severed Arm"
 }
