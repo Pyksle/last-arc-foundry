@@ -7,42 +7,40 @@ An unofficial Foundry VTT v13+ implementation of *Last Arc: Tactics Analogue*.
 
 ## Status
 
-Phase 1 of 6, plus the item layer. What works today:
+Playable. Every subsystem below has been driven end to end in a live world, not
+only unit tested.
 
 - Character and NPC data models with full derived-stat computation
-- Data models for all 17 item subtypes
-- Character, NPC, and item sheets (ApplicationV2)
-- Skill, weapon-skill, and attribute rolls with chat output
-- Break Gauge widget with recovery tracking and persistent-condition floors
-- Technicks and talents that feed derived values automatically, with live
-  prerequisite checking
-- Inventory with bulk-driven encumbrance and exclusive armour/shield equipping
-- Attack rolls with Combo/Critical riders, and a damage pipeline with exploding
-  dice (including the doubled-explosion variant)
-- Chat cards with damage application, mitigation, and Break Threshold checks
-- All 17 statuses and 8 curses with mechanical payloads and original icon art
-- Named persistent Break conditions, each cleared separately
-- Hero point spending, including the misfortune interaction
-- Inverted initiative: class dice, lowest acts first, Hold Turn that permanently
-  reorders, group initiative, and per-pair surprise awareness
+- All 17 item subtypes, each creatable and editable by hand in the UI
+- Character, NPC and item sheets (ApplicationV2), light and dark
+- Skill, weapon-skill and attribute rolls
+- **Break Gauge** with its death spiral, recovery banking, and named persistent
+  conditions cleared individually
+- Attack and damage pipeline: exploding dice with the doubled-explosion variant,
+  Combo and Critical riders, mitigation, and the Break Threshold check
+- **Magick** — the Spellcraft check's tiered outcomes, opposed branches, mana,
+  casting defensively, and all six High Arcana
+- **Performances** — Perform checks, the one-per-side replacement rule, and the
+  specialisation-dependent defensive penalty
+- Statblock attacks, so a GM can run a monster from its own sheet
+- **Counterattacks**, including the rule that one beating your Break Threshold
+  destroys a casting and wastes the mana
+- Inverted initiative (class dice, lowest acts first), Hold Turn, group
+  initiative, round-1 flat-footed
 - Action economy with downgrades and the banked-minor interrupt rule
+- All four hero point spends, Second Wind, rest, and the Injury &
+  Dismemberment chart
+- 33 statuses and curses with mechanical payloads and original icon art
 
-| Phase | Deliverable | Status |
-|---|---|---|
-| 1 | Data models, actor sheet, derived stats, skill rolls | ✅ |
-| 1+ | Item data models, item sheets, technick wiring, inventory | ✅ |
-| 2 | Attack/damage pipeline, exploding dice, weapon rolls | ✅ |
-| 3 | Break Gauge subsystem, statuses, Active Effects | ✅ |
-| 4 | Inverted initiative + action economy tracking | ✅ |
-| 5 | Compendium ingestion | ⬜ |
-| 6 | Technick/talent automation | ⬜ |
+Not implemented: compendium ingestion (below), airships (out of scope), and
+advanced classes / Aeons / optional rules, which the demo does not include.
 
 ## Install
 
 Paste this manifest URL into Foundry's *Install System* dialog:
 
 ```
-<manifest URL once published>
+https://raw.githubusercontent.com/Pyksle/last-arc-foundry/main/system.json
 ```
 
 ## Content
