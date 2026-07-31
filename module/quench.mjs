@@ -433,6 +433,85 @@ function registerSheetBatch(quench) {
           });
         });
       });
+
+      /**
+       * Getting content INTO a character.
+       *
+       * This system ships with empty compendium packs by design — the rulebook
+       * is not ours to distribute — so hand-authoring is the only way anything
+       * enters a world. For a while the sheets offered no way to do it: every
+       * subsystem worked, every panel rendered, and there was simply no button
+       * that made anything. Nothing in the unit suite could see that, because
+       * nothing was mathematically wrong.
+       *
+       * These tests therefore assert the AFFORDANCE, not just the function.
+       */
+      describe("creating items by hand", function () {
+        it("offers an add button in every panel of the character sheet", async function () {
+          await withActor({}, async (actor) => {
+            await actor.sheet.render(true);
+            const groups = [...actor.sheet.element.querySelectorAll('[data-action="createItem"]')]
+              .map((b) => b.dataset.group);
+            await actor.sheet.close({ animate: false });
+
+            for (const expected of ["attacks", "spells", "performances", "technicks",
+                                    "features", "inventory"]) {
+              assert.include(groups, expected, `no add button for the "${expected}" panel`);
+            }
+          });
+        });
+
+        it("offers an add button on the NPC sheet", async function () {
+          const npc = await Actor.create({ name: "Quench NPC Add", type: "npc" });
+          try {
+            await npc.sheet.render(true);
+            const btn = npc.sheet.element.querySelector('[data-action="createItem"]');
+            await npc.sheet.close({ animate: false });
+            assert.exists(btn, "the NPC sheet has no way to add an item");
+          } finally {
+            await npc.delete();
+          }
+        });
+
+        /**
+         * Creation is only half of it: an item that is created and then not
+         * displayed is indistinguishable from a button that did nothing. Every
+         * subtype in every group must be visible on the sheet afterwards.
+         */
+        it("shows every subtype on the sheet once created", async function () {
+          this.timeout(30_000);
+          await withActor({}, async (actor) => {
+            const types = [...new Set(Object.values(CONFIG.LASTARC.itemCreationGroups).flat())];
+
+            await actor.createEmbeddedDocuments("Item",
+              types.map((t) => ({ name: `Quench show ${t}`, type: t })));
+
+            await actor.sheet.render(true);
+            const text = actor.sheet.element?.textContent ?? "";
+            await actor.sheet.close({ animate: false });
+
+            const invisible = types.filter((t) => !text.includes(`Quench show ${t}`));
+            assert.deepEqual(invisible, [],
+              `created but not rendered anywhere on the sheet: ${invisible.join(", ")}`);
+          });
+        });
+
+        it("puts a weapon made from the Attacks panel straight into the attack list",
+          async function () {
+            await withActor({}, async (actor) => {
+              // The Attacks panel lists EQUIPPED weapons only, so one created
+              // there must arrive equipped or it appears to vanish.
+              await actor.createEmbeddedDocuments("Item", [{
+                name: "Quench Panel Sword", type: "weapon", system: { equipped: true }
+              }]);
+              await actor.sheet.render(true);
+              const panel = actor.sheet.element.querySelector(".la-panel--attacks");
+              const text = panel?.textContent ?? "";
+              await actor.sheet.close({ animate: false });
+              assert.include(text, "Quench Panel Sword");
+            });
+          });
+      });
     },
     { displayName: "Last Arc — Sheets" }
   );

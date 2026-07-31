@@ -31,9 +31,12 @@ only unit tested.
 - All four hero point spends, Second Wind, rest, and the Injury &
   Dismemberment chart
 - 33 statuses and curses with mechanical payloads and original icon art
+- Hand-authoring of all 17 item subtypes from the sheet they belong on, which is
+  how content gets in — see [Content](#content)
 
-Not implemented: compendium ingestion (below), airships (out of scope), and
-advanced classes / Aeons / optional rules, which the demo does not include.
+Not implemented: a bulk importer for the rulebook (there is no legal source to
+import from), airships (out of scope), and advanced classes / Aeons / optional
+rules, which the demo does not include.
 
 ## Install
 
@@ -51,8 +54,15 @@ property of **Old World Studios Inc.** This project is unofficial and is not
 affiliated with, endorsed by, or sponsored by them.
 
 This repository contains **no game content**. The compendium packs listed in
-`system.json` ship empty and must be populated from your own licensed copy of the
-rulebook using the importer (Phase 5).
+`system.json` ship empty, and they stay empty — there is no download that fills
+them.
+
+**You enter content by hand, from your own copy of the book.** Every panel on the
+character sheet has an *Add* row at its foot — weapons, spells, performances,
+technicks and talents, race and class features, equipment — and the NPC sheet has
+one too. Clicking it asks for a name, then opens that item's sheet so you can type
+in the numbers your book prints. Anything you make can be dragged into a
+compendium of your own to reuse across worlds.
 
 The code in this repository is MIT licensed — see [LICENSE](LICENSE).
 

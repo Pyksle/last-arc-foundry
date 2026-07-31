@@ -15,6 +15,7 @@ import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollAttribute } from "../dice/rolls.mjs";
 import { rollNpcAttack, defenceToBeat } from "../dice/attack.mjs";
+import { promptCreateItem } from "./item-creation.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -31,6 +32,7 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       addAttack: LastArcNpcSheet.#onAddAttack,
       deleteAttack: LastArcNpcSheet.#onDeleteAttack,
       setBreakStep: LastArcNpcSheet.#onSetBreakStep,
+      createItem: LastArcNpcSheet.#onCreateItem,
       editItem: LastArcNpcSheet.#onEditItem,
       deleteItem: LastArcNpcSheet.#onDeleteItem
     }
@@ -219,6 +221,10 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     const next = D.reconcilePersistent(requested, sys.breakGauge.persistentSteps);
     await this.document.update({ "system.breakGauge.step": next.step });
+  }
+
+  static async #onCreateItem(event, target) {
+    await promptCreateItem(this.document, target.dataset.group ?? "npc");
   }
 
   static async #onEditItem(event, target) {

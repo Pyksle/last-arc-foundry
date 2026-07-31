@@ -813,6 +813,37 @@
 }
 .la-skill__add:hover { color: var(--la-bronze); border-color: var(--la-bronze); }
 
+/**
+ * "Add …" row at the foot of every item panel.
+ *
+ * A full-width dashed row rather than a "+" in the panel corner: the top edge
+ * is already spoken for by the title banner and the corner brackets drawn by
+ * `.la-panel::before`, and a button there would sit on top of the ornament.
+ * More usefully, a row at the end of a list reads as the next row you could
+ * make — which is exactly what it does. Borrows the dashed-and-faint language
+ * of `.la-skill__add` so the sheet has one add gesture rather than two.
+ */
+.la-panel__add {
+  display: block;
+  width: 100%;
+  margin-top: 0.45rem;
+  padding: 0.32rem 0.5rem;
+  background: none;
+  border: 1px dashed var(--la-rule);
+  border-radius: var(--la-radius);
+  color: var(--la-ink-faint);
+  cursor: pointer;
+  font-family: var(--la-font-head);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.la-panel__add:hover {
+  color: var(--la-bronze);
+  border-color: var(--la-bronze);
+  border-style: solid;
+}
+
 /* Armour check penalty is currently biting this skill. */
 .la-skill.has-acp .la-skill__total { color: var(--la-oxblood); }
 .la-skill.has-acp .la-skill__name::after {

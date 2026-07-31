@@ -726,6 +726,58 @@ LASTARC.maxDicePerRoll = 1000;
 LASTARC.maxComboChain = 20;
 
 /* -------------------------------------------------------------------------- */
+/*  Item subtypes                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Subtypes that live in an inventory: they carry bulk, cost, quantity and an
+ * equipped flag, and the character sheet's Inventory panel lists exactly these.
+ *
+ * Single source of truth on purpose. This list previously existed twice — once
+ * as PHYSICAL_TYPES in item-sheet.mjs and once implicitly as "has a numeric
+ * bulk" in character-sheet.mjs — and the two could drift without any test
+ * noticing, which is precisely how a subtype ends up creatable but invisible.
+ */
+LASTARC.physicalItemTypes = [
+  "weapon", "armour", "shield", "ammunition", "accessory", "consumable",
+  "resourceItem", "mount", "spellScroll", "orchestralScore", "prostheticLimb"
+];
+
+/**
+ * Which subtypes each character-sheet panel can create.
+ *
+ * Drives the "+" button in every panel header. The keys are panel names, not
+ * arbitrary labels — `createItem` reads `data-group` and looks it up here, so a
+ * typo in a template fails loudly at click time instead of creating the wrong
+ * thing. `allItemTypes` below asserts every declared subtype appears in at
+ * least one group, which is what stops a new subtype from being unreachable.
+ */
+LASTARC.itemCreationGroups = {
+  attacks: ["weapon"],
+  spells: ["spell"],
+  performances: ["performance"],
+  technicks: ["technick", "talent"],
+  features: ["race", "class"],
+  // Scrolls and orchestral scores are objects you carry, not things you know,
+  // so they belong here rather than in the Spells and Performances groups —
+  // creating one from those panels would file it into Inventory and look like
+  // the button had failed.
+  inventory: LASTARC.physicalItemTypes,
+  // The NPC sheet has one undifferentiated item list rather than panels, so it
+  // offers everything. Assigned below, once allItemTypes exists.
+  npc: []
+};
+
+/** Every subtype the system declares, in a stable order for pickers. */
+LASTARC.allItemTypes = [
+  "weapon", "armour", "shield", "ammunition", "accessory", "consumable",
+  "technick", "talent", "spell", "performance", "race", "class",
+  "resourceItem", "mount", "spellScroll", "orchestralScore", "prostheticLimb"
+];
+
+LASTARC.itemCreationGroups.npc = LASTARC.allItemTypes;
+
+/* -------------------------------------------------------------------------- */
 /*  Hook surface (§11)                                                         */
 /* -------------------------------------------------------------------------- */
 

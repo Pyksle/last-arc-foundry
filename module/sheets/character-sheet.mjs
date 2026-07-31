@@ -20,6 +20,7 @@ import { castSpell, performItem, performancesDisplacedBy } from "../dice/magic.m
 import { heroPointDefenceBoost } from "../dice/hero-points.mjs";
 import * as AE from "../action-economy.mjs";
 import { getTurnState, setTurnState, holdTurn, resetActions } from "../combat.mjs";
+import { promptCreateItem } from "./item-creation.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -41,6 +42,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       removeSubskill: LastArcCharacterSheet.#onRemoveSubskill,
       addClass: LastArcCharacterSheet.#onAddClass,
       removeClass: LastArcCharacterSheet.#onRemoveClass,
+      createItem: LastArcCharacterSheet.#onCreateItem,
       editItem: LastArcCharacterSheet.#onEditItem,
       deleteItem: LastArcCharacterSheet.#onDeleteItem,
       toggleEquip: LastArcCharacterSheet.#onToggleEquip,
@@ -258,19 +260,29 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const inventory = [];
     const spells = [];
     const performances = [];
+    const features = [];
 
     const EQUIPPABLE = new Set(["weapon", "armour", "shield", "accessory", "prostheticLimb"]);
 
-    // Subtypes intentionally not listed on the sheet, and WHY. Anything absent
-    // from both this set and the branches below is a bug, and the fallthrough
-    // at the bottom of the loop says so out loud rather than dropping it.
-    //
-    // `race` and `class` are read from actor fields (system.details.race,
-    // system.classes) and rendered in the header, so an Item of those types is
-    // redundant rather than ignored.
-    const NOT_SHOWN = new Set(["race", "class"]);
-
     for (const item of this.document.items) {
+      // Race and class Items used to be dropped here as "redundant", on the
+      // grounds that the header already reads system.details.race and
+      // system.classes. That was wrong twice over: #onHeroBoost reads a race
+      // item's slug for the Grassrunner reroll, so such an item is
+      // mechanically live while being invisible; and a player transcribing
+      // their race's features from the book had nowhere to put them and no
+      // sign the import had worked.
+      if (item.type === "race" || item.type === "class") {
+        features.push({
+          id: item.id,
+          name: item.name,
+          img: item.img,
+          typeLabel: game.i18n.localize(`TYPES.Item.${item.type}`),
+          summary: this.#grantSummary(item.system.grants)
+        });
+        continue;
+      }
+
       if (item.type === "spell") {
         spells.push({
           id: item.id,
@@ -316,16 +328,15 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
       // THE SILENT DROP. This line used to be the only fallthrough, so every
       // subtype without a bulk value vanished from the sheet without trace —
-      // a spell added to a character was simply not there. Anything reaching
-      // here that we have not deliberately excluded is now loud.
+      // a spell added to a character was simply not there. Every declared
+      // subtype now has a panel, so anything reaching here is a new subtype
+      // that nobody gave a home to, and it says so.
       if (typeof item.system?.bulk !== "number") {
-        if (!NOT_SHOWN.has(item.type)) {
-          console.warn(
-            `Last Arc | "${item.name}" (${item.type}) has no bulk and no panel, so it ` +
-            `will not appear on the sheet. Give it a panel in character-sheet.mjs ` +
-            `or add it to NOT_SHOWN with a reason.`
-          );
-        }
+        console.warn(
+          `Last Arc | "${item.name}" (${item.type}) has no bulk and no panel, so it ` +
+          `will not appear on the sheet. Give it a branch in #prepareItems and a ` +
+          `group in LASTARC.itemCreationGroups.`
+        );
         continue;
       }
 
@@ -346,6 +357,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.inventory = inventory;
     context.spells = spells;
     context.performances = performances;
+    context.features = features;
     context.knownSpellLimit = D.knownSpellLimit
       ? D.knownSpellLimit(sys.attributes.int.mod)
       : null;
@@ -810,6 +822,10 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       performDefensively: !!event.shiftKey,
       threatCount: event.shiftKey ? 1 : 0
     });
+  }
+
+  static async #onCreateItem(event, target) {
+    await promptCreateItem(this.document, target.dataset.group);
   }
 
   static async #onEditItem(event, target) {

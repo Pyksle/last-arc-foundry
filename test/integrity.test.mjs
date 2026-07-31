@@ -197,6 +197,33 @@ describe("sheet wiring", () => {
     assert.deepEqual(missing, [], `unhandled chat actions:\n  ${missing.join("\n  ")}`);
   });
 
+  /**
+   * The mirror of the test above, and the one that matters more.
+   *
+   * "Every button has a handler" catches a dead button. This catches a handler
+   * no button reaches — a working feature with no way in, which is how the
+   * item-creation gap survived a full build and two review passes. Nothing was
+   * broken; it just could not be got at.
+   */
+  test("every declared action is reachable from some template", () => {
+    const used = new Set(
+      templates.flatMap(({ source }) =>
+        [...source.matchAll(/data-action="([^"]+)"/g)].map((m) => m[1]))
+    );
+
+    const unreachable = [];
+    for (const [src, cls] of [
+      [sheetSource, "LastArcCharacterSheet"],
+      [npcSheetSource, "LastArcNpcSheet"]
+    ]) {
+      for (const [, action] of src.matchAll(new RegExp(`(\\w+):\\s*${cls}\\.#on`, "g"))) {
+        if (!used.has(action)) unreachable.push(`${cls}.${action}`);
+      }
+    }
+
+    assert.deepEqual(unreachable, [], `actions no template exposes:\n  ${unreachable.join("\n  ")}`);
+  });
+
   test("every declared action has a matching private handler", () => {
     for (const [src, cls] of [
       [sheetSource, "LastArcCharacterSheet"],
@@ -209,6 +236,87 @@ describe("sheet wiring", () => {
         );
       }
     }
+  });
+
+  /**
+   * The gap that made the system unusable, and the test that should have
+   * existed from the start.
+   *
+   * Every mechanical subsystem was wired and tested, but no sheet had a button
+   * that CREATED anything. The only route in was the sidebar Items directory
+   * plus a drag — which works, and which no player finds — while the
+   * empty-state copy pointed at compendium packs that ship empty by design.
+   * Nothing was broken in a way any existing test could see: the data models
+   * were right, the panels rendered, the drop handler worked. There was simply
+   * no way to get to any of it.
+   *
+   * These four tests together assert the whole chain: a subtype is declared, it
+   * belongs to a creation group, some template offers that group, and the panel
+   * it lands in will actually display it.
+   */
+  test("every declared Item subtype can be created from some sheet", () => {
+    const creatable = new Set(Object.values(LASTARC.itemCreationGroups).flat());
+    const unreachable = Object.keys(systemJson.documentTypes.Item)
+      .filter((sub) => !creatable.has(sub));
+
+    assert.deepEqual(unreachable, [], `Item subtypes with no way to create them in the UI: ` +
+      `${unreachable.join(", ")}. Add each to a group in LASTARC.itemCreationGroups.`);
+  });
+
+  test("every data-group in a template is a real creation group", () => {
+    const groups = new Set(Object.keys(LASTARC.itemCreationGroups));
+    const bad = [];
+    for (const { name, source } of templates) {
+      for (const m of source.matchAll(/data-group="([^"]+)"/g)) {
+        if (!groups.has(m[1])) bad.push(`${name}: ${m[1]}`);
+      }
+    }
+    assert.deepEqual(bad, [], `data-group values with no matching group:\n  ${bad.join("\n  ")}`);
+  });
+
+  test("every creation group is offered by some template", () => {
+    const offered = new Set(
+      templates.flatMap(({ source }) =>
+        [...source.matchAll(/data-group="([^"]+)"/g)].map((m) => m[1]))
+    );
+    const unoffered = Object.keys(LASTARC.itemCreationGroups).filter((g) => !offered.has(g));
+
+    assert.deepEqual(unoffered, [], `creation groups no template exposes: ${unoffered.join(", ")}. ` +
+      `A group with no button is a subtype nobody can make.`);
+  });
+
+  test("every subtype has a panel that will display it once created", () => {
+    // A subtype reaches the character sheet's inventory only if it carries a
+    // numeric `bulk`; everything else needs an explicit branch in
+    // #prepareItems. Creating something that then fails to appear is worse
+    // than not offering to create it.
+    const branched = new Set(["spell", "performance", "technick", "talent", "race", "class"]);
+    const physical = new Set(LASTARC.physicalItemTypes);
+
+    const homeless = Object.keys(systemJson.documentTypes.Item)
+      .filter((sub) => !branched.has(sub) && !physical.has(sub));
+
+    assert.deepEqual(homeless, [], `subtypes that would be created but never render: ` +
+      `${homeless.join(", ")}. Give each a branch in #prepareItems or a bulk field.`);
+
+    // And the branch set must correspond to real code, not to this list.
+    for (const sub of branched) {
+      assert.ok(
+        new RegExp(`item\\.type === "${sub}"`).test(sheetSource),
+        `#prepareItems claims to branch on "${sub}" but character-sheet.mjs never tests for it`
+      );
+    }
+  });
+
+  test("physicalItemTypes is the single source of truth for what carries bulk", () => {
+    // item-sheet.mjs held its own PHYSICAL_TYPES copy of this list. Two lists
+    // that must agree and are never compared will eventually disagree.
+    const inSheet = itemSheetSource.match(/PHYSICAL_TYPES\s*=\s*new Set\(\[([^\]]+)\]/s);
+    if (!inSheet) return;   // already collapsed onto config — nothing to compare
+
+    const listed = [...inSheet[1].matchAll(/"(\w+)"/g)].map((m) => m[1]).sort();
+    assert.deepEqual(listed, [...LASTARC.physicalItemTypes].sort(),
+      "item-sheet.mjs PHYSICAL_TYPES has drifted from LASTARC.physicalItemTypes");
   });
 
   test("template paths declared in PARTS exist on disk", () => {

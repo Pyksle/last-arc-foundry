@@ -13,11 +13,14 @@ import * as D from "../derivation.mjs";
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
 
-/** Subtypes that live in an inventory and carry cost/bulk/quantity/equipped. */
-const PHYSICAL_TYPES = new Set([
-  "weapon", "armour", "shield", "ammunition", "accessory", "consumable",
-  "resourceItem", "mount", "spellScroll", "orchestralScore", "prostheticLimb"
-]);
+/**
+ * Subtypes that live in an inventory and carry cost/bulk/quantity/equipped.
+ *
+ * Read from config rather than restated here: this list also decides what the
+ * character sheet's Inventory panel accepts, and two copies that must agree but
+ * are never compared will eventually disagree.
+ */
+const PHYSICAL_TYPES = new Set(LASTARC.physicalItemTypes);
 
 export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   static DEFAULT_OPTIONS = {

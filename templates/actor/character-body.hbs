@@ -371,6 +371,11 @@
         <p class="la-note">{{localize "LASTARC.Note.NoWeapons"}}</p>
       {{/each}}
     </div>
+
+    <button type="button" class="la-panel__add" data-action="createItem" data-group="attacks"
+            data-tooltip="{{localize 'LASTARC.Tooltip.AddWeapon'}}">
+      {{localize "LASTARC.Action.AddWeapon"}}
+    </button>
   </section>
 
   {{!-- ── Technicks & talents ─────────────────────────────────────────────── --}}
@@ -405,32 +410,45 @@
         <p class="la-note">{{localize "LASTARC.Note.NoSpells"}}</p>
       {{/each}}
     </div>
+
+    <button type="button" class="la-panel__add" data-action="createItem" data-group="spells"
+            data-tooltip="{{localize 'LASTARC.Tooltip.CreateItem'}}">
+      {{localize "LASTARC.Action.AddSpell"}}
+    </button>
   </section>
 
-  {{#if performances.length}}
-    <section class="la-panel la-panel--performances">
-      <h2 class="la-panel__title">{{localize "LASTARC.Section.Performances"}}</h2>
-      <p class="la-note {{#if overPerformanceLimit}}is-warning{{/if}}">
-        {{performances.length}} / {{knownPerformanceLimit}}
-      </p>
-      <div class="la-spells">
-        {{#each performances}}
-          <div class="la-spell {{#unless this.affordable}}is-unaffordable{{/unless}}">
-            <button type="button" class="la-spell__cast" data-action="performItem"
-                    data-item-id="{{this.id}}"
-                    data-tooltip="{{localize 'LASTARC.Tooltip.Perform'}}">
-              <span class="la-spell__name">{{this.name}}</span>
-            </button>
-            <span class="la-spell__time">{{this.specialisation}}</span>
-            <button type="button" class="la-item__edit" data-action="editItem"
-                    data-item-id="{{this.id}}">✎</button>
-            <button type="button" class="la-item__delete" data-action="deleteItem"
-                    data-item-id="{{this.id}}">×</button>
-          </div>
-        {{/each}}
-      </div>
-    </section>
-  {{/if}}
+  {{!-- Always rendered, never gated on performances.length. Hiding the panel
+        when empty meant a bard had no way to add their FIRST performance —
+        the one case where the panel matters most. --}}
+  <section class="la-panel la-panel--performances">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Performances"}}</h2>
+    <p class="la-note {{#if overPerformanceLimit}}is-warning{{/if}}">
+      {{performances.length}} / {{knownPerformanceLimit}}
+    </p>
+    <div class="la-spells">
+      {{#each performances}}
+        <div class="la-spell {{#unless this.affordable}}is-unaffordable{{/unless}}">
+          <button type="button" class="la-spell__cast" data-action="performItem"
+                  data-item-id="{{this.id}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.Perform'}}">
+            <span class="la-spell__name">{{this.name}}</span>
+          </button>
+          <span class="la-spell__time">{{this.specialisation}}</span>
+          <button type="button" class="la-item__edit" data-action="editItem"
+                  data-item-id="{{this.id}}">✎</button>
+          <button type="button" class="la-item__delete" data-action="deleteItem"
+                  data-item-id="{{this.id}}">×</button>
+        </div>
+      {{else}}
+        <p class="la-note">{{localize "LASTARC.Note.NoPerformances"}}</p>
+      {{/each}}
+    </div>
+
+    <button type="button" class="la-panel__add" data-action="createItem" data-group="performances"
+            data-tooltip="{{localize 'LASTARC.Tooltip.CreateItem'}}">
+      {{localize "LASTARC.Action.AddPerformance"}}
+    </button>
+  </section>
 
   <section class="la-panel la-panel--technicks">
     <h2 class="la-panel__title">{{localize "LASTARC.Section.Technicks"}}</h2>
@@ -454,6 +472,40 @@
         <p class="la-note">{{localize "LASTARC.Note.NoTechnicks"}}</p>
       {{/each}}
     </div>
+
+    <button type="button" class="la-panel__add" data-action="createItem" data-group="technicks"
+            data-tooltip="{{localize 'LASTARC.Tooltip.CreateItem'}}">
+      {{localize "LASTARC.Action.AddTechnick"}}
+    </button>
+  </section>
+
+  {{!-- ── Race & class features ───────────────────────────────────────────── --}}
+  {{!-- Class LEVELS live in the header (system.classes) because the level maths
+        depends on them. This panel is for the written features those choices
+        grant, transcribed from your own book. --}}
+  <section class="la-panel la-panel--features">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Features"}}</h2>
+
+    <div class="la-items">
+      {{#each features}}
+        <div class="la-item">
+          <img class="la-item__img" src="{{this.img}}" alt="">
+          <button type="button" class="la-item__name" data-action="editItem"
+                  data-item-id="{{this.id}}">{{this.name}}</button>
+          <span class="la-item__type">{{this.typeLabel}}</span>
+          {{#if this.summary}}<span class="la-item__summary">{{this.summary}}</span>{{/if}}
+          <button type="button" class="la-item__delete" data-action="deleteItem"
+                  data-item-id="{{this.id}}">×</button>
+        </div>
+      {{else}}
+        <p class="la-note">{{localize "LASTARC.Note.NoFeatures"}}</p>
+      {{/each}}
+    </div>
+
+    <button type="button" class="la-panel__add" data-action="createItem" data-group="features"
+            data-tooltip="{{localize 'LASTARC.Tooltip.CreateItem'}}">
+      {{localize "LASTARC.Action.AddFeature"}}
+    </button>
   </section>
 
   {{!-- ── Inventory ───────────────────────────────────────────────────────── --}}
@@ -496,6 +548,11 @@
         <p class="la-note">{{localize "LASTARC.Note.NoItems"}}</p>
       {{/each}}
     </div>
+
+    <button type="button" class="la-panel__add" data-action="createItem" data-group="inventory"
+            data-tooltip="{{localize 'LASTARC.Tooltip.CreateItem'}}">
+      {{localize "LASTARC.Action.AddInventory"}}
+    </button>
   </section>
 
   {{!-- ── Weapon skills · different rules from standard skills ────────────── --}}
