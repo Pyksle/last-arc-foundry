@@ -64,6 +64,65 @@ The code in this repository is MIT licensed — see [LICENSE](LICENSE).
 npm test
 ```
 
+### Integration tests against a headless Foundry
+
+The unit suite verifies the *maths*. It cannot verify that the maths is wired to
+Foundry correctly — document creation, derived data on live actors, Active Effect
+ordering, sheet rendering, combat sorting. That needs a real Foundry, and
+"headless Foundry" is not a flag: it is the **Node.js build**, which has no
+Electron GUI and simply serves the app over HTTP.
+
+**One-time setup** (needs your Foundry licence — this part cannot be automated):
+
+1. On foundryvtt.com, go to your purchased licences and pick **Node.js** from the
+   operating-system dropdown, not the macOS/Windows application build.
+2. Extract it, and make a separate data directory:
+
+   ```bash
+   mkdir -p ~/foundry/app ~/foundry/data
+   ```
+
+3. Launch it. Note the path: in **v13 `main.js` sits at the root** of the
+   extracted archive, where older versions nested it under `resources/app/`.
+
+   ```bash
+   node ~/foundry/app/main.js --dataPath=$HOME/foundry/data --port=30000
+   ```
+
+4. Open <http://localhost:30000>, paste your licence key and accept the EULA.
+   This persists to `~/foundry/data/Config/`, so it is genuinely one-time.
+5. Install the **Quench** module (Add-on Modules → Install Module → search
+   "Quench"). It is the in-Foundry Mocha/Chai runner the batches register with.
+
+**Then, from this repo:**
+
+```bash
+npm run link
+```
+
+That symlinks the repo into `~/foundry/data/Data/systems/last-arc`, so edits here
+are picked up by a browser reload rather than needing a redeploy. Create a world
+using the Last Arc system, enable Quench in it, and:
+
+```bash
+npm i -D playwright && npx playwright install chromium
+npm run test:integration
+```
+
+Playwright is deliberately *not* a hard dependency — it pulls ~100MB of browser
+binaries, which has no business being mandatory for someone who only wants to run
+the unit suite.
+
+Useful flags: `--headed` to watch it run, `--url=` for a non-default host,
+`--dataPath=` on `npm run link` if your data directory is elsewhere (it also
+honours `$FOUNDRY_DATA_PATH`).
+
+> **Node version.** Foundry v13 requires Node 22+. Newer majors generally work but
+> are not what upstream tests against — if the server misbehaves on a very recent
+> Node, drop to 22 LTS via `nvm` before assuming the system is at fault.
+
+### Previewing sheets without Foundry
+
 To inspect the sheet without a Foundry install:
 
 ```bash

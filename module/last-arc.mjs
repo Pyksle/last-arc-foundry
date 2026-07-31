@@ -23,6 +23,7 @@ import { registerCombat, holdTurn, spendAction, resetActions, rollGroupInitiativ
   from "./combat.mjs";
 import * as INIT from "./initiative.mjs";
 import * as AE from "./action-economy.mjs";
+import { registerQuenchBatches } from "./quench.mjs";
 
 const SYSTEM_ID = "last-arc";
 
@@ -66,6 +67,10 @@ Hooks.once("init", () => {
   registerStatusEffects();
   registerChatListeners();
   registerCombat();
+
+  // Integration tests. The hook only fires when Quench is installed and active,
+  // so a normal user never sees any of this.
+  registerQuenchBatches();
 });
 
 /* -------------------------------------------------------------------------- */

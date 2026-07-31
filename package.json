@@ -6,7 +6,12 @@
   "private": true,
   "scripts": {
     "test": "node --test \"test/**/*.test.mjs\"",
-    "test:watch": "node --test --watch \"test/**/*.test.mjs\""
+    "test:watch": "node --test --watch \"test/**/*.test.mjs\"",
+    "test:integration": "node tools/integration-test.mjs",
+    "link": "node tools/link-system.mjs",
+    "unlink": "node tools/link-system.mjs --unlink",
+    "preview": "node tools/preview.mjs --theme=light",
+    "icons": "node tools/make-status-icons.mjs"
   },
   "devDependencies": {
     "handlebars": "^4.7.9"
