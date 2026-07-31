@@ -219,6 +219,7 @@
         <span>{{localize "LASTARC.Column.Trained"}}</span>
         <span>{{localize "LASTARC.Column.Focus"}}</span>
         <span>{{localize "LASTARC.Column.Bonus"}}</span>
+        <span data-tooltip="{{localize 'LASTARC.Tooltip.AdjustmentColumn'}}">{{localize "LASTARC.Column.Adjustment"}}</span>
       </div>
 
       {{#each skills}}
@@ -233,6 +234,8 @@
           <input type="checkbox" name="system.skills.{{this.key}}.trained" {{#if this.trained}}checked{{/if}}>
           <input type="number" name="system.skills.{{this.key}}.focus" value="{{this.focus}}">
           <input type="number" name="system.skills.{{this.key}}.misc" value="{{this.misc}}">
+          <span class="la-skill__cell la-skill__adjust {{#if this.hasAdjustment}}is-active{{/if}}"
+                data-tooltip="{{this.adjustmentTooltip}}">{{lasignal this.adjustment}}</span>
         </div>
 
         {{#if this.subskilled}}
@@ -447,6 +450,8 @@
           <input type="checkbox" name="system.skills.{{this.key}}.trained" {{#if this.trained}}checked{{/if}}>
           <input type="number" name="system.skills.{{this.key}}.focus" value="{{this.focus}}">
           <input type="number" name="system.skills.{{this.key}}.misc" value="{{this.misc}}">
+          <span class="la-skill__cell la-skill__adjust {{#if this.hasAdjustment}}is-active{{/if}}"
+                data-tooltip="{{this.adjustmentTooltip}}">{{lasignal this.adjustment}}</span>
         </div>
       {{/each}}
     </div>

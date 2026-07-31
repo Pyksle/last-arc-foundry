@@ -599,7 +599,7 @@
 .la-skills__head,
 .la-skill {
   display: grid;
-  grid-template-columns: minmax(8rem, 1fr) 3rem 2.4rem 2.4rem 2.4rem 3rem 3rem;
+  grid-template-columns: minmax(8rem, 1fr) 3rem 2.4rem 2.4rem 2.4rem 3rem 3rem 2.6rem;
   align-items: center;
   gap: 0.3rem;
 }
@@ -617,6 +617,20 @@
   border-bottom: 1px solid color-mix(in srgb, var(--la-rule) 40%, transparent);
 }
 .la-skill:nth-child(even) { background: color-mix(in srgb, var(--la-paper-3) 25%, transparent); }
+
+/* Everything that lands in the total without a printed column: Break Gauge,
+   armour check penalty, technick bonuses, granted training and focus. Muted at
+   zero so a clean sheet stays quiet, and called out when it is actually doing
+   something — a player whose skills all dropped needs to see WHY at a glance. */
+.la-skill__adjust {
+  font-family: var(--la-font-num);
+  color: var(--la-ink-faint);
+  cursor: help;
+}
+.la-skill__adjust.is-active {
+  color: var(--la-oxblood);
+  font-weight: 600;
+}
 
 .la-skill__name {
   display: flex;
@@ -1027,6 +1041,104 @@
 .la-attack.is-unusable { opacity: 0.55; }
 .la-attack.is-unusable .la-attack__wield { color: var(--la-oxblood); border-color: var(--la-oxblood); }
 
+/* -- NPC statblock attacks ---------------------------------------------------
+   Scoped to the NPC body: `.la-attack` above is the character sheet's single
+   grid row, and an NPC attack is a two-row block (roll line + editable fields).
+   Unscoped, the grid columns above would apply to the wrapper and shred it. */
+.la-body--npc .la-attack {
+  display: block;
+  padding: 0.35rem 0.4rem;
+}
+
+.la-body--npc .la-attack__row--main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+/* The whole name+bonus is the roll target: in combat the GM is clicking the
+   line they just read aloud, so it should be a big obvious hit area. */
+.la-body--npc .la-attack__roll {
+  display: flex;
+  align-items: baseline;
+  /* Foundry's base button rule sets justify-content:center. On a flex container
+     `text-align` does nothing, so this has to be stated explicitly or the attack
+     name floats to the middle of the row. */
+  justify-content: flex-start;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0.15rem 0.35rem;
+  color: var(--la-ink);
+  cursor: pointer;
+  text-align: left;
+}
+.la-body--npc .la-attack__roll:hover {
+  border-color: color-mix(in srgb, var(--la-bronze) 60%, transparent);
+  background: color-mix(in srgb, var(--la-bronze) 10%, transparent);
+}
+.la-body--npc .la-attack__roll .la-attack__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.la-body--npc .la-attack__roll .la-attack__bonus {
+  font-size: 1.15rem;
+  color: var(--la-bronze-bright);
+}
+
+/* Printed-vs-live: only rendered while the gauge is actually moving the number. */
+.la-body--npc .la-attack__broken {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--la-ink-faint);
+  white-space: nowrap;
+}
+
+.la-body--npc .la-attack__delete {
+  background: none;
+  border: none;
+  color: var(--la-ink-faint);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.25rem;
+}
+.la-body--npc .la-attack__delete:hover { color: var(--la-oxblood); }
+
+.la-body--npc .la-attack__row--edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.6rem;
+  margin-top: 0.3rem;
+  padding-left: 0.35rem;
+}
+.la-body--npc .la-attack__row--edit label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--la-ink-faint);
+}
+.la-body--npc .la-attack__row--edit input[type="text"] { width: 8rem; }
+.la-body--npc .la-attack__row--edit input[type="number"] { width: 3.5rem; }
+.la-body--npc .la-attack__row--edit select { max-width: 9rem; }
+
+.la-body--npc .la-attack__check {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.25rem;
+  align-self: flex-end;
+  padding-bottom: 0.2rem;
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Chat cards                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -1193,6 +1305,6 @@
 @media (max-width: 720px) {
   .la-attributes { grid-template-columns: repeat(3, 1fr); }
   .la-skills__head { display: none; }
-  .la-skill { grid-template-columns: minmax(6rem, 1fr) 2.6rem 2rem 2rem 2rem; }
+  .la-skill { grid-template-columns: minmax(6rem, 1fr) 2.6rem 2rem 2rem 2rem 2.4rem; }
   .la-skill input[name$=".misc"] { display: none; }
 }

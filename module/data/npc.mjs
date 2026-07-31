@@ -123,6 +123,46 @@ export class LastArcNpcData extends foundry.abstract.TypeDataModel {
         dr: new fields.NumberField({ initial: 0, integer: true, min: 0 })
       }),
 
+      /**
+       * Statblock attacks (§3.2).
+       *
+       * Stored on the actor rather than as weapon Items because a monster's
+       * "Bite +8, 2d6+4 piercing" is an authored line, not a build: there is no
+       * weapon to equip, no proficiency to check, and no Strength to add. The
+       * printed damage is already the TOTAL, which is why nothing here goes
+       * through `buildDamageTerms`.
+       *
+       * `atkBonus` follows the same convention as the printed defences — it is
+       * the UNBROKEN number, with the Break Gauge applied on top in
+       * prepareDerivedData.
+       */
+      attacks: new fields.ArrayField(
+        new fields.SchemaField({
+          name: new fields.StringField({ initial: "" }),
+          atkBonus: new fields.NumberField({ initial: 0, integer: true }),
+          /** Dice half only, e.g. "2d6". Flat modifiers go in `damageBonus`. */
+          damage: new fields.StringField({ initial: "1d6" }),
+          damageBonus: new fields.NumberField({ initial: 0, integer: true }),
+          damageType: new fields.StringField({
+            initial: "blunt", choices: [...LASTARC.allDamageTypes]
+          }),
+          isMelee: new fields.BooleanField({ initial: true }),
+          /** Area attacks can neither crit nor combo (§5.1). */
+          isArea: new fields.BooleanField({ initial: false }),
+          /** Squares. Melee uses reach; ranged uses range. */
+          reach: new fields.NumberField({ initial: 1, min: 0 }),
+          range: new fields.StringField({ initial: "" }),
+          /** Multiattack: how many of these the creature makes per action. */
+          count: new fields.NumberField({ initial: 1, integer: true, min: 1 }),
+          /** Optional rider applied to the target on a hit. */
+          appliesStatus: new fields.StringField({
+            initial: "", blank: true, choices: ["", ...LASTARC.allStatusIds]
+          }),
+          notes: new fields.StringField({ initial: "" })
+        }),
+        { initial: [] }
+      ),
+
       /** Free-form statblock skill list: `{ key, value }`, printed totals. */
       skills: new fields.ArrayField(
         new fields.SchemaField({
@@ -180,6 +220,17 @@ export class LastArcNpcData extends foundry.abstract.TypeDataModel {
     this.breakGauge.threshold = this.breakGauge.thresholdBase !== null
       ? this.breakGauge.thresholdBase + bp
       : D.breakThreshold({ fort: this.defences.fort.value, size: this.details.size });
+
+    // Printed attack bonuses are unbroken, exactly like the defences above.
+    // `printed` is kept beside `total` so the sheet can show the book value and
+    // the live value together — a GM comparing against the page needs both.
+    for (const atk of this.attacks) {
+      atk.printed = atk.atkBonus;
+      atk.total = atk.atkBonus + bp;
+      atk.damageFormula = atk.damageBonus
+        ? `${atk.damage}${atk.damageBonus > 0 ? "+" : ""}${atk.damageBonus}`
+        : atk.damage;
+    }
 
     this.resources.hp.value = Math.clamp(this.resources.hp.value, 0, this.resources.hp.max);
     this.resources.mp.value = Math.clamp(this.resources.mp.value, 0, this.resources.mp.max);

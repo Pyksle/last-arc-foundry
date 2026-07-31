@@ -18,6 +18,7 @@
 
 import { LASTARC } from "./config.mjs";
 import * as AE from "./action-economy.mjs";
+import * as ATK from "./dice/attack.mjs";
 
 const SYSTEM_ID = "last-arc";
 
@@ -43,6 +44,16 @@ async function withActor(data, fn) {
   const actor = await Actor.create({
     name: "Quench Subject", type: "character", ...data
   });
+  try {
+    return await fn(actor);
+  } finally {
+    await actor?.delete();
+  }
+}
+
+/** As withActor, but for a statblock NPC. */
+async function withNpc(data, fn) {
+  const actor = await Actor.create({ name: "Quench Monster", type: "npc", ...data });
   try {
     return await fn(actor);
   } finally {
@@ -105,13 +116,20 @@ function registerDocumentBatch(quench) {
 
       describe("status effect registration", function () {
         it("registers every status with a resolvable icon", async function () {
-          for (const id of LASTARC.allStatusIds) {
+          // One HTTP round trip per status. Sequentially this outgrew Mocha's
+          // 2s default the moment the set passed ~25 icons.
+          this.timeout(30_000);
+
+          const entries = LASTARC.allStatusIds.map((id) => {
             const entry = CONFIG.statusEffects.find((s) => s.id === id);
             assert.exists(entry, `status ${id} not registered`);
+            return entry;
+          });
 
-            const response = await fetch(entry.img);
-            assert.isTrue(response.ok, `icon 404: ${entry.img}`);
-          }
+          const responses = await Promise.all(entries.map((e) => fetch(e.img)));
+          responses.forEach((response, i) => {
+            assert.isTrue(response.ok, `icon 404: ${entries[i].img}`);
+          });
         });
 
         it("localises every status name", function () {
@@ -512,6 +530,138 @@ function registerCombatBatch(quench) {
           });
         });
       });
+      describe("statblock attacks", function () {
+        const lurker = {
+          system: {
+            defences: { ref: { base: 15 }, fort: { base: 18 }, will: { base: 12 } },
+            resources: { hp: { value: 40, max: 40 } },
+            attacks: [
+              { name: "Tentacle", atkBonus: 9, damage: "2d6", damageBonus: 5,
+                damageType: "blunt", isMelee: true, appliesStatus: "grabbed" }
+            ]
+          }
+        };
+
+        it("derives a live attack total from the printed bonus", async function () {
+          await withNpc(lurker, async (npc) => {
+            const atk = npc.system.attacks[0];
+            assert.equal(atk.printed, 9, "printed value must survive untouched");
+            assert.equal(atk.total, 9, "unbroken, so live equals printed");
+            assert.equal(atk.damageFormula, "2d6+5");
+          });
+        });
+
+        /**
+         * The whole reason `printed` and `total` are separate. A statblock's
+         * attack bonus is its UNBROKEN value, exactly like its defences — if the
+         * gauge were baked into the stored number a GM could never check the
+         * sheet against the page.
+         */
+        it("applies the Break Gauge on top of the printed bonus", async function () {
+          await withNpc(lurker, async (npc) => {
+            await npc.update({ "system.breakGauge.step": 3 });
+            const atk = npc.system.attacks[0];
+            assert.equal(atk.printed, 9);
+            assert.equal(atk.total, 4, "step 3 is −5");
+          });
+        });
+
+        it("rolls an attack and posts a card carrying the attack index", async function () {
+          this.timeout(10_000);
+          await withNpc(lurker, async (npc) => {
+            const result = await ATK.rollNpcAttack(npc, 0, { targetDefence: 10 });
+            assert.isNotNull(result);
+            assert.isNumber(result.roll.total);
+
+            const msg = [...game.messages].pop();
+            const flags = msg.flags?.["last-arc"];
+            assert.equal(flags.attackIndex, 0, "index 0 must survive as a number, not vanish");
+            assert.isNull(flags.weaponId);
+
+            // Let the chat log finish animating the card in before removing it.
+            // Foundry re-queries the message element after a ~350ms animation
+            // (ChatLog##postNotification); deleting inside that window makes the
+            // lookup return null and throws an unhandled rejection that fails
+            // the whole run on an error nothing in real play would hit.
+            await new Promise((r) => setTimeout(r, 500));
+            await msg.delete();
+          });
+        });
+
+        /**
+         * Statblock damage is the AUTHORED total — Strength is already in the
+         * printed number. Running it through buildDamageTerms would add the
+         * creature's Strength modifier a second time.
+         */
+        it("does not add a Strength modifier to printed damage", async function () {
+          await withNpc({
+            system: {
+              attributes: { str: { value: 20 } },
+              attacks: [{ name: "Slam", atkBonus: 5, damage: "2d6", damageBonus: 7 }]
+            }
+          }, async (npc) => {
+            assert.equal(npc.system.attributes.str.mod, 5, "a +5 that must NOT leak in");
+
+            const dmg = await ATK.rollNpcDamage(npc, 0, { outcome: { critical: false } });
+
+            // Exact and explosion-proof: assert on the flat term rather than on
+            // a total, because the dice explode and no fixed total exists.
+            // A leaked Strength modifier would show up as 12 rather than 7.
+            // (Deliberately not a d1 either — k/faces = 1 never terminates, so
+            // it explodes all the way to the dice cap.)
+            const diceSum = dmg.results.reduce((a, r) => a + r.result, 0);
+            assert.equal(dmg.flat, 7, "flat term must be damageBonus alone");
+            assert.equal(dmg.total, diceSum + 7, "total is dice plus the printed bonus, nothing else");
+            assert.isUndefined(dmg.terms, "NPC damage must not go through buildDamageTerms");
+          });
+        });
+
+        it("reports the on-hit status rider", async function () {
+          await withNpc(lurker, async (npc) => {
+            const dmg = await ATK.rollNpcDamage(npc, 0, { outcome: {} });
+            assert.equal(dmg.appliesStatus, "grabbed");
+          });
+        });
+
+        it("refuses to roll an attack that does not exist", async function () {
+          await withNpc(lurker, async (npc) => {
+            // Capture the warning instead of letting it reach the real toast UI.
+            // Two reasons: it asserts the GM is actually TOLD rather than just
+            // getting a silent null, and Foundry's #postNotification rejects
+            // asynchronously in this context, which would fail the whole run on
+            // an error that has nothing to do with us.
+            const warnings = [];
+            const original = ui.notifications;
+            ui.notifications = { ...original, warn: (m) => warnings.push(m) };
+            try {
+              assert.isNull(await ATK.rollNpcAttack(npc, 99, {}));
+              assert.lengthOf(warnings, 1, "a missing attack must warn, not fail silently");
+            } finally {
+              ui.notifications = original;
+            }
+          });
+        });
+
+        /**
+         * A flat-footed defender uses its flat-footed Reflex — the entire point
+         * of the surprise round. Reading `ref.value` unconditionally would make
+         * surprise silently do nothing.
+         */
+        it("targets flat-footed Reflex when the defender is flat-footed", async function () {
+          await withActor({}, async (pc) => {
+            const standing = ATK.defenceToBeat(pc);
+            await pc.toggleStatusEffect("flatFooted", { active: true });
+            const surprised = ATK.defenceToBeat(pc);
+            assert.equal(surprised, pc.system.defences.ref.flatFooted);
+            assert.isAtMost(surprised, standing);
+          });
+        });
+
+        it("has no defence to beat when nothing is targeted", function () {
+          assert.isNull(ATK.defenceToBeat(undefined));
+        });
+      });
+
     },
     { displayName: "Last Arc — Combat" }
   );

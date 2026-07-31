@@ -12,6 +12,8 @@ import assert from "node:assert/strict";
 import { LASTARC } from "../module/config.mjs";
 import {
   rd,
+  signed,
+  skillAdjustmentParts,
   attributeModifier,
   breakPenalty,
   breakPenaltyOrZero,
@@ -640,5 +642,96 @@ describe("config integrity", () => {
   test("break penalty table is the expected non-linear shape", () => {
     assert.equal(LASTARC.breakPenalties.length, 6);
     assert.equal(LASTARC.breakPenalties[5], null);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+describe("skill adjustment breakdown", () => {
+  /**
+   * REGRESSION GUARD, and the reason the column exists.
+   *
+   * The sheet prints ½Level, Attribute, Trained, Focus and Bonus. Before the
+   * adjustment column, a level-5 character at Break step 2 showed a row reading
+   * "2 + 1" that totalled +1 — the −2 was applied and invisible, which reads as
+   * a broken sheet rather than as a death spiral.
+   *
+   * This pins the invariant the sheet relies on:
+   *
+   *   total = ½Level + attrMod + shownTrained + focus + misc + adjustment
+   */
+  const invariant = (skill, { level, attrMod, breakStep }) => {
+    const breakPenalty = breakPenaltyOrZero(breakStep);
+    const adjustment = skillAdjustmentParts(skill, breakPenalty)
+      .reduce((sum, p) => sum + p.value, 0);
+
+    const shown =
+      rd(level / 2)
+      + attrMod
+      + (skill.trained ? LASTARC.trainedBonus : 0)
+      + skill.focus
+      + skill.misc
+      + adjustment;
+
+    const actual = skillModifier({
+      level,
+      attrMod,
+      trained: skill.trained || skill.grantedTrained,
+      focus: skill.focus + (skill.grantedFocus ?? 0),
+      technicks: skill.technicks ?? 0,
+      misc: skill.misc,
+      armourCheckPenalty: skill.armourCheckPenalty ?? 0,
+      appliesArmourPenalty: (skill.armourCheckPenalty ?? 0) > 0,
+      breakStep
+    });
+
+    return { shown, actual };
+  };
+
+  test("the visible columns plus the adjustment equal the real total", () => {
+    const { shown, actual } = invariant(
+      { trained: false, focus: 0, misc: 0, armourCheckPenalty: 0 },
+      { level: 5, attrMod: 1, breakStep: 2 }
+    );
+    assert.equal(shown, actual);
+    assert.equal(actual, 1, "the case seen on the live sheet: 2 + 1 − 2");
+  });
+
+  test("holds with every term at once", () => {
+    const skill = {
+      trained: true, focus: 2, misc: 1,
+      technicks: 3, grantedFocus: 1, grantedTrained: false,
+      armourCheckPenalty: 4
+    };
+    const { shown, actual } = invariant(skill, { level: 7, attrMod: 2, breakStep: 3 });
+    assert.equal(shown, actual);
+  });
+
+  test("granted training is itemised, since its checkbox stays unticked", () => {
+    const skill = { trained: false, focus: 0, misc: 0, grantedTrained: true };
+    const parts = skillAdjustmentParts(skill, 0);
+    assert.deepEqual(
+      parts.map((p) => p.label),
+      ["LASTARC.Mod.grantedTrained"],
+      "a +2 with no ticked box must be explained or it looks like it came from nowhere"
+    );
+    const { shown, actual } = invariant(skill, { level: 1, attrMod: 0, breakStep: 0 });
+    assert.equal(shown, actual);
+  });
+
+  test("the armour check penalty is negated — it is stored as a magnitude", () => {
+    const parts = skillAdjustmentParts({ armourCheckPenalty: 4 }, 0);
+    assert.deepEqual(parts, [{ label: "LASTARC.Mod.armourCheck", value: -4 }]);
+  });
+
+  test("an unbroken, unequipped, ungranted skill has nothing to explain", () => {
+    assert.deepEqual(skillAdjustmentParts({ trained: true, focus: 3 }, 0), []);
+  });
+
+  test("signed() uses a real minus so columns align", () => {
+    assert.equal(signed(3), "+3");
+    assert.equal(signed(0), "+0");
+    assert.equal(signed(-2), "−2");
+    assert.notEqual(signed(-2), "-2");
   });
 });

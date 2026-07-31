@@ -190,6 +190,99 @@
     </div>
   </section>
 
+  {{!-- Statblock attacks. The name is the roll button: a GM in combat is
+        clicking the thing they just read aloud, not hunting for a d20 icon. --}}
+  <section class="la-panel la-panel--attacks">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Attacks"}}</h2>
+
+    <div class="la-attacks">
+      {{#each attacks}}
+        <div class="la-attack" data-index="{{this.index}}">
+
+          <div class="la-attack__row la-attack__row--main">
+            <button type="button" class="la-attack__roll" data-action="rollNpcAttack"
+                    data-index="{{this.index}}"
+                    data-tooltip="{{localize 'LASTARC.Tooltip.RollNpcAttack'}}">
+              <span class="la-attack__name">{{this.displayName}}</span>
+              <span class="la-attack__bonus">{{lasignal this.total}}</span>
+            </button>
+
+            {{#if this.brokenBy}}
+              <span class="la-attack__broken"
+                    data-tooltip="{{localize 'LASTARC.Tooltip.AttackBroken'}}">
+                {{localize "LASTARC.Attack.Printed"}} {{lasignal this.printed}}
+              </span>
+            {{/if}}
+
+            <span class="la-attack__damage">{{this.damageFormula}}</span>
+
+            <button type="button" class="la-attack__delete" data-action="deleteAttack"
+                    data-index="{{this.index}}"
+                    data-tooltip="{{localize 'LASTARC.Tooltip.DeleteAttack'}}">×</button>
+          </div>
+
+          <div class="la-attack__row la-attack__row--edit">
+            <label>
+              <span>{{localize "LASTARC.Field.Name"}}</span>
+              <input type="text" name="system.attacks.{{this.index}}.name" value="{{this.name}}">
+            </label>
+            <label>
+              <span>{{localize "LASTARC.Field.AtkBonus"}}</span>
+              <input type="number" name="system.attacks.{{this.index}}.atkBonus"
+                     value="{{this.atkBonus}}"
+                     data-tooltip="{{localize 'LASTARC.Tooltip.PrintedValue'}}">
+            </label>
+            <label>
+              <span>{{localize "LASTARC.Field.DamageDice"}}</span>
+              <input type="text" name="system.attacks.{{this.index}}.damage" value="{{this.damage}}">
+            </label>
+            <label>
+              <span>{{localize "LASTARC.Field.DamageBonus"}}</span>
+              <input type="number" name="system.attacks.{{this.index}}.damageBonus"
+                     value="{{this.damageBonus}}">
+            </label>
+            <label>
+              <span>{{localize "LASTARC.Field.DamageType"}}</span>
+              <select name="system.attacks.{{this.index}}.damageType">
+                {{#each ../damageTypeOptions}}
+                  <option value="{{this.value}}"
+                    {{#if (laeq this.value ../this.damageType)}}selected{{/if}}>{{this.label}}</option>
+                {{/each}}
+              </select>
+            </label>
+            <label>
+              <span>{{localize "LASTARC.Field.OnHit"}}</span>
+              <select name="system.attacks.{{this.index}}.appliesStatus">
+                {{#each ../statusOptions}}
+                  <option value="{{this.value}}"
+                    {{#if (laeq this.value ../this.appliesStatus)}}selected{{/if}}>{{this.label}}</option>
+                {{/each}}
+              </select>
+            </label>
+            <label class="la-attack__check">
+              <input type="checkbox" name="system.attacks.{{this.index}}.isMelee"
+                     {{#if this.isMelee}}checked{{/if}}>
+              <span>{{localize "LASTARC.Field.Melee"}}</span>
+            </label>
+            <label class="la-attack__check">
+              <input type="checkbox" name="system.attacks.{{this.index}}.isArea"
+                     {{#if this.isArea}}checked{{/if}}
+                     data-tooltip="{{localize 'LASTARC.Tooltip.AreaNoCrit'}}">
+              <span>{{localize "LASTARC.Field.Area"}}</span>
+            </label>
+          </div>
+
+        </div>
+      {{else}}
+        <p class="la-note">{{localize "LASTARC.Note.NoAttacks"}}</p>
+      {{/each}}
+    </div>
+
+    <button type="button" class="la-button" data-action="addAttack">
+      {{localize "LASTARC.Action.AddAttack"}}
+    </button>
+  </section>
+
   <section class="la-panel">
     <h2 class="la-panel__title">{{localize "LASTARC.Section.Items"}}</h2>
     <div class="la-items">

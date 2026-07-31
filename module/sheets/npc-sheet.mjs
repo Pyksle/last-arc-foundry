@@ -14,6 +14,7 @@
 import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollAttribute } from "../dice/rolls.mjs";
+import { rollNpcAttack, defenceToBeat } from "../dice/attack.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -26,6 +27,9 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     form: { submitOnChange: true, closeOnSubmit: false },
     actions: {
       rollAttribute: LastArcNpcSheet.#onRollAttribute,
+      rollNpcAttack: LastArcNpcSheet.#onRollNpcAttack,
+      addAttack: LastArcNpcSheet.#onAddAttack,
+      deleteAttack: LastArcNpcSheet.#onDeleteAttack,
       setBreakStep: LastArcNpcSheet.#onSetBreakStep,
       editItem: LastArcNpcSheet.#onEditItem,
       deleteItem: LastArcNpcSheet.#onDeleteItem
@@ -83,6 +87,29 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.resistanceText = sys.damageMods.resistance.join(", ");
     context.immunityText = sys.damageMods.immunity.join(", ");
 
+    context.damageTypeOptions = LASTARC.allDamageTypes.map((t) => ({
+      value: t, label: game.i18n.localize(`LASTARC.DamageType.${t}`)
+    }));
+
+    // A blank first entry is the "no rider" case and has to be selectable —
+    // without it an attack that applies no status could never be un-set.
+    context.statusOptions = [
+      { value: "", label: game.i18n.localize("LASTARC.Attack.NoStatus") },
+      ...LASTARC.allStatusIds.map((id) => ({
+        value: id, label: game.i18n.localize(`LASTARC.Status.${id}`)
+      }))
+    ];
+
+    const bp = sys.breakGauge.penalty;
+    context.attacks = sys.attacks.map((atk, index) => ({
+      ...atk,
+      index,
+      // Shown next to the live total so a GM can check the sheet against the
+      // page without doing the Break Gauge arithmetic in their head.
+      brokenBy: bp ? bp : null,
+      displayName: atk.name || game.i18n.localize("LASTARC.Attack.Unnamed")
+    }));
+
     context.items = this.document.items.map((i) => ({
       id: i.id,
       name: i.name,
@@ -127,6 +154,47 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   static async #onRollAttribute(event, target) {
     await rollAttribute(this.document, target.dataset.attribute);
+  }
+
+  static async #onRollNpcAttack(event, target) {
+    const index = Number(target.dataset.index);
+    const targeted = [...(game.user.targets ?? [])][0]?.actor;
+
+    await rollNpcAttack(this.document, index, {
+      targetDefence: defenceToBeat(targeted),
+      targetProne: !!targeted?.statuses?.has?.("prone"),
+      targetHelpless: !!targeted?.statuses?.has?.("helpless")
+    });
+  }
+
+  static async #onAddAttack() {
+    const attacks = this.document.system.toObject().attacks ?? [];
+    await this.document.update({
+      "system.attacks": [...attacks, { name: "", atkBonus: 0, damage: "1d6" }]
+    });
+  }
+
+  /**
+   * Array element removal has to go through a whole-array write.
+   * `system.attacks.-=N` is object-key deletion syntax and does not apply to
+   * ArrayFields — using it here would corrupt the array rather than splice it.
+   */
+  static async #onDeleteAttack(event, target) {
+    const index = Number(target.dataset.index);
+    const attacks = this.document.system.toObject().attacks ?? [];
+    if (!attacks[index]) return;
+
+    const confirmed = await foundry.applications.api.DialogV2.confirm({
+      window: { title: game.i18n.localize("LASTARC.Dialog.DeleteAttack.title") },
+      content: `<p>${game.i18n.format("LASTARC.Dialog.DeleteAttack.content", {
+        name: attacks[index].name || game.i18n.localize("LASTARC.Attack.Unnamed")
+      })}</p>`
+    });
+    if (!confirmed) return;
+
+    await this.document.update({
+      "system.attacks": attacks.filter((_, i) => i !== index)
+    });
   }
 
   static async #onSetBreakStep(event, target) {

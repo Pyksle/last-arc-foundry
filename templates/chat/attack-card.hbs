@@ -59,16 +59,28 @@
     <p class="lastarc-reaction">{{localize "LASTARC.Card.ReactionWindow"}}</p>
   {{/if}}
 
+  {{#if statusLabel}}
+    <p class="lastarc-rider lastarc-rider--status">
+      {{localize "LASTARC.Card.OnHitApplies"}} <strong>{{statusLabel}}</strong>
+    </p>
+  {{/if}}
+
   {{#if outcome.hit}}
+    {{!-- `hasAttackIndex` is a precomputed boolean, not an inline comparison:
+          attack index 0 is legitimate and would test as falsy on its own. --}}
     <div class="lastarc-card__buttons">
       <button type="button" data-action="lastarcRollDamage"
-              data-actor-id="{{actorId}}" data-weapon-id="{{weaponId}}"
+              data-actor-id="{{actorId}}"
+              {{#if weaponId}}data-weapon-id="{{weaponId}}"{{/if}}
+              {{#if hasAttackIndex}}data-attack-index="{{attackIndex}}"{{/if}}
               data-critical="{{outcome.critical}}">
         {{localize "LASTARC.Card.RollDamage"}}
       </button>
       {{#if outcome.combo}}
         <button type="button" data-action="lastarcComboAttack"
-                data-actor-id="{{actorId}}" data-weapon-id="{{weaponId}}">
+                data-actor-id="{{actorId}}"
+                {{#if weaponId}}data-weapon-id="{{weaponId}}"{{/if}}
+                {{#if hasAttackIndex}}data-attack-index="{{attackIndex}}"{{/if}}>
           {{localize "LASTARC.Card.ComboAttack"}}
         </button>
       {{/if}}

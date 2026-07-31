@@ -322,6 +322,48 @@ export function skillModifier({
 }
 
 /**
+ * Format a modifier with an explicit sign: 3 -> "+3", -2 -> "−2", 0 -> "+0".
+ *
+ * Uses a real minus sign (U+2212) rather than a hyphen so numbers line up in the
+ * tabular-figure font the sheet uses. Shared by the `lasignal` Handlebars helper
+ * and by tooltip strings built in JS, so the two can never drift.
+ */
+export function signed(n) {
+  const v = Number(n) || 0;
+  return v < 0 ? `−${Math.abs(v)}` : `+${v}`;
+}
+
+/**
+ * The terms that land in a skill total WITHOUT a printed column of their own.
+ *
+ * The sheet prints ½Level, Attribute, Trained, Focus and Bonus. It does not
+ * print the Break Gauge penalty, the armour check penalty, technick bonuses, or
+ * training and focus that arrived as GRANTS rather than as ticked boxes. Before
+ * this existed a broken character's row read "2 + 1" and totalled +1, which
+ * reads as a bug rather than as a death spiral.
+ *
+ * Returns labelled parts rather than a number so the tooltip can itemise them.
+ * Values are signed as they apply: the armour check penalty is stored as a
+ * positive magnitude (§4.5 rev2) and is negated here.
+ *
+ * @returns {Array<{label:string, value:number}>} non-zero terms only
+ */
+export function skillAdjustmentParts(skill = {}, breakPenalty = 0) {
+  const parts = [];
+  const add = (label, value) => { if (value) parts.push({ label, value }); };
+
+  add("LASTARC.Mod.technicks", skill.technicks ?? 0);
+  add("LASTARC.Mod.grantedFocus", skill.grantedFocus ?? 0);
+  // Granted training is a real +2 with an UNTICKED box, so it needs its own line
+  // or the row appears to gain 2 from nowhere.
+  add("LASTARC.Mod.grantedTrained", skill.grantedTrained ? LASTARC.trainedBonus : 0);
+  add("LASTARC.Mod.armourCheck", -(skill.armourCheckPenalty ?? 0));
+  add("LASTARC.Mod.break", breakPenalty);
+
+  return parts;
+}
+
+/**
  * Number of trained skills = class base + Int modifier (+1 for half-elves).
  *
  * Throws rather than guessing when the class base is unknown — four of the six

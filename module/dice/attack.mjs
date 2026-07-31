@@ -18,16 +18,17 @@ import { rollDamageDice } from "./explode.mjs";
 export const DUAL_WIELD_PENALTY = [-10, -5, -2, 0];
 
 /**
- * Assemble the situational modifiers on an attack roll.
+ * The modifiers that depend only on the SITUATION, not on who is attacking.
  *
- * @returns {{total:number, parts:Array<{label:string, value:number}>}}
+ * Split out because monsters take these too. An NPC's attack bonus is a printed
+ * statblock number rather than a derived skill total, but flanking, cover, high
+ * ground and a prone target apply to a goblin exactly as they apply to a
+ * player. Keeping one implementation means a modifier added here can never
+ * silently apply to only half the combatants.
+ *
+ * @returns {Array<{label:string, value:number}>}
  */
-export function attackModifiers({
-  skillMod = 0,
-  weaponAtkBonus = 0,
-  proficient = true,
-  twoWeapon = false,
-  dualWieldRank = 0,
+export function situationalModifiers({
   flanking = false,
   highGround = false,
   shootingIntoMelee = false,
@@ -41,16 +42,6 @@ export function attackModifiers({
 } = {}) {
   const parts = [];
   const add = (label, value) => { if (value) parts.push({ label, value }); };
-
-  add("LASTARC.Mod.skill", skillMod);
-  add("LASTARC.Mod.weapon", weaponAtkBonus);
-
-  if (!proficient) add("LASTARC.Mod.nonProficient", -5);
-
-  if (twoWeapon) {
-    const rank = Math.min(dualWieldRank, DUAL_WIELD_PENALTY.length - 1);
-    add("LASTARC.Mod.twoWeapon", DUAL_WIELD_PENALTY[rank]);
-  }
 
   if (flanking && isMelee) add("LASTARC.Mod.flanking", 2);
   if (highGround && !isMelee) add("LASTARC.Mod.highGround", 2);
@@ -68,6 +59,66 @@ export function attackModifiers({
   if (improvised) add("LASTARC.Mod.improvised", -5);
 
   add("LASTARC.Mod.situational", situational);
+
+  return parts;
+}
+
+/**
+ * Assemble the modifiers on a CHARACTER's attack roll.
+ *
+ * @returns {{total:number, parts:Array<{label:string, value:number}>}}
+ */
+export function attackModifiers({
+  skillMod = 0,
+  weaponAtkBonus = 0,
+  proficient = true,
+  twoWeapon = false,
+  dualWieldRank = 0,
+  ...situation
+} = {}) {
+  const parts = [];
+  const add = (label, value) => { if (value) parts.push({ label, value }); };
+
+  add("LASTARC.Mod.skill", skillMod);
+  add("LASTARC.Mod.weapon", weaponAtkBonus);
+
+  if (!proficient) add("LASTARC.Mod.nonProficient", -5);
+
+  if (twoWeapon) {
+    const rank = Math.min(dualWieldRank, DUAL_WIELD_PENALTY.length - 1);
+    add("LASTARC.Mod.twoWeapon", DUAL_WIELD_PENALTY[rank]);
+  }
+
+  parts.push(...situationalModifiers(situation));
+
+  return { total: parts.reduce((sum, p) => sum + p.value, 0), parts };
+}
+
+/**
+ * Assemble the modifiers on an NPC's attack roll.
+ *
+ * A statblock's attack bonus is a PRINTED, UNBROKEN number — the same convention
+ * its defences use. The Break Gauge penalty is applied on top here rather than
+ * baked into the stored value, so the sheet can always show what the book says
+ * next to what is true right now.
+ *
+ * Nothing here derives from attributes or skills on purpose: back-deriving a
+ * bestiary entry from a character build fights the source material.
+ *
+ * @returns {{total:number, parts:Array<{label:string, value:number}>}}
+ */
+export function npcAttackModifiers({
+  atkBonus = 0,
+  breakPenalty = 0,
+  ...situation
+} = {}) {
+  const parts = [];
+  const add = (label, value) => { if (value) parts.push({ label, value }); };
+
+  add("LASTARC.Mod.statblock", atkBonus);
+  add("LASTARC.Mod.break", breakPenalty);
+
+  parts.push(...situationalModifiers(situation));
 
   return { total: parts.reduce((sum, p) => sum + p.value, 0), parts };
 }
@@ -280,6 +331,135 @@ export async function rollDamage(actor, weapon, { outcome, wield, isMelee, isThr
 }
 
 /**
+ * The Reflex value an attack must beat against a given target.
+ *
+ * A flat-footed defender uses its FLAT-FOOTED Reflex — which is the whole point
+ * of the surprise round. Reading `ref.value` unconditionally would quietly
+ * discard that, and the bug would look like "surprise does nothing" rather than
+ * like a wrong number.
+ *
+ * @param {Actor|null|undefined} target
+ * @returns {number|null} null when nothing is targeted
+ */
+export function defenceToBeat(target) {
+  const ref = target?.system?.defences?.ref;
+  if (!ref) return null;
+  const flatFooted = target.statuses?.has?.("flatFooted");
+  return flatFooted ? (ref.flatFooted ?? ref.value) : ref.value;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  NPC attacks                                                                */
+/* -------------------------------------------------------------------------- */
+
+/** Read a statblock attack by index, or warn and return null. */
+function getNpcAttack(actor, index) {
+  const attack = actor.system.attacks?.[index];
+  if (!attack) {
+    ui.notifications?.warn(
+      game.i18n.format("LASTARC.Warning.NoSuchAttack", { name: actor.name })
+    );
+    return null;
+  }
+  return attack;
+}
+
+/**
+ * Roll a statblock attack.
+ *
+ * Deliberately parallel to `rollAttack` rather than folded into it: the two
+ * share `situationalModifiers` and `resolveAttack` — everything that encodes a
+ * RULE — but differ entirely in where the number comes from. Trying to unify
+ * them would mean a function full of "if this is an NPC" branches on every line.
+ *
+ * @param {Actor} actor
+ * @param {number} index  position in `system.attacks`
+ */
+export async function rollNpcAttack(actor, index, options = {}) {
+  const sys = actor.system;
+
+  if (sys.breakGauge?.incapacitated) {
+    ui.notifications?.warn(
+      game.i18n.format("LASTARC.Warning.Incapacitated", { name: actor.name })
+    );
+    return null;
+  }
+
+  const attack = getNpcAttack(actor, index);
+  if (!attack) return null;
+
+  const isMelee = attack.isMelee;
+
+  const mods = npcAttackModifiers({
+    atkBonus: attack.atkBonus,
+    breakPenalty: sys.breakGauge?.penalty ?? 0,
+    isMelee,
+    ...options
+  });
+
+  const roll = new Roll("1d20 + @mod", { mod: mods.total });
+  await roll.evaluate();
+  const natural = roll.dice[0]?.results?.[0]?.result ?? 0;
+
+  const outcome = resolveAttack({
+    natural,
+    total: roll.total,
+    targetDefence: options.targetDefence ?? null,
+    isMelee,
+    isArea: !!attack.isArea,
+    isCharge: !!options.isCharge
+  });
+
+  await postAttackCard({
+    actor,
+    attack,
+    attackIndex: index,
+    roll,
+    mods,
+    outcome,
+    options
+  });
+
+  return { roll, mods, outcome, isMelee, attack };
+}
+
+/**
+ * Roll damage for a statblock attack.
+ *
+ * A statblock's printed damage is already the TOTAL — Strength, size and level
+ * are baked into the authored number. So this does NOT go through
+ * `buildDamageTerms`; doing so would add a Strength modifier the book already
+ * counted.
+ *
+ * The creature's own Break step does not reduce its damage, matching characters
+ * (there the gauge hits the attack roll via skills, and only a broken WEAPON
+ * reduces damage).
+ */
+export async function rollNpcDamage(actor, index, { outcome } = {}) {
+  const attack = getNpcAttack(actor, index);
+  if (!attack) return null;
+
+  // No tripleCrit: that is a technick, and NPCs carry no technick items.
+  const critMultiplier = outcome?.critical ? 2 : 1;
+
+  const result = await rollDamageDice({
+    diceFormula: attack.damage,
+    critMultiplier,
+    explosionMultiplier: 1,
+    flat: attack.damageBonus ?? 0
+  });
+
+  return {
+    ...result,
+    total: Math.max(1, result.total),
+    critMultiplier,
+    explosionMultiplier: 1,
+    damageType: attack.damageType ?? "blunt",
+    appliesStatus: attack.appliesStatus || null
+  };
+}
+
+/**
  * Apply a damage instance to a target: mitigation, Break Threshold, then HP.
  *
  * Order is fixed by §5.5 and the Threshold tap is chosen by the
@@ -369,21 +549,38 @@ function getSetting(key, fallback) {
   }
 }
 
-async function postAttackCard({ actor, weapon, roll, mods, outcome, options }) {
+/**
+ * Post an attack card for either a weapon Item or a statblock attack.
+ *
+ * Exactly one of `weapon` / `attack` is supplied. The card carries whichever
+ * identifier applies so the Damage button can route back to the right roller;
+ * `attackIndex` is checked with `!= null` because index 0 is legitimate and
+ * would otherwise read as absent.
+ */
+async function postAttackCard({
+  actor, weapon, attack, attackIndex = null, roll, mods, outcome, options
+}) {
+  const isNpc = attack != null;
+
   const content = await foundry.applications.handlebars.renderTemplate(
     "systems/last-arc/templates/chat/attack-card.hbs",
     {
       actorId: actor.id,
-      weaponId: weapon.id,
-      weaponName: weapon.name,
-      weaponImg: weapon.img,
+      weaponId: weapon?.id ?? null,
+      attackIndex,
+      weaponName: isNpc ? attack.name : weapon.name,
+      weaponImg: isNpc ? actor.img : weapon.img,
       formula: roll.formula,
       total: roll.total,
       natural: outcome.natural,
       parts: mods.parts,
       outcome,
       targetDefence: options.targetDefence ?? null,
-      hasTarget: options.targetDefence != null
+      hasTarget: options.targetDefence != null,
+      hasAttackIndex: attackIndex != null,
+      statusLabel: isNpc && attack.appliesStatus
+        ? game.i18n.localize(`LASTARC.Status.${attack.appliesStatus}`)
+        : null
     }
   );
 
@@ -391,6 +588,14 @@ async function postAttackCard({ actor, weapon, roll, mods, outcome, options }) {
     speaker: ChatMessage.getSpeaker({ actor }),
     content,
     rolls: [roll],
-    flags: { "last-arc": { type: "attack", actorId: actor.id, weaponId: weapon.id, outcome } }
+    flags: {
+      "last-arc": {
+        type: "attack",
+        actorId: actor.id,
+        weaponId: weapon?.id ?? null,
+        attackIndex,
+        outcome
+      }
+    }
   });
 }

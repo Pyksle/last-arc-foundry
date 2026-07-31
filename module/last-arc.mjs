@@ -163,10 +163,7 @@ function registerSheets() {
 
 function registerHandlebarsHelpers() {
   /** Format a modifier with an explicit sign: 3 → "+3", −2 → "−2", 0 → "+0". */
-  Handlebars.registerHelper("lasignal", (n) => {
-    const v = Number(n) || 0;
-    return v < 0 ? `−${Math.abs(v)}` : `+${v}`;
-  });
+  Handlebars.registerHelper("lasignal", (n) => D.signed(n));
 
   Handlebars.registerHelper("laeq", (a, b) => a === b);
   Handlebars.registerHelper("lagte", (a, b) => Number(a) >= Number(b));

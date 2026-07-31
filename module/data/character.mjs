@@ -473,6 +473,10 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       skill.grantedTrained = granted.trained && !skill.trained;
       skill.technicks = granted.bonus;
       skill.grantedFocus = granted.focus;
+      // Stored as a POSITIVE magnitude, matching §4.5 rev2 and skillModifier's
+      // contract. Kept per-skill so the sheet can show WHY a total is lower
+      // than its visible columns — see the breakdown built in the sheet.
+      skill.armourCheckPenalty = appliesArmourPenalty ? acp : 0;
 
       skill.total = D.skillModifier({
         level,

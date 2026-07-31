@@ -15,7 +15,7 @@
 import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollSkill, rollAttribute } from "../dice/rolls.mjs";
-import { rollAttack } from "../dice/attack.mjs";
+import { rollAttack, defenceToBeat } from "../dice/attack.mjs";
 import { heroPointDefenceBoost } from "../dice/hero-points.mjs";
 import * as AE from "../action-economy.mjs";
 import { getTurnState, setTurnState, holdTurn, resetActions } from "../combat.mjs";
@@ -80,8 +80,25 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     }));
 
     // Skills, standard then weapon, each carrying the five printed columns.
+    //
+    // The printed columns do NOT account for everything in the total: the Break
+    // Gauge penalty, the armour check penalty, technick bonuses and granted
+    // training/focus all land in the score without a column of their own. That
+    // made the sheet look broken — a row could show 2 + 1 and total +1 — so
+    // everything unprinted is gathered into a single `adjustment` column with
+    // an itemised tooltip. The invariant is now:
+    //
+    //   total = halfLevel + attrMod + trainedShown + focus + misc + adjustment
+    //
+    // `skillBreakdown` asserts exactly that, and a unit test pins it.
+    const halfLevel = D.rd(sys.details.level / 2);
+    const breakPenalty = sys.breakGauge.penalty;
+
     const toRow = (key, cfg) => {
       const s = sys.skills[key];
+      const parts = D.skillAdjustmentParts(s, breakPenalty);
+      const adjustment = parts.reduce((sum, p) => sum + p.value, 0);
+
       return {
         key,
         label: cfg.label,
@@ -94,8 +111,13 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
         misc: s.misc,
         total: s.total,
         appliesArmourPenalty: s.appliesArmourPenalty,
-        halfLevel: D.rd(sys.details.level / 2),
+        halfLevel,
         attrMod: sys.attributes[cfg.attr].mod,
+        adjustment,
+        hasAdjustment: adjustment !== 0,
+        adjustmentTooltip: parts.length
+          ? parts.map((p) => `${game.i18n.localize(p.label)} ${D.signed(p.value)}`).join(" · ")
+          : game.i18n.localize("LASTARC.Tooltip.NoAdjustments"),
         subskills: (s.subskills ?? []).map((sub, index) => ({ ...sub, index }))
       };
     };
@@ -608,7 +630,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
     const targeted = [...(game.user.targets ?? [])][0]?.actor;
     await rollAttack(this.document, weapon, {
-      targetDefence: targeted?.system?.defences?.ref?.value ?? null
+      targetDefence: defenceToBeat(targeted)
     });
   }
 

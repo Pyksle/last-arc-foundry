@@ -7,7 +7,9 @@
  */
 
 import { LASTARC } from "./config.mjs";
-import { rollDamage, applyDamage, rollAttack } from "./dice/attack.mjs";
+import {
+  rollDamage, applyDamage, rollAttack, rollNpcAttack, rollNpcDamage
+} from "./dice/attack.mjs";
 
 export function registerChatListeners() {
   Hooks.on("renderChatMessageHTML", (message, element) => {
@@ -36,28 +38,56 @@ async function onChatAction(event, message) {
 
 /* -------------------------------------------------------------------------- */
 
-function resolveActorAndWeapon(button) {
+function resolveActor(button) {
   const actor = game.actors.get(button.dataset.actorId);
   if (!actor) throw new Error(game.i18n.localize("LASTARC.Error.ActorGone"));
+  return actor;
+}
 
+function resolveWeapon(actor, button) {
   const weapon = actor.items.get(button.dataset.weaponId);
   if (!weapon) throw new Error(game.i18n.localize("LASTARC.Error.WeaponGone"));
+  return weapon;
+}
 
-  return { actor, weapon };
+/**
+ * Read the statblock attack index off a button, or null for weapon attacks.
+ *
+ * Index 0 is a real attack — the FIRST one, which is the common case — so this
+ * checks for the attribute's presence rather than the truthiness of its value.
+ */
+function attackIndexOf(button) {
+  const raw = button.dataset.attackIndex;
+  if (raw === undefined || raw === "") return null;
+  const index = Number(raw);
+  return Number.isInteger(index) && index >= 0 ? index : null;
 }
 
 async function onRollDamage(button, message) {
-  const { actor, weapon } = resolveActorAndWeapon(button);
+  const actor = resolveActor(button);
   const flags = message.flags?.["last-arc"] ?? {};
   const outcome = flags.outcome ?? { critical: button.dataset.critical === "true" };
+  const index = attackIndexOf(button);
 
+  if (index !== null) {
+    const result = await rollNpcDamage(actor, index, { outcome });
+    if (!result) return;
+    return await postDamageCard({
+      actor,
+      name: actor.system.attacks[index]?.name,
+      img: actor.img,
+      result
+    });
+  }
+
+  const weapon = resolveWeapon(actor, button);
   const result = await rollDamage(actor, weapon, {
     outcome,
     wield: flags.wield ?? "oneHanded",
     isMelee: flags.isMelee ?? true
   });
 
-  await postDamageCard({ actor, weapon, result });
+  await postDamageCard({ actor, name: weapon.name, img: weapon.img, result });
 }
 
 /**
@@ -68,7 +98,7 @@ async function onRollDamage(button, message) {
  * limit, and an unbounded chain is a hang rather than a house rule.
  */
 async function onComboAttack(button, message) {
-  const { actor, weapon } = resolveActorAndWeapon(button);
+  const actor = resolveActor(button);
   const flags = message.flags?.["last-arc"] ?? {};
 
   const cap = getSetting("maxComboChain", LASTARC.maxComboChain);
@@ -79,11 +109,16 @@ async function onComboAttack(button, message) {
     return;
   }
 
-  await rollAttack(actor, weapon, {
+  const options = {
     ...(flags.attackOptions ?? {}),
     comboDepth: depth,
     isCharge: false   // a Combo attack is not itself a charge
-  });
+  };
+
+  const index = attackIndexOf(button);
+  if (index !== null) return await rollNpcAttack(actor, index, options);
+
+  await rollAttack(actor, resolveWeapon(actor, button), options);
 }
 
 async function onApplyDamage(button) {
@@ -123,7 +158,7 @@ function describeApplication(target, result) {
   return `<p class="lastarc-applied"><strong>${target.name}</strong> — ${bits.join(" · ")}</p>`;
 }
 
-async function postDamageCard({ actor, weapon, result }) {
+async function postDamageCard({ actor, name, img, result }) {
   const critLabel = result.critMultiplier > 1
     ? game.i18n.format("LASTARC.Card.CritMultiplier", { n: result.critMultiplier })
     : null;
@@ -131,8 +166,8 @@ async function postDamageCard({ actor, weapon, result }) {
   const content = await foundry.applications.handlebars.renderTemplate(
     "systems/last-arc/templates/chat/damage-card.hbs",
     {
-      weaponName: weapon.name,
-      weaponImg: weapon.img,
+      weaponName: name,
+      weaponImg: img,
       total: result.total,
       results: result.results,
       parts: result.terms?.parts ?? [],
