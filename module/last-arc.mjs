@@ -62,6 +62,7 @@ Hooks.once("init", () => {
   Object.assign(CONFIG.Item.dataModels, ITEM_DATA_MODELS);
 
   registerSettings();
+  registerTokenDefaults();
   registerSheets();
   registerHandlebarsHelpers();
   registerStatusEffects();
@@ -82,6 +83,33 @@ Hooks.once("init", () => {
  * silent choice. A4 is absent because it was RESOLVED against the printed sheet
  * (Passive Perception = 10 + Perception) and no longer needs one.
  */
+/**
+ * Sensible prototype-token defaults per actor type.
+ *
+ * Foundry creates every actor with a HOSTILE token. For a player character that
+ * is simply wrong, and it is not cosmetic: threat, counterattacks and targeting
+ * all key off disposition, so a party of "hostile" PCs threatens nobody and
+ * provokes nothing. Characters are also linked by default, so their sheet and
+ * their token are one creature; NPCs stay unlinked so each token takes its own
+ * damage.
+ */
+function registerTokenDefaults() {
+  Hooks.on("preCreateActor", (actor, data) => {
+    if (data.prototypeToken?.disposition !== undefined) return;   // author chose
+
+    const isCharacter = actor.type === "character";
+    actor.updateSource({
+      prototypeToken: {
+        disposition: isCharacter
+          ? CONST.TOKEN_DISPOSITIONS.FRIENDLY
+          : CONST.TOKEN_DISPOSITIONS.HOSTILE,
+        actorLink: isCharacter,
+        sight: { enabled: isCharacter }
+      }
+    });
+  });
+}
+
 function registerSettings() {
   const def = (key, { name, hint, type = Boolean, initial }) =>
     game.settings.register(SYSTEM_ID, key, {

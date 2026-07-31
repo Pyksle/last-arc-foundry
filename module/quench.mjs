@@ -20,6 +20,8 @@ import { LASTARC } from "./config.mjs";
 import * as AE from "./action-economy.mjs";
 import * as ATK from "./dice/attack.mjs";
 import * as CB from "./combat.mjs";
+import * as MAGIC from "./dice/magic.mjs";
+import * as D from "./derivation.mjs";
 
 const SYSTEM_ID = "last-arc";
 
@@ -721,6 +723,85 @@ function registerCombatBatch(quench) {
           } finally {
             await combat.delete();
           }
+        });
+      });
+
+      describe("counterattacks", function () {
+        /**
+         * A flat-footed creature has no reactions, so it cannot counterattack.
+         * This is the interaction between §8 and §9 that makes opening a fight
+         * with a caster safe in round 1, and it is easy to lose by checking only
+         * `reactionUsed`.
+         */
+        it("a flat-footed threat cannot counterattack", async function () {
+          this.timeout(15_000);
+          await withActor({}, async (actor) => {
+            await actor.toggleStatusEffect("flatFooted", { active: true });
+            const state = AE.createTurnState();
+            const r = AE.useReaction(state, { flatFooted: true });
+            assert.isFalse(r.ok);
+            assert.match(r.reason, /FlatFooted/);
+          });
+        });
+
+        it("casting provokes, and casting defensively does not", function () {
+          assert.isTrue(AE.provokes("castSpell", { castDefensively: false }));
+          assert.isFalse(AE.provokes("castSpell", { castDefensively: true }));
+        });
+
+        /**
+         * §18.4. Not merely damage: a counterattack beating the caster's Break
+         * Threshold destroys the casting AND wastes the mana. The natural
+         * implementation applies damage and lets the spell continue.
+         */
+        it("a counterattack over Break Threshold disrupts and wastes the mana", async function () {
+          this.timeout(15_000);
+          assert.isTrue(MAGIC.counterattackDisruptsCasting(30, 17));
+          assert.isFalse(MAGIC.counterattackDisruptsCasting(17, 17), "must BEAT it");
+        });
+
+        it("threat detection excludes the incapacitated and the non-opposed", async function () {
+          this.timeout(20_000);
+          const combat = await Combat.create({});
+          const a = await Actor.create({ name: "Q Caster", type: "character" });
+          const b = await Actor.create({ name: "Q Ally", type: "character" });
+          try {
+            const cs = await combat.createEmbeddedDocuments("Combatant",
+              [{ actorId: a.id }, { actorId: b.id }]);
+            // Two characters are both FRIENDLY, so neither threatens the other
+            // even standing on top of one another.
+            assert.deepEqual(CB.threateningCombatants(cs[0]), [],
+              "allies must never threaten each other");
+          } finally {
+            await combat.delete();
+            await a.delete();
+            await b.delete();
+          }
+        });
+      });
+
+      describe("rest", function () {
+        it("recovers HP and MP on the same shape from different attributes", async function () {
+          await withActor({
+            system: {
+              attributes: { vit: { value: 16 }, mnd: { value: 12 } },
+              details: { level: 4 }
+            }
+          }, (actor) => {
+            const sys = actor.system;
+            const hp = D.restRecovery({ attrMod: sys.attributes.vit.mod, level: 4, hours: 8 });
+            const mp = D.restRecovery({ attrMod: sys.attributes.mnd.mod, level: 4, hours: 8 });
+            assert.isAbove(hp, mp, "Vit 16 beats Mnd 12, so HP recovers faster");
+          });
+        });
+
+        it("more than eight hours yields nothing extra", () => {
+          const eight = D.restRecovery({ attrMod: 3, level: 5, hours: 8 });
+          assert.equal(D.restRecovery({ attrMod: 3, level: 5, hours: 30 }), eight);
+        });
+
+        it("a blocked character gains no HP from rest", () => {
+          assert.equal(D.restRecovery({ attrMod: 3, level: 5, hours: 8, blocked: true }), 0);
         });
       });
 

@@ -463,5 +463,12 @@
   "LASTARC.Warning.NotEnoughMana": "{name} needs {cost} MP and has {available}.",
   "LASTARC.Warning.UnknownStatus": "This spell applies an unregistered status ({id}). Add it to the status tables.",
   "LASTARC.Tooltip.CastSpell": "Cast this spell. Target a token first to compare against its defence.",
-  "LASTARC.Tooltip.HighArcana": "High Arcana double the MP cost and cannot be stacked. Any MP reduction applies after the doubling."
+  "LASTARC.Tooltip.HighArcana": "High Arcana double the MP cost and cannot be stacked. Any MP reduction applies after the doubling.",
+  "LASTARC.Card.SpellDisrupted": "{spell} was disrupted by a counterattack — the spell fails and {cost} MP is wasted.",
+  "LASTARC.Action.Rest": "Rest",
+  "LASTARC.Tooltip.Rest": "Rest to recover HP and MP. Eight hours within 24 also restores per-day abilities; more than eight yields nothing extra.",
+  "LASTARC.Dialog.Rest.title": "Rest",
+  "LASTARC.Dialog.Rest.content": "How many hours?",
+  "LASTARC.Dialog.Rest.blocked": "A persistent condition prevents HP recovery from rest.",
+  "LASTARC.Card.Rested": "{name} rested {hours}h — recovered {hp} HP and {mp} MP."
 }

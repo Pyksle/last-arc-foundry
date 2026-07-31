@@ -36,6 +36,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       setBreakStep: LastArcCharacterSheet.#onSetBreakStep,
       bankRecovery: LastArcCharacterSheet.#onBankRecovery,
       secondWind: LastArcCharacterSheet.#onSecondWind,
+      takeRest: LastArcCharacterSheet.#onTakeRest,
       addSubskill: LastArcCharacterSheet.#onAddSubskill,
       removeSubskill: LastArcCharacterSheet.#onRemoveSubskill,
       addClass: LastArcCharacterSheet.#onAddClass,
@@ -716,6 +717,70 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       target: targeted,
       castDefensively: !!event.shiftKey,
       threatCount: event.shiftKey ? 1 : 0
+    });
+  }
+
+  /**
+   * Rest (§13).
+   *
+   * HP and MP recover on the same shape with different attributes — Vit for HP,
+   * Mnd for MP — and both clamp the hours term at 8, because the book says more
+   * than 8 yields nothing extra and the raw formula would happily reward 30.
+   *
+   * A character with a non-injury persistent condition or an HP-affecting status
+   * gains NO HP, which is why `naturalHealingBlocked` is derived rather than
+   * recomputed here.
+   */
+  static async #onTakeRest() {
+    const sys = this.document.system;
+    const blocked = sys.resources.naturalHealingBlocked;
+
+    const hours = await foundry.applications.api.DialogV2.prompt({
+      window: { title: game.i18n.localize("LASTARC.Dialog.Rest.title") },
+      content:
+        `<p>${game.i18n.localize("LASTARC.Dialog.Rest.content")}</p>` +
+        (blocked ? `<p class="notification warning">${game.i18n.localize("LASTARC.Dialog.Rest.blocked")}</p>` : "") +
+        `<input type="number" name="hours" value="8" min="0" max="24" autofocus>`,
+      ok: {
+        label: game.i18n.localize("LASTARC.Action.Rest"),
+        callback: (event, button) => Number(button.form.elements.hours.value)
+      },
+      rejectClose: false
+    });
+
+    if (hours == null || Number.isNaN(hours)) return;
+
+    const hp = D.restRecovery({
+      attrMod: sys.attributes.vit.mod, level: sys.details.level, hours, blocked
+    });
+    // MP is not blocked by the conditions that block HP — the book names those
+    // as preventing HP recovery specifically.
+    const mp = D.restRecovery({
+      attrMod: sys.attributes.mnd.mod, level: sys.details.level, hours
+    });
+
+    const newHp = Math.min(sys.resources.hp.max, sys.resources.hp.value + hp);
+    const newMp = Math.min(sys.resources.mp.max, sys.resources.mp.value + mp);
+
+    const updates = {
+      "system.resources.hp.value": newHp,
+      "system.resources.mp.value": newMp
+    };
+    // A full 8 hours restores per-day abilities.
+    if (hours >= 8) updates["system.resources.secondWind.used"] = 0;
+
+    await this.document.update(updates);
+
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: this.document }),
+      content:
+        `<div class="lastarc-card lastarc-card--rest">` +
+        `<p>${game.i18n.format("LASTARC.Card.Rested", {
+          name: this.document.name, hours,
+          hp: newHp - sys.resources.hp.value, mp: newMp - sys.resources.mp.value
+        })}</p>` +
+        (blocked ? `<p class="lastarc-note">${game.i18n.localize("LASTARC.Dialog.Rest.blocked")}</p>` : "") +
+        `</div>`
     });
   }
 

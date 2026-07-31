@@ -10,6 +10,7 @@
 import { LASTARC } from "./config.mjs";
 import * as INIT from "./initiative.mjs";
 import * as AE from "./action-economy.mjs";
+import * as ATK from "./dice/attack.mjs";
 
 const SYSTEM_ID = "last-arc";
 const FLAG_ORDER = "turnOrder";
@@ -157,6 +158,129 @@ export function registerCombat() {
       `§8 settles these with a coin flip.`
     );
   });
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Counterattacks                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Grid distance in squares between two token documents.
+ *
+ * Uses the scene's own measurement so the §10 diagonal rule (RECTILINEAR — a
+ * diagonal costs 2) is honoured rather than re-implemented here with a
+ * Chebyshev distance that would quietly disagree with movement.
+ */
+function squaresBetween(a, b) {
+  if (!a || !b) return Infinity;
+  const grid = a.parent?.grid ?? canvas?.grid;
+  if (!grid) return Infinity;
+
+  const from = { x: a.x + (a.width * grid.size) / 2, y: a.y + (a.height * grid.size) / 2 };
+  const to = { x: b.x + (b.width * grid.size) / 2, y: b.y + (b.height * grid.size) / 2 };
+
+  const path = grid.measurePath?.([from, to]);
+  if (path?.distance != null) return path.distance;
+
+  // Gridless or an older measurement API: fall back to raw distance in squares.
+  return Math.hypot(to.x - from.x, to.y - from.y) / grid.size;
+}
+
+/**
+ * Combatants who threaten `combatant` — enemies in reach with a reaction left.
+ *
+ * A SUGGESTION, not an authority. Whether a creature actually threatens you is a
+ * ruling (cover, awareness, being restrained), so callers may pass their own
+ * list. Getting this wrong matters: the defensive-casting penalty is −5 PER
+ * threat, so an over-count compounds.
+ */
+export function threateningCombatants(combatant) {
+  const combat = combatant?.parent;
+  if (!combat || !combatant.token) return [];
+
+  // Opposition, stated explicitly rather than inferred from "dispositions
+  // differ" — which treats two HOSTILE creatures as enemies of each other, and
+  // a NEUTRAL bystander as an enemy of everyone.
+  //
+  // FRIENDLY vs HOSTILE is the only pairing taken as automatically opposed.
+  // Anything involving NEUTRAL or SECRET is a ruling, so it is left out and the
+  // caller may pass an explicit `threats` list instead.
+  const D_ = CONST.TOKEN_DISPOSITIONS;
+  const mine = combatant.token?.disposition;
+  const isHostileTo = (other) => {
+    const theirs = other.token?.disposition;
+    return (mine === D_.FRIENDLY && theirs === D_.HOSTILE)
+        || (mine === D_.HOSTILE && theirs === D_.FRIENDLY);
+  };
+
+  return combat.combatants.filter((other) => {
+    if (other.id === combatant.id || !other.actor || !other.token) return false;
+    if (other.actor.system.resources?.hp?.value <= 0) return false;
+    if (other.actor.system.breakGauge?.incapacitated) return false;
+    if (!isHostileTo(other)) return false;
+
+    const reach = other.actor.system.details?.reach ?? 1;
+    return squaresBetween(other.token, combatant.token) <= reach;
+  });
+}
+
+/**
+ * Resolve counterattacks provoked by an action (§9, §18.4).
+ *
+ * Each threatening combatant that still has a reaction spends it to attack. The
+ * total damage is returned so the caller can apply the consequence — which for
+ * casting is not merely damage: a counterattack beating the caster's Break
+ * Threshold destroys the spell outright and wastes the mana.
+ *
+ * @returns {Promise<{provoked:boolean, attacks:Array, totalDamage:number}>}
+ */
+export async function resolveCounterattacks(combatant, actionKey, options = {}) {
+  const provoked = AE.provokes(actionKey, options);
+  if (!provoked) return { provoked: false, attacks: [], totalDamage: 0 };
+
+  const threats = options.threats ?? threateningCombatants(combatant);
+  const attacks = [];
+  let totalDamage = 0;
+
+  for (const threat of threats) {
+    // A counterattack IS a reaction and is bound by the same once-per-trigger
+    // limit; a flat-footed creature has none to spend.
+    const state = getTurnState(threat);
+    const reaction = AE.useReaction(state, {
+      flatFooted: threat.actor?.statuses?.has("flatFooted") ?? false
+    });
+    if (!reaction.ok) continue;
+    await setTurnState(threat, reaction.state);
+
+    const defender = combatant.actor;
+    const attacker = threat.actor;
+
+    let res = null;
+    if (attacker.type === "npc") {
+      if (!attacker.system.attacks?.length) continue;
+      res = await ATK.rollNpcAttack(attacker, 0, {
+        targetDefence: ATK.defenceToBeat(defender)
+      });
+    } else {
+      const weapon = attacker.items.find((i) => i.type === "weapon" && i.system.equipped);
+      if (!weapon) continue;
+      res = await ATK.rollAttack(attacker, weapon, {
+        targetDefence: ATK.defenceToBeat(defender)
+      });
+    }
+    if (!res?.outcome?.hit) { attacks.push({ attacker: threat.name, hit: false }); continue; }
+
+    const dmg = attacker.type === "npc"
+      ? await ATK.rollNpcDamage(attacker, 0, { outcome: res.outcome })
+      : await ATK.rollDamage(attacker, attacker.items.find((i) => i.type === "weapon" && i.system.equipped),
+          { outcome: res.outcome, wield: res.wield, isMelee: res.isMelee });
+
+    const applied = await ATK.applyDamage(defender, { total: dmg.total, type: dmg.damageType });
+    totalDamage += applied.final;
+    attacks.push({ attacker: threat.name, hit: true, damage: applied.final });
+  }
+
+  return { provoked: true, attacks, totalDamage };
 }
 
 /* -------------------------------------------------------------------------- */

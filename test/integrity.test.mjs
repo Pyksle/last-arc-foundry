@@ -414,9 +414,7 @@ describe("no orphaned exports", () => {
     ["explodingDieEV", "analysis helper: expected value of an exploding die, used when tuning"],
 
     // Written against rules that exist, awaiting the feature that calls them.
-    ["rollSurprise", "GM-invoked surprise resolution; needs a tracker button (#32)"],
-    ["counterattackDisruptsCasting", "needs counterattacks to exist first (#32)"],
-    ["restRecovery", "needs a rest UI (#32)"],
+    ["rollSurprise", "GM-invoked surprise resolution; needs a tracker button"],
     ["joinCombat", "joining mid-combat; needs a tracker button"],
     ["useFreeAction", "free actions are not yet surfaced in the action tracker"],
     ["sequenceComplete", "banked Recovery/Aim completion is not consumed anywhere yet"],

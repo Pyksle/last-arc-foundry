@@ -21,6 +21,7 @@ import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollDamageDice } from "./explode.mjs";
 import { applyDamage } from "./attack.mjs";
+import * as CB from "../combat.mjs";
 
 /** Re-exported: it is a derived value and lives with the other derived values. */
 export { knownSpellLimit } from "../derivation.mjs";
@@ -170,6 +171,31 @@ export async function castSpell(actor, spell, options = {}) {
     return null;
   }
 
+  /* -- provoked counterattacks, BEFORE the spell resolves (§18.4) ---------- */
+
+  // Casting in a threatened area provokes unless cast defensively. This is not
+  // merely damage to the caster: a counterattack whose damage beats the
+  // caster's Break Threshold makes the spell FAIL OUTRIGHT and wastes the MP.
+  // Resolved before the check, because a disrupted casting never gets to roll.
+  if (options.combatant && !options.castDefensively) {
+    const counter = await CB.resolveCounterattacks(options.combatant, "castSpell", {
+      castDefensively: false
+    });
+
+    if (counter.provoked && counterattackDisruptsCasting(
+      counter.totalDamage, sys.breakGauge?.threshold ?? Infinity
+    )) {
+      // Mana is spent even though nothing happens — that is the rule, and it is
+      // the entire cost of casting in melee without casting defensively.
+      await actor.update({ "system.resources.mp.value": available - cost });
+      await postDisruptedCard({ actor, spell, cost, counter });
+      return {
+        disrupted: true, counter, cost,
+        roll: null, outcome: null, achieved: false
+      };
+    }
+  }
+
   /* -- the Spellcraft check ------------------------------------------------ */
 
   const parts = [];
@@ -285,6 +311,24 @@ function hasFlag(actor, flag) {
   return actor?.items?.some(
     (i) => (i.type === "technick" || i.type === "talent") && i.system?.flags?.includes(flag)
   ) ?? false;
+}
+
+async function postDisruptedCard({ actor, spell, cost, counter }) {
+  const lines = counter.attacks
+    .filter((a) => a.hit)
+    .map((a) => `${a.attacker} (${a.damage})`)
+    .join(", ");
+
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content:
+      `<div class="lastarc-card lastarc-card--spell lastarc-card--disrupted">` +
+      `<p class="lastarc-verdict lastarc-verdict--bad">` +
+      `${game.i18n.format("LASTARC.Card.SpellDisrupted", { spell: spell.name, cost })}</p>` +
+      (lines ? `<p class="lastarc-note">${lines}</p>` : "") +
+      `</div>`,
+    flags: { "last-arc": { type: "spellDisrupted", actorId: actor.id } }
+  });
 }
 
 async function postSpellCard({ actor, spell, result, target }) {
