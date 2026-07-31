@@ -1,0 +1,57 @@
+{{!-- Performance result. Like the spell card there is no hit/miss — the Perform
+      check selects a tier. Unlike it, there is no mana line: performances cost
+      none (Chapter 9 never mentions MP). --}}
+<div class="lastarc-card lastarc-card--performance">
+
+  <header class="lastarc-card__head">
+    <img src="{{img}}" alt="" class="lastarc-card__img">
+    <div class="lastarc-card__title">
+      <span class="lastarc-card__weapon">{{name}}</span>
+      <span class="lastarc-card__sub">{{kindLabel}} · {{specLabel}}</span>
+    </div>
+    <div class="lastarc-card__total">{{total}}</div>
+  </header>
+
+  {{#if parts.length}}
+    <div class="lastarc-card__natural">
+      <span class="lastarc-card__parts">
+        {{#each parts}}
+          <span class="lastarc-part" data-tooltip="{{localize this.label}}">
+            {{lasignal this.value}}
+          </span>
+        {{/each}}
+      </span>
+    </div>
+  {{/if}}
+
+  {{#if achieved}}
+    {{#if dc}}
+      <p class="lastarc-verdict lastarc-verdict--good">
+        {{localize "LASTARC.Card.Achieved" dc=dc}}
+      </p>
+    {{/if}}
+    {{#if skillBonus}}
+      <p class="lastarc-rider">{{localize "LASTARC.Card.PerformSkillBonus" n=skillBonus}}</p>
+    {{/if}}
+    {{#if bonusDamage}}
+      <p class="lastarc-rider">{{localize "LASTARC.Card.PerformBonusDamage" dice=bonusDamage}}</p>
+    {{/if}}
+    {{#if effect}}<p class="lastarc-note">{{effect}}</p>{{/if}}
+  {{else}}
+    <p class="lastarc-verdict lastarc-verdict--neutral">
+      {{localize "LASTARC.Card.NoEffect"}}
+    </p>
+  {{/if}}
+
+  {{#if substitutesDefence}}
+    <p class="lastarc-rider lastarc-rider--substitute">
+      {{localize "LASTARC.Card.SubstitutesDefence" defence=substitutesDefence total=total}}
+    </p>
+  {{/if}}
+
+  {{#if notes}}<p class="lastarc-note">{{notes}}</p>{{/if}}
+
+  {{!-- The replacement rule is easy to forget at the table, so the card says it. --}}
+  <p class="lastarc-note lastarc-note--faint">{{localize "LASTARC.Card.PerformanceReplaces"}}</p>
+
+</div>

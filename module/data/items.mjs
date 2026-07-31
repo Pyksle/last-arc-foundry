@@ -378,12 +378,53 @@ export class LastArcPerformanceData extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
       ...commonFields(),
-      mpCost: new fields.NumberField({ initial: 1, integer: true, min: 0 }),
-      performDC: new fields.NumberField({ initial: 15, integer: true }),
-      /** Perform is sub-skilled; this names the required specialisation. */
-      specialisation: new fields.StringField({ initial: "", blank: true }),
+
+      /**
+       * NO MP COST. Chapter 9 never mentions mana and no performance name
+       * carries the parenthetical cost every spell name has. The previous
+       * schema had `mpCost` by assuming symmetry with casting; it does not hold.
+       */
+
+      /**
+       * Perform is sub-skilled, and the specialisation is MECHANICAL rather
+       * than flavour: it sets the defensive-performing penalty (−5 for
+       * Instrument, −2 for Dance and Oratory).
+       */
+      specialisation: new fields.StringField({
+        initial: "instrument", choices: Object.keys(LASTARC.performSpecialisations)
+      }),
+
+      /** Enhancing performances target allies; enfeebling ones target enemies. */
+      kind: new fields.StringField({
+        initial: "enhancing", choices: Object.keys(LASTARC.performanceKinds)
+      }),
+
+      /** Same tiered shape as spells — see LastArcSpellData.outcomes. */
+      outcomes: new fields.ArrayField(
+        new fields.SchemaField({
+          dc: new fields.NumberField({ initial: null, integer: true, nullable: true }),
+          effect: new fields.StringField({ initial: "", blank: true }),
+          /** e.g. +2 to all weapon skills. */
+          skillBonus: new fields.NumberField({ initial: 0, integer: true }),
+          bonusDamage: new fields.StringField({ initial: "", blank: true }),
+          status: new fields.StringField({ initial: "", blank: true }),
+          notes: new fields.StringField({ initial: "", blank: true })
+        }),
+        { initial: [] }
+      ),
+
+      /**
+       * Some performances let allies SUBSTITUTE the performer's Perform check
+       * for one of their own defences until the performer's next turn — a shape
+       * nothing else in the system has.
+       */
+      substitutesDefence: new fields.StringField({
+        initial: "", blank: true, choices: ["", "ref", "fort", "will"]
+      }),
+
       duration: new fields.StringField({ initial: "", blank: true }),
-      area: new fields.StringField({ initial: "", blank: true })
+      area: new fields.StringField({ initial: "", blank: true }),
+      special: new fields.StringField({ initial: "", blank: true })
     };
   }
 }

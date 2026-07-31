@@ -571,6 +571,27 @@ LASTARC.highArcanaIds = Object.keys(LASTARC.highArcana);
 LASTARC.highArcanaCostMultiplier = 2;
 
 /**
+ * Perform specialisations, and the penalty each takes to perform defensively
+ * (§19, book p.157).
+ *
+ * NOT a flat −5 like casting: Instrument takes −5, Dance and Oratory −2, and it
+ * is PER threatening creature in both cases. A bard who plays rather than sings
+ * pays more than twice as much to stay safe, which is a real tactical choice and
+ * would vanish entirely if this were modelled as one number.
+ */
+LASTARC.performSpecialisations = Object.freeze({
+  instrument: { label: "LASTARC.Perform.instrument", defensivePenalty: -5 },
+  dance: { label: "LASTARC.Perform.dance", defensivePenalty: -2 },
+  oratory: { label: "LASTARC.Perform.oratory", defensivePenalty: -2 }
+});
+
+/** Whether a performance helps allies or hinders enemies (§19). */
+LASTARC.performanceKinds = Object.freeze({
+  enhancing: { label: "LASTARC.Perform.enhancing", targetsAllies: true },
+  enfeebling: { label: "LASTARC.Perform.enfeebling", targetsAllies: false }
+});
+
+/**
  * Casting times seen across Chapters 8 and 9. These map onto the §9 action
  * slots directly — there is no minor-action casting.
  */

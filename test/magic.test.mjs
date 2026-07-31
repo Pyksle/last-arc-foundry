@@ -19,7 +19,9 @@ import {
   selectOutcome,
   resolveOpposed,
   decayTicks,
-  counterattackDisruptsCasting
+  counterattackDisruptsCasting,
+  defensivePerformPenalty,
+  performancesDisplacedBy
 } from "../module/dice/magic.mjs";
 
 describe("§18.1 known spells", () => {
@@ -240,5 +242,74 @@ describe("§18.5 config corrections", () => {
                       "silence", "petrify", "blind", "paralysis", "disease"]) {
       assert.ok(LASTARC.allStatusIds.includes(id), `spell status not registered: ${id}`);
     }
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+describe("§19 performances", () => {
+  test("the defensive penalty depends on specialisation, not a flat −5", () => {
+    // Assuming symmetry with casting would overcharge a dancer by more than
+    // double, which is the whole reason specialisation is a mechanical field.
+    assert.equal(defensivePerformPenalty(1, "instrument"), -5);
+    assert.equal(defensivePerformPenalty(1, "dance"), -2);
+    assert.equal(defensivePerformPenalty(1, "oratory"), -2);
+  });
+
+  test("it is per threatening creature, like casting", () => {
+    assert.equal(defensivePerformPenalty(3, "instrument"), -15);
+    assert.equal(defensivePerformPenalty(3, "dance"), -6);
+  });
+
+  test("no threats, no penalty", () => {
+    assert.equal(defensivePerformPenalty(0, "instrument"), 0);
+  });
+
+  /**
+   * A creature carries at most ONE allied and ONE enemy performance, and a new
+   * one displaces only its own side. Modelling this as a single slot would
+   * cancel an enemy's debuff every time an ally played — a large, invisible
+   * buff to the party.
+   */
+  test("an allied performance displaces only the previous ALLIED one", () => {
+    const active = [
+      { id: "ally-song", fromAlly: true },
+      { id: "enemy-dirge", fromAlly: false }
+    ];
+    assert.deepEqual(performancesDisplacedBy(active, true), ["ally-song"]);
+  });
+
+  test("an enemy performance displaces only the previous ENEMY one", () => {
+    const active = [
+      { id: "ally-song", fromAlly: true },
+      { id: "enemy-dirge", fromAlly: false }
+    ];
+    assert.deepEqual(performancesDisplacedBy(active, false), ["enemy-dirge"]);
+  });
+
+  test("both sides can be active at once", () => {
+    const active = [{ id: "ally-song", fromAlly: true }];
+    assert.deepEqual(performancesDisplacedBy(active, false), [],
+      "an enemy performance must not cancel an allied one");
+  });
+
+  test("performances have no mana cost in the schema", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync(new URL("../module/data/items.mjs", import.meta.url), "utf8");
+    const block = src
+      .slice(src.indexOf("class LastArcPerformanceData"), src.indexOf("class LastArcRaceData"))
+      // Comments stripped: the docblock explains why there is no mpCost, and
+      // scanning raw source matches the explanation as the violation. Third
+      // time this has bitten — see also the two scans in magic.test.mjs above.
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+
+    assert.doesNotMatch(block, /mpCost/,
+      "Chapter 9 never mentions MP and no performance name carries a cost");
+  });
+
+  test("performing provokes, and performing defensively does not", () => {
+    assert.equal(LASTARC.performSpecialisations.instrument.defensivePenalty, -5);
+    assert.equal(LASTARC.performSpecialisations.dance.defensivePenalty, -2);
   });
 });

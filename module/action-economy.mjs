@@ -200,7 +200,13 @@ export function beginTurn(state) {
 export const ACTIONS = {
   // Primary
   attack: { slot: "primary" },
-  castSpell: { slot: "primary", provokes: true, note: "unless cast defensively" },
+  castSpell: { slot: "primary", provokes: true, defensiveOption: true, note: "unless cast defensively" },
+  /**
+   * Performing in a threatened area provokes (§19). Like casting it has a
+   * defensive option, but the PENALTY differs by Perform specialisation —
+   * see `defensivePerformPenalty`.
+   */
+  performance: { slot: "primary", provokes: true, defensiveOption: true, note: "unless performed defensively" },
   charge: { slot: "primary", noCombo: true },
   disarm: { slot: "primary", provokesOnFailure: true },
   grab: { slot: "primary", provokesOnFailure: true },
@@ -254,7 +260,10 @@ export function provokes(actionKey, { failed = false, leavingThreat = false, cas
   const def = ACTIONS[actionKey];
   if (!def) return false;
   if (def.provokes) {
-    if (actionKey === "castSpell" && castDefensively) return false;
+    // Generalised rather than hardcoded to castSpell: performing has the same
+    // defensive escape (§19), and hardcoding meant a defensive performance
+    // still provoked.
+    if (def.defensiveOption && castDefensively) return false;
     return true;
   }
   if (def.provokesOnFailure && failed) return true;

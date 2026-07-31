@@ -16,7 +16,7 @@ import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollSkill, rollAttribute } from "../dice/rolls.mjs";
 import { rollAttack, defenceToBeat } from "../dice/attack.mjs";
-import { castSpell } from "../dice/magic.mjs";
+import { castSpell, performItem, performancesDisplacedBy } from "../dice/magic.mjs";
 import { heroPointDefenceBoost } from "../dice/hero-points.mjs";
 import * as AE from "../action-economy.mjs";
 import { getTurnState, setTurnState, holdTurn, resetActions } from "../combat.mjs";
@@ -46,6 +46,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       toggleEquip: LastArcCharacterSheet.#onToggleEquip,
       rollAttack: LastArcCharacterSheet.#onRollAttack,
       castSpell: LastArcCharacterSheet.#onCastSpell,
+      performItem: LastArcCharacterSheet.#onPerform,
       addPersistent: LastArcCharacterSheet.#onAddPersistent,
       clearPersistent: LastArcCharacterSheet.#onClearPersistent,
       heroBoost: LastArcCharacterSheet.#onHeroBoost,
@@ -781,6 +782,23 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
         })}</p>` +
         (blocked ? `<p class="lastarc-note">${game.i18n.localize("LASTARC.Dialog.Rest.blocked")}</p>` : "") +
         `</div>`
+    });
+  }
+
+  /**
+   * Perform. Shift-click performs defensively, matching the cast button.
+   *
+   * The displacement rule is reported rather than enforced: which performances
+   * are currently affecting whom is table state we do not track, and silently
+   * cancelling the wrong one would be worse than saying nothing.
+   */
+  static async #onPerform(event, target) {
+    const item = this.document.items.get(target.dataset.itemId);
+    if (!item) return;
+
+    await performItem(this.document, item, {
+      performDefensively: !!event.shiftKey,
+      threatCount: event.shiftKey ? 1 : 0
     });
   }
 

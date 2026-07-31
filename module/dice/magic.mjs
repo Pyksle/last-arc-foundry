@@ -130,6 +130,143 @@ export function counterattackDisruptsCasting(counterDamage, breakThreshold) {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Performances (§19, book Chapter 9)                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The penalty for performing defensively (§19).
+ *
+ * NOT the flat −5 that casting uses. Instrument takes −5; Dance and Oratory take
+ * −2. Both are PER threatening creature. Assuming symmetry with `castSpell`
+ * would overcharge a dancer by more than double.
+ */
+export function defensivePerformPenalty(threatCount = 0, specialisation = "instrument") {
+  if (threatCount <= 0) return 0;
+  const per = LASTARC.performSpecialisations[specialisation]?.defensivePenalty ?? -5;
+  return per * threatCount;
+}
+
+/**
+ * Which existing performance a new one displaces (§19).
+ *
+ * "If a creature affected by an ally's performance becomes affected by another
+ * ally's performance, they are no longer affected by the previous performance.
+ * This is also the case for enemy performances, though you may be affected by
+ * both an enemy and an allied performance."
+ *
+ * So a creature carries AT MOST ONE of each side, and a new performance
+ * displaces only its own side. Modelling this as a single slot would silently
+ * cancel an enemy's debuff every time an ally played, which is a large and
+ * invisible buff to the party.
+ *
+ * @param {Array<{id:string, fromAlly:boolean}>} active
+ * @param {boolean} incomingFromAlly
+ * @returns {string[]} ids of performances the newcomer replaces
+ */
+export function performancesDisplacedBy(active = [], incomingFromAlly = true) {
+  return active
+    .filter((p) => p.fromAlly === incomingFromAlly)
+    .map((p) => p.id);
+}
+
+/**
+ * Perform.
+ *
+ * Shares `selectOutcome` with casting — the tier tables are the same shape —
+ * but differs in three ways that matter and are easy to assume away:
+ *
+ *   1. NO MANA. Chapter 9 never mentions MP and no performance name carries the
+ *      parenthetical cost every spell name has.
+ *   2. The defensive penalty depends on the SPECIALISATION, not a flat −5.
+ *   3. A disrupting counterattack makes the performance fail, but there is no
+ *      mana to waste — the book says only that it fails.
+ */
+export async function performItem(actor, performance, options = {}) {
+  const sys = actor.system;
+  const perf = performance.system;
+
+  if (sys.breakGauge?.incapacitated) {
+    ui.notifications?.warn(
+      game.i18n.format("LASTARC.Warning.Incapacitated", { name: actor.name })
+    );
+    return null;
+  }
+
+  // Performing in a threatened area provokes; a counterattack beating the
+  // performer's Break Threshold makes it fail (§19).
+  if (options.combatant && !options.performDefensively) {
+    const counter = await CB.resolveCounterattacks(options.combatant, "performance", {
+      castDefensively: false
+    });
+    if (counter.provoked && counterattackDisruptsCasting(
+      counter.totalDamage, sys.breakGauge?.threshold ?? Infinity
+    )) {
+      await ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor }),
+        content:
+          `<div class="lastarc-card lastarc-card--spell lastarc-card--disrupted">` +
+          `<p class="lastarc-verdict lastarc-verdict--bad">` +
+          `${game.i18n.format("LASTARC.Card.PerformanceDisrupted", { name: performance.name })}` +
+          `</p></div>`
+      });
+      return { disrupted: true, counter, roll: null, outcome: null, achieved: false };
+    }
+  }
+
+  const parts = [];
+  const add = (label, value) => { if (value) parts.push({ label, value }); };
+
+  // Perform is sub-skilled: the specialisation has its own trained/focus values.
+  const sub = sys.skills?.perform?.subskills
+    ?.find((x) => x.name?.toLowerCase() === perf.specialisation);
+  add("LASTARC.Mod.perform", sub?.total ?? sys.skills?.perform?.total ?? 0);
+
+  const defensive = options.performDefensively
+    ? defensivePerformPenalty(options.threatCount ?? 0, perf.specialisation)
+    : 0;
+  add("LASTARC.Mod.performDefensively", defensive);
+  add("LASTARC.Mod.situational", options.situational ?? 0);
+
+  const mod = parts.reduce((sum, p) => sum + p.value, 0);
+  const roll = new Roll("1d20 + @mod", { mod });
+  await roll.evaluate();
+
+  const outcome = selectOutcome(perf.outcomes, roll.total);
+
+  const content = await foundry.applications.handlebars.renderTemplate(
+    "systems/last-arc/templates/chat/performance-card.hbs",
+    {
+      name: performance.name,
+      img: performance.img,
+      kindLabel: game.i18n.localize(LASTARC.performanceKinds[perf.kind]?.label ?? ""),
+      specLabel: game.i18n.localize(
+        LASTARC.performSpecialisations[perf.specialisation]?.label ?? ""
+      ),
+      total: roll.total,
+      parts,
+      achieved: !!outcome,
+      dc: outcome?.dc ?? null,
+      effect: outcome?.effect || null,
+      skillBonus: outcome?.skillBonus || null,
+      bonusDamage: outcome?.bonusDamage || null,
+      notes: outcome?.notes || null,
+      substitutesDefence: perf.substitutesDefence
+        ? game.i18n.localize(`LASTARC.Defence.${perf.substitutesDefence}`)
+        : null
+    }
+  );
+
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content,
+    rolls: [roll],
+    flags: { "last-arc": { type: "performance", actorId: actor.id } }
+  });
+
+  return { roll, parts, outcome, achieved: !!outcome };
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Foundry-facing                                                             */
 /* -------------------------------------------------------------------------- */
 

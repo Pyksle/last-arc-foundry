@@ -409,14 +409,11 @@
       <div class="la-spells">
         {{#each performances}}
           <div class="la-spell {{#unless this.affordable}}is-unaffordable{{/unless}}">
-            {{!-- No perform button yet: Chapter 9 has not been read, and a
-                  button that guessed at the rules would be worse than none.
-                  Entries are visible and editable so they can be entered by
-                  hand today. --}}
-            <span class="la-spell__static">
+            <button type="button" class="la-spell__cast" data-action="performItem"
+                    data-item-id="{{this.id}}"
+                    data-tooltip="{{localize 'LASTARC.Tooltip.Perform'}}">
               <span class="la-spell__name">{{this.name}}</span>
-              <span class="la-spell__cost">{{this.mpCost}}</span>
-            </span>
+            </button>
             <span class="la-spell__time">{{this.specialisation}}</span>
             <button type="button" class="la-item__edit" data-action="editItem"
                     data-item-id="{{this.id}}">✎</button>

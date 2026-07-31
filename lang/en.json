@@ -470,5 +470,20 @@
   "LASTARC.Dialog.Rest.title": "Rest",
   "LASTARC.Dialog.Rest.content": "How many hours?",
   "LASTARC.Dialog.Rest.blocked": "A persistent condition prevents HP recovery from rest.",
-  "LASTARC.Card.Rested": "{name} rested {hours}h — recovered {hp} HP and {mp} MP."
+  "LASTARC.Card.Rested": "{name} rested {hours}h — recovered {hp} HP and {mp} MP.",
+  "LASTARC.Perform.instrument": "Instrument",
+  "LASTARC.Perform.dance": "Dance",
+  "LASTARC.Perform.oratory": "Oratory",
+  "LASTARC.Perform.enhancing": "Enhancing",
+  "LASTARC.Perform.enfeebling": "Enfeebling",
+  "LASTARC.Mod.perform": "Perform",
+  "LASTARC.Mod.performDefensively": "Performed defensively",
+  "LASTARC.Field.Specialisation": "Specialisation",
+  "LASTARC.Field.Kind": "Kind",
+  "LASTARC.Card.PerformSkillBonus": "Allies gain {n} to all weapon skills until the start of your next turn.",
+  "LASTARC.Card.PerformBonusDamage": "Bonus damage {dice}.",
+  "LASTARC.Card.SubstitutesDefence": "Allies may use {total} in place of their {defence} Defence until the start of your next turn.",
+  "LASTARC.Card.PerformanceReplaces": "A creature carries one allied and one enemy performance at most; a new one of the same side replaces the old.",
+  "LASTARC.Card.PerformanceDisrupted": "{name} was disrupted by a counterattack — the performance fails.",
+  "LASTARC.Tooltip.Perform": "Perform. Shift-click to perform defensively (Instrument −5, Dance and Oratory −2, per threatening creature)."
 }
