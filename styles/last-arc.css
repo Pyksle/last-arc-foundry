@@ -805,8 +805,198 @@
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Attacks                                                                    */
+/* -------------------------------------------------------------------------- */
+
+.la-attacks { display: flex; flex-direction: column; gap: 1px; }
+
+.la-attack {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(6rem, 1fr) auto 2.6rem auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.3rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--la-rule) 40%, transparent);
+}
+.la-attack:nth-child(even) { background: color-mix(in srgb, var(--la-paper-3) 25%, transparent); }
+
+.la-attack__name {
+  background: none;
+  border: none;
+  color: var(--la-ink);
+  font-family: var(--la-font-body);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.la-attack__name:hover:not(:disabled) { color: var(--la-bronze); }
+.la-attack__name:disabled { cursor: not-allowed; opacity: 0.5; }
+
+.la-attack__wield,
+.la-attack__type {
+  font-size: 0.56rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--la-ink-faint);
+  border: 1px solid color-mix(in srgb, var(--la-rule) 70%, transparent);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  white-space: nowrap;
+}
+.la-attack__bonus {
+  font-family: var(--la-font-num);
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: center;
+}
+.la-attack__damage { font-family: var(--la-font-num); font-size: 0.85rem; white-space: nowrap; }
+.la-attack.is-unusable { opacity: 0.55; }
+.la-attack.is-unusable .la-attack__wield { color: var(--la-oxblood); border-color: var(--la-oxblood); }
+
+/* -------------------------------------------------------------------------- */
 /*  Chat cards                                                                 */
 /* -------------------------------------------------------------------------- */
+
+.lastarc-card {
+  font-family: var(--la-font-body, Georgia, serif);
+  border: 1px solid #b9ab8f;
+  border-radius: 3px;
+  padding: 0.4rem;
+  background: rgba(245, 240, 228, 0.06);
+}
+.lastarc-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(185, 171, 143, 0.5);
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.3rem;
+}
+.lastarc-card__img {
+  width: 2rem; height: 2rem;
+  object-fit: cover;
+  border: 1px solid #b9ab8f;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+.lastarc-card__title { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+.lastarc-card__weapon { font-size: 0.95rem; font-weight: 600; }
+.lastarc-card__sub {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+}
+.lastarc-card__total {
+  font-size: 1.7rem;
+  font-weight: 700;
+  font-family: var(--la-font-num, Georgia, serif);
+  flex: 0 0 auto;
+}
+.lastarc-card__total.is-auto-good { color: #3f6b46; }
+.lastarc-card__total.is-auto-bad { color: #7a2e2e; }
+
+.lastarc-card__natural {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 0.7rem;
+  opacity: 0.85;
+}
+.lastarc-part {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0 0.35rem;
+  font-size: 0.62rem;
+  opacity: 0.75;
+}
+
+/* Chat messages render OUTSIDE the .last-arc scope, so these cannot use the
+   sheet's theme variables and cannot know whether the chat log is light or
+   dark. Colours are therefore mid-tone and paired with a solid tinted
+   background, which stays legible either way — a pale-on-pale or dark-on-dark
+   pairing is the failure mode here. */
+.lastarc-verdict {
+  margin: 0.3rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.2rem 0.45rem;
+  border-radius: 2px;
+  border-left: 3px solid currentColor;
+}
+.lastarc-verdict--good { background: rgba(78, 135, 87, 0.28); color: #2f5c39; }
+.lastarc-verdict--bad { background: rgba(176, 74, 74, 0.28); color: #7a2020; }
+.lastarc-verdict--neutral {
+  background: rgba(128, 128, 128, 0.18);
+  font-style: italic;
+  font-weight: 500;
+}
+.lastarc-vs { float: right; font-weight: 500; opacity: 0.85; }
+
+@media (prefers-color-scheme: dark) {
+  .lastarc-verdict--good { color: #8fd39c; }
+  .lastarc-verdict--bad { color: #f0a0a0; }
+}
+
+.lastarc-rider {
+  margin: 0.3rem 0 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.2rem 0.45rem;
+  border-left: 3px solid currentColor;
+  border-radius: 2px;
+}
+.lastarc-rider--combo { color: #7a5f2c; background: rgba(176, 141, 79, 0.24); }
+.lastarc-rider--crit { color: #7a2020; background: rgba(176, 74, 74, 0.24); }
+
+@media (prefers-color-scheme: dark) {
+  .lastarc-rider--combo { color: #e0bd76; }
+  .lastarc-rider--crit { color: #f0a0a0; }
+}
+
+/* Deliberately prominent. The most likely rules error in this whole pipeline is
+   treating an automatic hit as unblockable — Block and Dodge are opposed
+   reactions, not defence comparisons — and this notice is where a table
+   actually catches it. It gets a real background rather than faint italics. */
+.lastarc-reaction {
+  margin: 0.3rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  border-left: 3px solid #b08d4f;
+  background: rgba(176, 141, 79, 0.15);
+  padding: 0.25rem 0.45rem;
+  border-radius: 2px;
+}
+
+.lastarc-dice { display: flex; flex-wrap: wrap; gap: 0.2rem; margin: 0.3rem 0; }
+.lastarc-die {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid #b9ab8f;
+  border-radius: 2px;
+  font-family: var(--la-font-num, Georgia, serif);
+  font-size: 0.8rem;
+}
+.lastarc-die.is-exploded { border-color: #b08d4f; border-width: 2px; font-weight: 700; }
+.lastarc-die.is-extra { border-style: dashed; opacity: 0.9; }
+
+.lastarc-card__buttons { display: flex; gap: 0.3rem; margin-top: 0.4rem; flex-wrap: wrap; }
+.lastarc-card__buttons button {
+  flex: 1 1 auto;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.4rem;
+  cursor: pointer;
+}
+.lastarc-applied { margin: 0.15rem 0; font-size: 0.8rem; }
+.lastarc-type { font-style: italic; }
 
 .lastarc-dc,
 .lastarc-result,

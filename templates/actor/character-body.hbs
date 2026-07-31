@@ -218,6 +218,34 @@
     </div>
   </section>
 
+  {{!-- ── Attacks ─────────────────────────────────────────────────────────── --}}
+  <section class="la-panel la-panel--attacks">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Attacks"}}</h2>
+
+    <div class="la-attacks">
+      {{#each attacks}}
+        <div class="la-attack {{#if this.unusable}}is-unusable{{/if}}">
+          <img class="la-item__img" src="{{this.img}}" alt="">
+          <button type="button" class="la-attack__name" data-action="rollAttack"
+                  data-item-id="{{this.id}}"
+                  {{#if this.unusable}}disabled{{/if}}>
+            {{this.name}}
+          </button>
+          <span class="la-attack__wield" data-tooltip="{{localize this.wieldTooltip}}">
+            {{localize this.wieldLabel}}
+          </span>
+          <span class="la-attack__bonus">{{lasignal this.atkTotal}}</span>
+          <span class="la-attack__damage">
+            {{this.damage}}{{#if this.damageFlat}} {{lasignal this.damageFlat}}{{/if}}
+          </span>
+          <span class="la-attack__type">{{localize this.damageTypeLabel}}</span>
+        </div>
+      {{else}}
+        <p class="la-note">{{localize "LASTARC.Note.NoWeapons"}}</p>
+      {{/each}}
+    </div>
+  </section>
+
   {{!-- ── Technicks & talents ─────────────────────────────────────────────── --}}
   <section class="la-panel la-panel--technicks">
     <h2 class="la-panel__title">{{localize "LASTARC.Section.Technicks"}}</h2>

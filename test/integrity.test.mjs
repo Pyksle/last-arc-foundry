@@ -21,7 +21,7 @@ const lang = JSON.parse(readFileSync(join(root, "lang/en.json"), "utf8"));
 const systemJson = JSON.parse(readFileSync(join(root, "system.json"), "utf8"));
 
 function readTemplates() {
-  return ["templates/actor", "templates/item"].flatMap((rel) =>
+  return ["templates/actor", "templates/item", "templates/chat"].flatMap((rel) =>
     readdirSync(join(root, rel))
       .filter((f) => f.endsWith(".hbs"))
       .map((f) => ({ name: `${rel}/${f}`, source: readFileSync(join(root, rel, f), "utf8") }))
@@ -154,7 +154,7 @@ describe("sheet registration", () => {
 });
 
 describe("sheet wiring", () => {
-  test("every data-action in a template is declared in DEFAULT_OPTIONS.actions", () => {
+  test("every data-action in a SHEET template is declared in DEFAULT_OPTIONS.actions", () => {
     const declared = new Set([
       ...[...sheetSource.matchAll(/(\w+):\s*LastArcCharacterSheet\.#on/g)].map((m) => m[1]),
       ...[...npcSheetSource.matchAll(/(\w+):\s*LastArcNpcSheet\.#on/g)].map((m) => m[1])
@@ -163,11 +163,31 @@ describe("sheet wiring", () => {
 
     const missing = [];
     for (const { name, source } of templates) {
+      // Chat cards are not sheets: their buttons go through the delegated
+      // listener in chat.mjs, checked separately below.
+      if (name.startsWith("templates/chat/")) continue;
       for (const m of source.matchAll(/data-action="([^"]+)"/g)) {
         if (!declared.has(m[1])) missing.push(`${name}: ${m[1]}`);
       }
     }
     assert.deepEqual(missing, [], `undeclared sheet actions:\n  ${missing.join("\n  ")}`);
+  });
+
+  test("every data-action in a CHAT template is handled by the chat listener", () => {
+    const chatSource = readFileSync(join(root, "module/chat.mjs"), "utf8");
+    const handled = new Set(
+      [...chatSource.matchAll(/case\s+"(lastarc\w+)":/g)].map((m) => m[1])
+    );
+    assert.ok(handled.size > 0, "failed to parse any chat handlers — check the regex");
+
+    const missing = [];
+    for (const { name, source } of templates) {
+      if (!name.startsWith("templates/chat/")) continue;
+      for (const m of source.matchAll(/data-action="([^"]+)"/g)) {
+        if (!handled.has(m[1])) missing.push(`${name}: ${m[1]}`);
+      }
+    }
+    assert.deepEqual(missing, [], `unhandled chat actions:\n  ${missing.join("\n  ")}`);
   });
 
   test("every declared action has a matching private handler", () => {
@@ -197,8 +217,10 @@ describe("sheet wiring", () => {
     const registered = new Set(
       [...entrySource.matchAll(/Handlebars\.registerHelper\("(\w+)"/g)].map((m) => m[1])
     );
-    // Helpers Foundry provides itself; we must not assume anything beyond these.
-    const builtin = new Set(["localize", "if", "unless", "each", "with", "log", "lookup"]);
+    // Handlebars/Foundry builtins; we must not assume anything beyond these.
+    const builtin = new Set([
+      "localize", "if", "else", "unless", "each", "with", "log", "lookup"
+    ]);
 
     const missing = [];
     const seen = new Set();
@@ -231,6 +253,33 @@ describe("sheet wiring", () => {
 });
 
 /* -------------------------------------------------------------------------- */
+
+describe("templates compile", () => {
+  /**
+   * A malformed Handlebars template throws only at render time, which in a
+   * normal workflow means "the sheet is blank in Foundry". With no Foundry here,
+   * compiling every template is the cheapest way to catch that.
+   */
+  test("every .hbs file is valid Handlebars", async () => {
+    const Handlebars = (await import("handlebars")).default;
+    for (const { name, source } of templates) {
+      assert.doesNotThrow(() => Handlebars.compile(source), `${name} failed to compile`);
+    }
+  });
+
+  test("renderTemplate paths referenced in JS exist on disk", () => {
+    const names = new Set(templates.map((t) => t.name));
+    const sources = [entrySource, sheetSource, npcSheetSource, itemSheetSource,
+                     readFileSync(join(root, "module/chat.mjs"), "utf8"),
+                     readFileSync(join(root, "module/dice/attack.mjs"), "utf8")];
+
+    for (const src of sources) {
+      for (const m of src.matchAll(/"systems\/last-arc\/(templates\/[^"]+\.hbs)"/g)) {
+        assert.ok(names.has(m[1]), `referenced template does not exist: ${m[1]}`);
+      }
+    }
+  });
+});
 
 describe("system.json manifest", () => {
   test("declares both actor subtypes, matching CONFIG registration", () => {

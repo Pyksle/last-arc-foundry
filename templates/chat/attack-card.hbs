@@ -1,0 +1,78 @@
+{{!-- Attack result card. The Damage button stays available on an auto-hit, and
+      the reaction notice is shown whenever the window is open — including on a
+      natural 20, since Block and Dodge are opposed reactions rather than
+      defence comparisons and are not bypassed by an auto-hit. --}}
+<div class="lastarc-card lastarc-card--attack">
+
+  <header class="lastarc-card__head">
+    <img src="{{weaponImg}}" alt="" class="lastarc-card__img">
+    <div class="lastarc-card__title">
+      <span class="lastarc-card__weapon">{{weaponName}}</span>
+      <span class="lastarc-card__sub">{{localize "LASTARC.Card.AttackRoll"}}</span>
+    </div>
+    <div class="lastarc-card__total {{#if outcome.autoHit}}is-auto-good{{/if}}
+                {{#if outcome.autoMiss}}is-auto-bad{{/if}}">
+      {{total}}
+    </div>
+  </header>
+
+  <div class="lastarc-card__natural">
+    <span class="lastarc-card__die">d20: <strong>{{natural}}</strong></span>
+    {{#if parts.length}}
+      <span class="lastarc-card__parts">
+        {{#each parts}}
+          <span class="lastarc-part" data-tooltip="{{localize this.label}}">
+            {{lasignal this.value}}
+          </span>
+        {{/each}}
+      </span>
+    {{/if}}
+  </div>
+
+  {{#if outcome.autoHit}}
+    <p class="lastarc-verdict lastarc-verdict--good">
+      {{localize "LASTARC.Card.AutoHit"}}
+    </p>
+  {{else if outcome.autoMiss}}
+    <p class="lastarc-verdict lastarc-verdict--bad">
+      {{localize "LASTARC.Card.AutoMiss"}}
+    </p>
+  {{else if hasTarget}}
+    <p class="lastarc-verdict {{#if outcome.hit}}lastarc-verdict--good{{else}}lastarc-verdict--bad{{/if}}">
+      {{#if outcome.hit}}{{localize "LASTARC.Card.Hit"}}{{else}}{{localize "LASTARC.Card.Miss"}}{{/if}}
+      <span class="lastarc-vs">{{localize "LASTARC.Card.VsReflex"}} {{targetDefence}}</span>
+    </p>
+  {{else}}
+    <p class="lastarc-verdict lastarc-verdict--neutral">
+      {{localize "LASTARC.Card.NoTarget"}}
+    </p>
+  {{/if}}
+
+  {{#if outcome.combo}}
+    <p class="lastarc-rider lastarc-rider--combo">{{localize "LASTARC.Card.Combo"}}</p>
+  {{/if}}
+  {{#if outcome.critical}}
+    <p class="lastarc-rider lastarc-rider--crit">{{localize "LASTARC.Card.Critical"}}</p>
+  {{/if}}
+
+  {{#if outcome.reactionWindowOpen}}
+    <p class="lastarc-reaction">{{localize "LASTARC.Card.ReactionWindow"}}</p>
+  {{/if}}
+
+  {{#if outcome.hit}}
+    <div class="lastarc-card__buttons">
+      <button type="button" data-action="lastarcRollDamage"
+              data-actor-id="{{actorId}}" data-weapon-id="{{weaponId}}"
+              data-critical="{{outcome.critical}}">
+        {{localize "LASTARC.Card.RollDamage"}}
+      </button>
+      {{#if outcome.combo}}
+        <button type="button" data-action="lastarcComboAttack"
+                data-actor-id="{{actorId}}" data-weapon-id="{{weaponId}}">
+          {{localize "LASTARC.Card.ComboAttack"}}
+        </button>
+      {{/if}}
+    </div>
+  {{/if}}
+
+</div>

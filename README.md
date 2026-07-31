@@ -17,13 +17,16 @@ Phase 1 of 6, plus the item layer. What works today:
 - Technicks and talents that feed derived values automatically, with live
   prerequisite checking
 - Inventory with bulk-driven encumbrance and exclusive armour/shield equipping
+- Attack rolls with Combo/Critical riders, and a damage pipeline with exploding
+  dice (including the doubled-explosion variant)
+- Chat cards with damage application, mitigation, and Break Threshold checks
 - Inverted initiative sorting (lowest acts first)
 
 | Phase | Deliverable | Status |
 |---|---|---|
 | 1 | Data models, actor sheet, derived stats, skill rolls | ✅ |
 | 1+ | Item data models, item sheets, technick wiring, inventory | ✅ |
-| 2 | Attack/damage pipeline, exploding dice, weapon rolls | ⬜ |
+| 2 | Attack/damage pipeline, exploding dice, weapon rolls | ✅ |
 | 3 | Break Gauge Active Effects | ⬜ |
 | 4 | Initiative + action economy tracking | ⬜ |
 | 5 | Compendium ingestion | ⬜ |
@@ -107,3 +110,11 @@ worth knowing before reading anything:
    Anything computed in `prepareDerivedData` silently overwrites an AE targeting
    the same path. The break penalty → defences → Fortitude → Threshold chain is
    therefore computed in code; AEs feed the `misc`/`technicks` inputs instead.
+4. **An automatic hit does not close the reaction window.** Block and Dodge are
+   *opposed reactions*, not defence comparisons, so a natural 20 is still
+   blockable and dodgeable. `resolveAttack` returns `reactionWindowOpen` on
+   auto-hits specifically so callers cannot short-circuit it.
+5. **Exploding dice are capped on TOTAL dice, not recursion depth.** The
+   doubled-explosion variant is a branching process — a depth cap of *N* permits
+   2^*N* rolls. The cascade also only terminates while `k/faces < 1`, so a d2
+   with the doubled variant is exactly critical.

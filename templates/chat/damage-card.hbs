@@ -1,0 +1,54 @@
+{{!-- Damage card. Every exploded die is marked, because an exploding total that
+      cannot be traced back to the dice reads as a bug to players. --}}
+<div class="lastarc-card lastarc-card--damage">
+
+  <header class="lastarc-card__head">
+    <img src="{{weaponImg}}" alt="" class="lastarc-card__img">
+    <div class="lastarc-card__title">
+      <span class="lastarc-card__weapon">{{weaponName}}</span>
+      <span class="lastarc-card__sub">
+        {{localize "LASTARC.Card.Damage"}}
+        <span class="lastarc-type">{{localize damageTypeLabel}}</span>
+      </span>
+    </div>
+    <div class="lastarc-card__total">{{total}}</div>
+  </header>
+
+  {{#if critMultiplierLabel}}
+    <p class="lastarc-rider lastarc-rider--crit">{{critMultiplierLabel}}</p>
+  {{/if}}
+
+  <div class="lastarc-dice">
+    {{#each results}}
+      <span class="lastarc-die {{#if this.exploded}}is-exploded{{/if}}
+                   {{#if this.generation}}is-extra{{/if}}"
+            data-tooltip="{{#if this.generation}}{{localize 'LASTARC.Card.ExplosionDie'}}{{else}}{{localize 'LASTARC.Card.WeaponDie'}}{{/if}}">
+        {{this.result}}
+      </span>
+    {{/each}}
+  </div>
+
+  {{#if parts.length}}
+    <div class="lastarc-card__natural">
+      <span class="lastarc-card__parts">
+        {{#each parts}}
+          <span class="lastarc-part" data-tooltip="{{localize this.label}}">
+            {{lasignal this.value}}
+          </span>
+        {{/each}}
+      </span>
+    </div>
+  {{/if}}
+
+  {{#if capped}}
+    <p class="lastarc-verdict lastarc-verdict--bad">{{localize "LASTARC.Card.DiceCapped"}}</p>
+  {{/if}}
+
+  <div class="lastarc-card__buttons">
+    <button type="button" data-action="lastarcApplyDamage"
+            data-total="{{total}}" data-damage-type="{{damageType}}">
+      {{localize "LASTARC.Card.ApplyToTargets"}}
+    </button>
+  </div>
+
+</div>

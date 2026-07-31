@@ -15,6 +15,9 @@ import { LastArcCharacterSheet } from "./sheets/character-sheet.mjs";
 import { LastArcNpcSheet } from "./sheets/npc-sheet.mjs";
 import { LastArcItemSheet } from "./sheets/item-sheet.mjs";
 import { rollSkill, rollAttribute, takeN } from "./dice/rolls.mjs";
+import { rollAttack, rollDamage, applyDamage } from "./dice/attack.mjs";
+import { explodeDice, rollExplodingDice } from "./dice/explode.mjs";
+import { registerChatListeners } from "./chat.mjs";
 
 const SYSTEM_ID = "last-arc";
 
@@ -33,7 +36,12 @@ Hooks.once("init", () => {
     derivation: D,
     rollSkill,
     rollAttribute,
-    takeN
+    takeN,
+    rollAttack,
+    rollDamage,
+    applyDamage,
+    explodeDice,
+    rollExplodingDice
   };
 
   CONFIG.Actor.dataModels.character = LastArcCharacterData;
@@ -44,6 +52,7 @@ Hooks.once("init", () => {
   registerSheets();
   registerHandlebarsHelpers();
   registerStatusEffects();
+  registerChatListeners();
   applyInvertedInitiative();
 });
 

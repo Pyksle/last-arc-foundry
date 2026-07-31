@@ -167,6 +167,20 @@ function buildContext() {
       ...c, advanced: "", index, isFirst: index === 0, isOnly: classes.length === 1
     })),
 
+    // A usable weapon and one that is too large, so the disabled/unusable state
+    // is visible rather than only reasoned about.
+    attacks: [
+      { id: "w1", name: "Arming Sword", img: "", unusable: false,
+        wieldLabel: "LASTARC.Skill.oneHanded", wieldTooltip: "LASTARC.Tooltip.WieldDerived",
+        atkTotal: 6, damage: "1d8", damageFlat: 5, damageTypeLabel: "LASTARC.DamageType.slashing" },
+      { id: "w2", name: "Greataxe", img: "", unusable: false,
+        wieldLabel: "LASTARC.Skill.twoHanded", wieldTooltip: "LASTARC.Tooltip.WieldDerived",
+        atkTotal: 4, damage: "1d12", damageFlat: 8, damageTypeLabel: "LASTARC.DamageType.slashing" },
+      { id: "w3", name: "Siege Maul", img: "", unusable: true,
+        wieldLabel: "LASTARC.Derived.Unusable", wieldTooltip: "LASTARC.Tooltip.WeaponUnusable",
+        atkTotal: 0, damage: "3d10", damageFlat: 0, damageTypeLabel: "LASTARC.DamageType.blunt" }
+    ],
+
     // Two technicks: one whose prerequisites hold, one whose do not, so the
     // unmet-prerequisite state is visible in the preview rather than only in
     // theory. The third row exercises the behavioural (no numeric payload) case.
@@ -207,6 +221,44 @@ const render = (rel) =>
 const header = render("templates/actor/character-header.hbs");
 const body = render("templates/actor/character-body.hbs");
 
+/**
+ * Chat cards, rendered against a scripted attack and damage result. The attack
+ * shown is a natural 20 specifically so the reaction-window notice is visible —
+ * that is the state most likely to be implemented wrongly.
+ */
+const attackCard = Handlebars.compile(
+  readFileSync(join(root, "templates/chat/attack-card.hbs"), "utf8")
+)({
+  actorId: "a", weaponId: "w", weaponName: "Arming Sword", weaponImg: "",
+  total: 27, natural: 20, hasTarget: true, targetDefence: 18,
+  parts: [
+    { label: "LASTARC.Mod.skill", value: 6 },
+    { label: "LASTARC.Mod.flanking", value: 2 },
+    { label: "LASTARC.Mod.nonProficient", value: -5 }
+  ],
+  outcome: { natural: 20, hit: true, autoHit: true, autoMiss: false,
+             combo: true, critical: false, reactionWindowOpen: true }
+});
+
+const damageCard = Handlebars.compile(
+  readFileSync(join(root, "templates/chat/damage-card.hbs"), "utf8")
+)({
+  weaponName: "Arming Sword", weaponImg: "", total: 23,
+  damageType: "slashing", damageTypeLabel: "LASTARC.DamageType.slashing",
+  critMultiplierLabel: null,
+  results: [
+    { result: 8, exploded: true, generation: 0 },
+    { result: 8, exploded: true, generation: 1 },
+    { result: 3, exploded: false, generation: 2 }
+  ],
+  parts: [
+    { label: "LASTARC.Mod.halfLevel", value: 2 },
+    { label: "LASTARC.Mod.attribute", value: 3 },
+    { label: "LASTARC.Mod.weaponBreak", value: -1 }
+  ],
+  capped: false
+});
+
 // Force a theme rather than inheriting the browser's, so both can be reviewed.
 // `:root[data-theme=...]` beats the prefers-color-scheme block by design.
 const theme = process.argv.find((a) => a.startsWith("--theme="))?.split("=")[1] ?? "light";
@@ -225,11 +277,20 @@ ${css}
 </style></head>
 <body>
   <div class="preview-pair">
-    <div>
-      <p class="preview-label">${theme}</p>
+    <div style="flex:1 1 560px;">
+      <p class="preview-label">${theme} — character sheet</p>
       <div class="preview-frame">
         <div class="last-arc sheet actor character" data-theme-scope>
           <div class="window-content last-arc-sheet-body">${header}${body}</div>
+        </div>
+      </div>
+    </div>
+    <div style="flex:0 1 340px;">
+      <p class="preview-label">chat cards</p>
+      <div class="preview-frame">
+        <div class="last-arc" style="padding:0.75rem; display:flex; flex-direction:column; gap:0.75rem;">
+          ${attackCard}
+          ${damageCard}
         </div>
       </div>
     </div>

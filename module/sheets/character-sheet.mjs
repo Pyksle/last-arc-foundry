@@ -15,6 +15,7 @@
 import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollSkill, rollAttribute } from "../dice/rolls.mjs";
+import { rollAttack } from "../dice/attack.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -37,7 +38,8 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       removeClass: LastArcCharacterSheet.#onRemoveClass,
       editItem: LastArcCharacterSheet.#onEditItem,
       deleteItem: LastArcCharacterSheet.#onDeleteItem,
-      toggleEquip: LastArcCharacterSheet.#onToggleEquip
+      toggleEquip: LastArcCharacterSheet.#onToggleEquip,
+      rollAttack: LastArcCharacterSheet.#onRollAttack
     }
   };
 
@@ -191,8 +193,65 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
     context.technicks = technicks;
     context.inventory = inventory;
+    context.attacks = this.#prepareAttacks(sys);
     context.bulkState = sys.bulk.state === "none" ? null : sys.bulk.state;
     context.bulkStateLabel = context.bulkState ? `LASTARC.Status.${context.bulkState}` : null;
+  }
+
+  /**
+   * Build the attack line for each equipped weapon.
+   *
+   * Wield category is computed here, per weapon, against THIS actor's size — it
+   * is never stored on the item, because the same weapon is a different thing in
+   * a Small character's hands than a Large one's (§5.4). A weapon two or more
+   * size categories larger is unusable, and the row is disabled rather than
+   * hidden so the player can see why.
+   */
+  #prepareAttacks(sys) {
+    const out = [];
+
+    for (const item of this.document.items) {
+      if (item.type !== "weapon" || !item.system.equipped) continue;
+
+      const wield = D.wieldCategory(sys.details.size, item.system.size, item.system.category);
+      const unusable = wield === "unusable";
+      const isMelee = !LASTARC.rangedWeaponCategories.has(item.system.category);
+
+      // Light weapons may use either 1-Handed or Light Weapon; show the better.
+      let skillKey = wield;
+      if (wield === "light" && D.lightWeaponAllowsChoice(sys.details.size, item.system.size)) {
+        const light = sys.skills.lightWeapon?.total ?? -Infinity;
+        const oneH = sys.skills.oneHanded?.total ?? -Infinity;
+        skillKey = light >= oneH ? "lightWeapon" : "oneHanded";
+      } else if (wield === "light") {
+        skillKey = "lightWeapon";
+      }
+
+      const skillMod = unusable ? 0 : (sys.skills[skillKey]?.total ?? 0);
+      const proficient = sys.proficiencies.weapons.includes(item.system.category);
+
+      const damageTerms = D.rd(sys.details.level / 2)
+        + (isMelee
+          ? sys.attributes.str.mod * D.strDamageMultiplier(wield)
+          : 0)
+        + (item.system.damageBonus ?? 0)
+        + (item.system.breakGauge?.penalty ?? 0);
+
+      out.push({
+        id: item.id,
+        name: item.name,
+        img: item.img,
+        unusable,
+        wieldLabel: LASTARC.wieldLabels[wield],
+        wieldTooltip: unusable ? "LASTARC.Tooltip.WeaponUnusable" : "LASTARC.Tooltip.WieldDerived",
+        atkTotal: skillMod + (item.system.atkBonus ?? 0) + (proficient ? 0 : -5),
+        damage: item.system.damage,
+        damageFlat: damageTerms,
+        damageTypeLabel: `LASTARC.DamageType.${item.system.damageType?.[0] ?? "blunt"}`
+      });
+    }
+
+    return out;
   }
 
   /** One-line human summary of a technick's numeric payload, for the list row. */
@@ -323,6 +382,24 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const current = [...(this.document.system.skills[skill].subskills ?? [])];
     current.splice(Number(index), 1);
     await this.document.update({ [`system.skills.${skill}.subskills`]: current });
+  }
+
+  /**
+   * Roll an attack with an equipped weapon.
+   *
+   * The target's Reflex is read from the user's current target so the card can
+   * state hit or miss. With no target the attack still rolls and the card says
+   * so — the GM adjudicating by eye is a normal way to play, and refusing to
+   * roll would be worse than reporting an unresolved total.
+   */
+  static async #onRollAttack(event, target) {
+    const weapon = this.document.items.get(target.dataset.itemId);
+    if (!weapon) return;
+
+    const targeted = [...(game.user.targets ?? [])][0]?.actor;
+    await rollAttack(this.document, weapon, {
+      targetDefence: targeted?.system?.defences?.ref?.value ?? null
+    });
   }
 
   static async #onEditItem(event, target) {

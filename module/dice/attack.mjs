@@ -1,0 +1,396 @@
+/**
+ * Attack and damage pipeline (§5.1, §5.2, §5.5).
+ *
+ * The pure decision logic lives in `resolveAttack` and `buildDamageTerms` so it
+ * can be unit tested; the async functions below are the Foundry-facing wrappers
+ * that actually roll dice and post chat cards.
+ */
+
+import { LASTARC } from "../config.mjs";
+import * as D from "../derivation.mjs";
+import { rollDamageDice } from "./explode.mjs";
+
+/* -------------------------------------------------------------------------- */
+/*  Attack resolution — pure                                                   */
+/* -------------------------------------------------------------------------- */
+
+/** Two-weapon fighting penalty by Dual Wield rank (§5.1). */
+export const DUAL_WIELD_PENALTY = [-10, -5, -2, 0];
+
+/**
+ * Assemble the situational modifiers on an attack roll.
+ *
+ * @returns {{total:number, parts:Array<{label:string, value:number}>}}
+ */
+export function attackModifiers({
+  skillMod = 0,
+  weaponAtkBonus = 0,
+  proficient = true,
+  twoWeapon = false,
+  dualWieldRank = 0,
+  flanking = false,
+  highGround = false,
+  shootingIntoMelee = false,
+  preciseShot = false,
+  targetProne = false,
+  isMelee = true,
+  targetHelpless = false,
+  concealment = "none",
+  improvised = false,
+  situational = 0
+} = {}) {
+  const parts = [];
+  const add = (label, value) => { if (value) parts.push({ label, value }); };
+
+  add("LASTARC.Mod.skill", skillMod);
+  add("LASTARC.Mod.weapon", weaponAtkBonus);
+
+  if (!proficient) add("LASTARC.Mod.nonProficient", -5);
+
+  if (twoWeapon) {
+    const rank = Math.min(dualWieldRank, DUAL_WIELD_PENALTY.length - 1);
+    add("LASTARC.Mod.twoWeapon", DUAL_WIELD_PENALTY[rank]);
+  }
+
+  if (flanking && isMelee) add("LASTARC.Mod.flanking", 2);
+  if (highGround && !isMelee) add("LASTARC.Mod.highGround", 2);
+
+  // Precise Shot negates the shooting-into-melee penalty entirely (§10).
+  if (shootingIntoMelee && !preciseShot) add("LASTARC.Mod.shootingIntoMelee", -5);
+
+  // Prone helps melee attackers and hinders ranged ones (§10).
+  if (targetProne) add("LASTARC.Mod.targetProne", isMelee ? 5 : -5);
+  if (targetHelpless) add("LASTARC.Mod.targetHelpless", 5);
+
+  if (concealment === "partial") add("LASTARC.Mod.concealment", -2);
+  else if (concealment === "total") add("LASTARC.Mod.totalConcealment", -5);
+
+  if (improvised) add("LASTARC.Mod.improvised", -5);
+
+  add("LASTARC.Mod.situational", situational);
+
+  return { total: parts.reduce((sum, p) => sum + p.value, 0), parts };
+}
+
+/**
+ * Decide the outcome of an attack from its natural die and total.
+ *
+ * Three things here are easy to get wrong:
+ *
+ * 1. **Nat 20 and nat 1 are absolute** — they hit and miss regardless of totals.
+ *    This applies to weapon skills, which is what attacks use.
+ * 2. **An auto-hit is still blockable and dodgeable.** Block and Dodge are
+ *    OPPOSED REACTIONS, not defence comparisons, so a natural 20 does not close
+ *    the reaction window. `reactionWindowOpen` stays true on auto-hits precisely
+ *    so callers cannot short-circuit it.
+ * 3. **Area attacks can neither crit nor combo** (§5.1), and a charge cannot
+ *    combo, so the nat-20 rider depends on more than melee/ranged.
+ *
+ * @returns {{hit:boolean, natural:number, autoHit:boolean, autoMiss:boolean,
+ *            combo:boolean, critical:boolean, reactionWindowOpen:boolean}}
+ */
+export function resolveAttack({
+  natural,
+  total,
+  targetDefence,
+  isMelee = true,
+  isArea = false,
+  isCharge = false
+}) {
+  const autoHit = natural === 20;
+  const autoMiss = natural === 1;
+
+  // Meet it, beat it (§1).
+  const hit = autoHit ? true : autoMiss ? false : total >= targetDefence;
+
+  const canRide = autoHit && !isArea;
+  const combo = canRide && isMelee && !isCharge;
+  const critical = canRide && !isMelee;
+
+  return {
+    natural,
+    total,
+    hit,
+    autoHit,
+    autoMiss,
+    combo,
+    critical,
+    // Open on any hit, INCLUDING an auto-hit.
+    reactionWindowOpen: hit
+  };
+}
+
+/**
+ * Build the non-dice half of a damage expression (§5.2).
+ *
+ * `wieldCategory` is the DERIVED category from §5.4, not a grip choice — only a
+ * weapon one size category larger than its wielder doubles Strength.
+ *
+ * Weapon Finesse substitutes Agility for Strength on light, thrown, unarmed and
+ * natural attacks. It is applied here rather than at the call site so the
+ * "which attribute" question has exactly one answer in the codebase.
+ *
+ * @returns {{flat:number, parts:Array<{label:string, value:number}>, attribute:string|null}}
+ */
+export function buildDamageTerms({
+  level = 1,
+  strMod = 0,
+  agiMod = 0,
+  wieldCategory = "oneHanded",
+  isRanged = false,
+  isThrown = false,
+  weaponFinesse = false,
+  damageBonus = 0,
+  breakPenalty = 0
+} = {}) {
+  const parts = [];
+  const add = (label, value) => { if (value) parts.push({ label, value }); };
+
+  add("LASTARC.Mod.halfLevel", D.rd(level / 2));
+
+  let attribute = null;
+  if (!isRanged || isThrown) {
+    // Finesse applies to light, thrown, unarmed and natural attacks.
+    const finesseEligible = wieldCategory === "light" || isThrown || wieldCategory === "unarmed";
+    attribute = weaponFinesse && finesseEligible ? "agi" : "str";
+
+    const mod = attribute === "agi" ? agiMod : strMod;
+    const multiplier = D.strDamageMultiplier(wieldCategory);
+    add(multiplier === 2 ? "LASTARC.Mod.attributeDoubled" : "LASTARC.Mod.attribute", mod * multiplier);
+  }
+
+  add("LASTARC.Mod.weaponBonus", damageBonus);
+
+  // A broken weapon deals less damage; the total floors at 1 (§6).
+  add("LASTARC.Mod.weaponBreak", breakPenalty);
+
+  return { flat: parts.reduce((s, p) => s + p.value, 0), parts, attribute };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Foundry-facing                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Roll an attack with a weapon.
+ *
+ * @param {Actor} actor
+ * @param {Item} weapon
+ * @param {object} [options]
+ */
+export async function rollAttack(actor, weapon, options = {}) {
+  const sys = actor.system;
+
+  if (sys.breakGauge?.incapacitated) {
+    ui.notifications?.warn(
+      game.i18n.format("LASTARC.Warning.Incapacitated", { name: actor.name })
+    );
+    return null;
+  }
+
+  const wield = D.wieldCategory(sys.details.size, weapon.system.size, weapon.system.category);
+  if (wield === "unusable") {
+    ui.notifications?.warn(
+      game.i18n.format("LASTARC.Warning.WeaponUnusable", {
+        weapon: weapon.name, actor: actor.name
+      })
+    );
+    return null;
+  }
+
+  const skillKey = wield === "light" && options.useOneHanded ? "oneHanded" : wield;
+  const skill = sys.skills[skillKey];
+  const isMelee = !LASTARC.rangedWeaponCategories.has(weapon.system.category);
+
+  const mods = attackModifiers({
+    skillMod: skill?.total ?? 0,
+    weaponAtkBonus: weapon.system.atkBonus ?? 0,
+    proficient: sys.proficiencies.weapons.includes(weapon.system.category),
+    isMelee,
+    preciseShot: hasFlag(actor, "preciseShot"),
+    dualWieldRank: dualWieldRank(actor),
+    ...options
+  });
+
+  const roll = new Roll("1d20 + @mod", { mod: mods.total });
+  await roll.evaluate();
+  const natural = roll.dice[0]?.results?.[0]?.result ?? 0;
+
+  const outcome = resolveAttack({
+    natural,
+    total: roll.total,
+    targetDefence: options.targetDefence ?? null,
+    isMelee,
+    isArea: !!options.isArea,
+    isCharge: !!options.isCharge
+  });
+
+  await postAttackCard({ actor, weapon, roll, mods, outcome, options });
+  return { roll, mods, outcome, wield, skillKey, isMelee };
+}
+
+/**
+ * Roll damage for a resolved attack.
+ *
+ * A critical multiplies the WEAPON's dice count only. Bonus dice from talents
+ * and technicks are rolled separately and are not multiplied unless the granting
+ * effect says so (§5.1).
+ */
+export async function rollDamage(actor, weapon, { outcome, wield, isMelee, isThrown = false } = {}) {
+  const sys = actor.system;
+
+  const critMultiplier = outcome?.critical
+    ? (hasFlag(actor, "tripleCrit") ? 3 : 2)
+    : 1;
+
+  const explosionMultiplier = hasFlag(actor, "doubledExplosions") ? 2 : 1;
+
+  const terms = buildDamageTerms({
+    level: sys.details.level,
+    strMod: sys.attributes.str.mod,
+    agiMod: sys.attributes.agi.mod,
+    wieldCategory: wield,
+    isRanged: !isMelee,
+    isThrown,
+    weaponFinesse: hasFlag(actor, "weaponFinesse"),
+    damageBonus: weapon.system.damageBonus ?? 0,
+    breakPenalty: weapon.system.breakGauge?.penalty ?? 0
+  });
+
+  const result = await rollDamageDice({
+    diceFormula: weapon.system.damage,
+    critMultiplier,
+    explosionMultiplier,
+    flat: terms.flat
+  });
+
+  // Minimum 1 damage on a successful hit (§5.5 step 8) — applied again after
+  // mitigation, but a broken weapon with a large penalty could already have
+  // driven the pre-mitigation total to zero or below.
+  const total = Math.max(1, result.total);
+
+  return {
+    ...result,
+    total,
+    terms,
+    critMultiplier,
+    explosionMultiplier,
+    damageType: weapon.system.damageType?.[0] ?? "blunt"
+  };
+}
+
+/**
+ * Apply a damage instance to a target: mitigation, Break Threshold, then HP.
+ *
+ * Order is fixed by §5.5 and the Threshold tap is chosen by the
+ * `breakThresholdUsesPostDR` setting (§15 A1) rather than hardcoded.
+ */
+export async function applyDamage(target, { total, type = "blunt" } = {}) {
+  const sys = target.system;
+  const mods = sys.damageMods ?? {};
+
+  const mitigated = D.applyDamageMitigation({
+    total,
+    type,
+    weakness: (mods.weakness ?? []).includes(type),
+    resistance: (mods.resistance ?? []).includes(type),
+    immunity: (mods.immunity ?? []).includes(type),
+    dr: mods.dr ?? 0,
+    isHit: true
+  });
+
+  const usePostDR = getSetting("breakThresholdUsesPostDR", true);
+  const breaks = !mitigated.immune && D.exceedsBreakThreshold(
+    mitigated, sys.breakGauge.threshold, usePostDR
+  );
+
+  // Temp HP absorbs first, then real HP (§5.5 step 11).
+  const temp = sys.resources.hp.temp ?? 0;
+  const absorbed = Math.min(temp, mitigated.final);
+  const toHp = mitigated.final - absorbed;
+  const newHp = Math.max(0, sys.resources.hp.value - toHp);
+
+  const updates = {
+    "system.resources.hp.temp": temp - absorbed,
+    "system.resources.hp.value": newHp
+  };
+
+  if (breaks) {
+    const steps = hasFlag(target, "debilitatingInjury") ? 2 : 1;
+    updates["system.breakGauge.step"] = D.worsenStep(sys.breakGauge.step, steps);
+    // Any action interrupts a banked Recovery (§9).
+    updates["system.breakGauge.recoveryProgress"] = 0;
+  }
+
+  // At 0 HP the character drops to the bottom of the gauge and is unconscious,
+  // prone and helpless (§5.6). This overrides any Break step just applied.
+  const droppedToZero = newHp === 0 && sys.resources.hp.value > 0;
+  if (droppedToZero) {
+    updates["system.breakGauge.step"] = LASTARC.BREAK_STEP_MAX;
+  }
+
+  await target.update(updates);
+
+  if (droppedToZero) {
+    await target.toggleStatusEffect?.("unconscious", { active: true });
+    await target.toggleStatusEffect?.("prone", { active: true });
+    await target.toggleStatusEffect?.("helpless", { active: true });
+  }
+
+  return { ...mitigated, breaks, absorbed, appliedToHp: toHp, droppedToZero };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function hasFlag(actor, flag) {
+  return actor?.items?.some(
+    (i) => (i.type === "technick" || i.type === "talent") && i.system?.flags?.includes(flag)
+  ) ?? false;
+}
+
+/** Highest Dual Wield rank the actor holds, 0 (none) through 3 (Dual Wield III). */
+function dualWieldRank(actor) {
+  const ranks = { "dual-wield-i": 1, "dual-wield-ii": 2, "dual-wield-iii": 3 };
+  let best = 0;
+  for (const item of actor?.items ?? []) {
+    const r = ranks[item.system?.slug];
+    if (r > best) best = r;
+  }
+  return best;
+}
+
+function getSetting(key, fallback) {
+  try {
+    return game.settings.get("last-arc", key);
+  } catch {
+    return fallback;
+  }
+}
+
+async function postAttackCard({ actor, weapon, roll, mods, outcome, options }) {
+  const content = await foundry.applications.handlebars.renderTemplate(
+    "systems/last-arc/templates/chat/attack-card.hbs",
+    {
+      actorId: actor.id,
+      weaponId: weapon.id,
+      weaponName: weapon.name,
+      weaponImg: weapon.img,
+      formula: roll.formula,
+      total: roll.total,
+      natural: outcome.natural,
+      parts: mods.parts,
+      outcome,
+      targetDefence: options.targetDefence ?? null,
+      hasTarget: options.targetDefence != null
+    }
+  );
+
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content,
+    rolls: [roll],
+    flags: { "last-arc": { type: "attack", actorId: actor.id, weaponId: weapon.id, outcome } }
+  });
+}
