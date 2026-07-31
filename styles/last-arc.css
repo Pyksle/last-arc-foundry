@@ -108,6 +108,15 @@
 .last-arc .last-arc-sheet-body,
 .last-arc .window-content {
   background:
+    /* Laid-paper grain. Two near-invisible hairline sets at right angles —
+       enough to keep large empty areas from reading as flat screen, not enough
+       to be seen as a pattern. */
+    repeating-linear-gradient(0deg,
+      color-mix(in srgb, var(--la-ink) 2.5%, transparent) 0 1px,
+      transparent 1px 4px),
+    repeating-linear-gradient(90deg,
+      color-mix(in srgb, var(--la-ink) 1.5%, transparent) 0 1px,
+      transparent 1px 7px),
     radial-gradient(ellipse at 20% 0%, color-mix(in srgb, var(--la-paper) 92%, #fff) 0%, transparent 60%),
     linear-gradient(180deg, var(--la-paper) 0%, var(--la-paper-2) 100%);
   color: var(--la-ink);
@@ -136,13 +145,34 @@
 /*  Panels — the book's black title cartouches                                 */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Panels are the sheet's main structural unit, so they carry most of the
+ * character. The look is JRPG rulebook furniture — a bronze-edged plate on
+ * parchment — built from gradients and shadows rather than any shipped art.
+ *
+ * Four layers, in order:
+ *   1. a vertical parchment gradient, lighter at the top so it reads as lit;
+ *   2. a hairline highlight along the top edge and a shadow along the bottom,
+ *      which is what actually sells the bevel;
+ *   3. an inset double rule (::after), echoing the printed frames;
+ *   4. corner ornaments (::before), which is the detail that reads as "book"
+ *      rather than "web form".
+ */
 .la-panel {
   position: relative;
-  background: color-mix(in srgb, var(--la-paper) 70%, transparent);
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--la-paper) 92%, #fff) 0%,
+      color-mix(in srgb, var(--la-paper) 78%, transparent) 42%,
+      color-mix(in srgb, var(--la-paper-2) 72%, transparent) 100%);
   border: 1px solid var(--la-rule);
   border-radius: var(--la-radius);
-  padding: 1.6rem 0.75rem 0.75rem;
-  margin-bottom: 0.9rem;
+  padding: 1.7rem 0.85rem 0.85rem;
+  margin-bottom: 1rem;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--la-rule) 35%, transparent),
+    0 1px 3px color-mix(in srgb, var(--la-ink) 10%, transparent);
 }
 
 /* Double-rule inset, echoing the printed frames. */
@@ -153,6 +183,38 @@
   border: 1px solid color-mix(in srgb, var(--la-rule) 45%, transparent);
   border-radius: 2px;
   pointer-events: none;
+}
+
+/**
+ * Corner ornaments: four small bronze brackets, drawn as one element using
+ * repeated background gradients so it costs no extra DOM.
+ *
+ * Each corner is two short bars meeting at a right angle. `background-size`
+ * gives the arm lengths, `background-position` pins one to each corner, and
+ * `no-repeat` keeps them from tiling across the panel.
+ */
+.la-panel::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  --la-orn: color-mix(in srgb, var(--la-bronze) 85%, transparent);
+  background-image:
+    linear-gradient(var(--la-orn), var(--la-orn)), linear-gradient(var(--la-orn), var(--la-orn)),
+    linear-gradient(var(--la-orn), var(--la-orn)), linear-gradient(var(--la-orn), var(--la-orn)),
+    linear-gradient(var(--la-orn), var(--la-orn)), linear-gradient(var(--la-orn), var(--la-orn)),
+    linear-gradient(var(--la-orn), var(--la-orn)), linear-gradient(var(--la-orn), var(--la-orn));
+  background-size:
+    14px 2px, 2px 14px,   /* top-left:     horizontal, vertical */
+    14px 2px, 2px 14px,   /* top-right */
+    14px 2px, 2px 14px,   /* bottom-left */
+    14px 2px, 2px 14px;   /* bottom-right */
+  background-position:
+    left top, left top,
+    right top, right top,
+    left bottom, left bottom,
+    right bottom, right bottom;
+  background-repeat: no-repeat;
 }
 
 .la-panel__title {
@@ -197,13 +259,58 @@
   gap: 0.75rem;
   margin-bottom: 0.9rem;
 }
+/**
+ * The portrait is the one place on the sheet a player looks for reasons other
+ * than a number, so it gets the most ornament: a double bronze frame with
+ * mitred corner marks, echoing the panel brackets at a larger scale.
+ */
+.la-header__portrait {
+  position: relative;
+  /* Size to the image. The header is a grid, so without this the frame
+     stretches to the row height and becomes a tall bronze slab beside a small
+     portrait. */
+  align-self: start;
+  width: max-content;
+  padding: 4px;
+  background:
+    linear-gradient(145deg,
+      color-mix(in srgb, var(--la-bronze-bright) 70%, transparent),
+      color-mix(in srgb, var(--la-bronze) 25%, transparent) 45%,
+      color-mix(in srgb, var(--la-bronze-bright) 55%, transparent));
+  border-radius: calc(var(--la-radius) + 2px);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 40%, transparent),
+    0 2px 4px color-mix(in srgb, var(--la-ink) 22%, transparent);
+}
 .la-header__portrait img {
+  display: block;
   width: 96px;
   height: 96px;
   object-fit: cover;
-  border: 2px solid var(--la-bronze);
+  border: 1px solid color-mix(in srgb, var(--la-ink) 45%, transparent);
   border-radius: var(--la-radius);
   background: var(--la-paper-3);
+}
+/* Corner marks, drawn on the frame rather than the image so they sit on metal. */
+.la-header__portrait::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  pointer-events: none;
+  --la-c: var(--la-bronze-bright);
+  background-image:
+    linear-gradient(var(--la-c), var(--la-c)), linear-gradient(var(--la-c), var(--la-c)),
+    linear-gradient(var(--la-c), var(--la-c)), linear-gradient(var(--la-c), var(--la-c));
+  background-size: 9px 2px, 2px 9px, 9px 2px, 2px 9px;
+  background-position: left top, left top, right bottom, right bottom;
+  background-repeat: no-repeat;
+}
+
+/* The character's name is the sheet's title; treat it like one. */
+.la-field--name input {
+  font-family: var(--la-font-head);
+  font-size: 1.5rem;
+  letter-spacing: 0.01em;
 }
 .la-header__fields { display: flex; flex-direction: column; gap: 0.35rem; }
 .la-field-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
@@ -338,6 +445,14 @@
 }
 .la-vital__pair { display: flex; align-items: center; justify-content: center; gap: 0.2rem; }
 .la-vital__pair input { width: 3rem; font-size: 1.25rem; border: none; background: transparent; }
+
+/* HP and MP outrank the other vitals — they change every round and get read
+   constantly. Everything else in this row is consulted occasionally. */
+.la-vital--hp .la-vital__pair input,
+.la-vital--hp .la-vital__max { font-size: 1.6rem; font-weight: 700; }
+.la-vital--mp .la-vital__pair input,
+.la-vital--mp .la-vital__max { font-size: 1.45rem; font-weight: 600; }
+.la-vital--mp .la-vital__max { color: #4d8cb0; }
 .la-vital__max { font-size: 1.25rem; font-family: var(--la-font-num); color: var(--la-ink-soft); }
 .la-vital__single { font-size: 1.4rem; font-family: var(--la-font-num); font-weight: 600; }
 .la-sep { color: var(--la-ink-faint); }
@@ -1428,3 +1543,56 @@
 }
 
 .lastarc-card--hero .lastarc-verdict { color: var(--la-bronze-bright); }
+
+/* -------------------------------------------------------------------------- */
+/*  Resource gauges                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * HP and MP are the two numbers a player watches all session, and they used to
+ * look exactly like Damage Reduction. A gauge gives them a shape the eye finds
+ * without reading, and makes "how bad is it" legible at a glance rather than by
+ * comparing two numerals.
+ *
+ * The fill percentage arrives as `--fill` from the sheet; see the guard there.
+ */
+.la-gauge {
+  position: relative;
+  height: 9px;
+  margin-top: 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--la-ink) 16%, transparent);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--la-ink) 25%, transparent);
+  overflow: hidden;
+}
+.la-gauge > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--fill, 0%);
+  border-radius: 999px;
+  transition: width 220ms ease;
+  /* A highlight along the top of the fill, so it reads as a filled tube rather
+     than a flat block — the same trick the panel bevel uses. */
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 35%, transparent);
+}
+
+.la-vital--hp .la-gauge > span {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--la-oxblood) 75%, #000),
+    var(--la-oxblood-bright));
+}
+.la-vital--mp .la-gauge > span {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, #2f5d7a 85%, #000), #4d8cb0);
+}
+
+/* Both vitals get a coloured top edge so the panel reads at a glance. */
+.la-vital--hp, .la-vital--mp { position: relative; overflow: hidden; }
+.la-vital--hp::before, .la-vital--mp::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+}
+.la-vital--hp::before { background: var(--la-oxblood); }
+.la-vital--mp::before { background: #4d8cb0; }

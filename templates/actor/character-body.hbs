@@ -29,6 +29,9 @@
         <span class="la-sep">/</span>
         <span class="la-vital__max">{{system.resources.hp.max}}</span>
       </div>
+      {{!-- The fill width comes from the sheet, not from CSS arithmetic: the
+            percentage needs clamping and a divide-by-zero guard. --}}
+      <div class="la-gauge" style="--fill: {{hpPercent}}%"><span></span></div>
       <label class="la-vital__sub">
         {{localize "LASTARC.Resource.Temp"}}
         <input type="number" name="system.resources.hp.temp" value="{{system.resources.hp.temp}}" min="0">
@@ -42,6 +45,7 @@
         <span class="la-sep">/</span>
         <span class="la-vital__max">{{system.resources.mp.max}}</span>
       </div>
+      <div class="la-gauge" style="--fill: {{mpPercent}}%"><span></span></div>
     </div>
 
     <div class="la-vital la-vital--hero">

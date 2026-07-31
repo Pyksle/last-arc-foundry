@@ -168,6 +168,12 @@ function buildContext() {
       { index: 0, label: "Serpent venom", clearedBy: "Antidote or Remedy", fromInjury: false },
       { index: 1, label: "Cracked ribs", clearedBy: "Medicine DC 15, one week", fromInjury: true }
     ],
+    // Mirrors the sheet's own computation; without these the gauges render
+    // empty here while working in Foundry, which is exactly the kind of
+    // divergence that makes an offline preview untrustworthy.
+    hpPercent: Math.round((21 / hpMax) * 100),
+    mpPercent: Math.round((6 / D.mpMax(classes, attrs.mnd.mod)) * 100),
+
     canSpendHero: true,
     misfortuneBlocksReroll: true,
 

@@ -152,6 +152,14 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.persistentSources = sys.breakGauge.persistentSources
       .map((s, index) => ({ ...s, index }));
 
+    // Gauge fills. Computed here rather than in CSS because both need a
+    // divide-by-zero guard and a clamp — a character with 0 max MP must not
+    // produce NaN%, and temp HP can push the current value above max.
+    const pct = (value, max) =>
+      max > 0 ? Math.max(0, Math.min(100, Math.round((value / max) * 100))) : 0;
+    context.hpPercent = pct(sys.resources.hp.value, sys.resources.hp.max);
+    context.mpPercent = pct(sys.resources.mp.value, sys.resources.mp.max);
+
     context.canSpendHero = (sys.resources.heroPoints.value ?? 0) > 0;
     // Surfaced explicitly because §12 flags this interaction: misfortune forbids
     // rerolling d20s, which silently removes one of the four hero point spends.
