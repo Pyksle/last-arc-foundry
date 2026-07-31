@@ -106,6 +106,24 @@ const GLYPHS = {
   flatFooted: `<path d="M32 6v22M32 40v4"/><circle cx="32" cy="32" r="24"/>
 <circle cx="32" cy="46" r="2.5" fill="currentColor" stroke="none"/>`,
 
+  // ── Applied by spells ─────────────────────────────────────────────────────
+  // Each deliberately claims shape-space nothing else uses. `doom` already owns
+  // the skull and `withering` the plant, so zombified takes the headstone.
+  zombified: `<path d="M16 58V26a16 16 0 0 1 32 0v32z"/>
+<path d="M26 38h12M32 32v14"/><path d="M12 58h40"/>`,
+
+  // A rewind chevron pair. Not a clock — `exhaustion` is the clock.
+  slowed: `<path d="M34 16 18 32l16 16"/><path d="M50 16 34 32l16 16"/>`,
+
+  // The only dashed glyph in the set, which is the whole point: at badge size
+  // "not entirely there" reads faster than any figure would.
+  incorporeal: `<path d="M20 54V28a12 12 0 0 1 24 0v26l-6-5-6 5-6-5z"
+stroke-dasharray="5 4"/>
+<circle cx="27" cy="30" r="2.5" fill="currentColor" stroke="none"/>
+<circle cx="37" cy="30" r="2.5" fill="currentColor" stroke="none"/>`,
+
+  charmed: `<path d="M32 54S12 40 12 27a10 10 0 0 1 20-4 10 10 0 0 1 20 4c0 13-20 27-20 27z"/>`,
+
   grabbed: `<path d="M18 40V20a4 4 0 0 1 8 0v14M26 34V16a4 4 0 0 1 8 0v18M34 34V20a4 4 0 0 1 8 0v16
 M42 30a4 4 0 0 1 8 0v10c0 10-8 16-16 16s-16-6-16-16"/>`,
 

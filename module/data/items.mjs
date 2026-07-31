@@ -293,33 +293,83 @@ export class LastArcSpellData extends foundry.abstract.TypeDataModel {
       school: new fields.StringField({ initial: "black", choices: LASTARC.spellSchools }),
       mpCost: new fields.NumberField({ initial: 1, integer: true, min: 0 }),
 
-      /**
-       * The Spellcraft check does TRIPLE duty (§11): it determines success, it
-       * SCALES DAMAGE by how high it rolls, and it may inflict a status if it
-       * also beats a second defence. All three outcomes have to surface at roll
-       * time, so all three are modelled.
-       */
-      spellcraftDC: new fields.NumberField({ initial: 15, integer: true }),
-      damage: new fields.StringField({ initial: "", blank: true }),
-      damageType: new fields.StringField({
-        initial: "unaspected", choices: LASTARC.allDamageTypes
+      /** Primary / Secondary / All-out. Maps onto the §9 action slots. */
+      castingTime: new fields.StringField({
+        initial: "primary", choices: Object.keys(LASTARC.castingTimes)
       }),
-      /** Extra damage per point by which the Spellcraft check beats its DC. */
-      damageScaling: new fields.StringField({ initial: "", blank: true }),
-      /** Secondary defence the same roll is compared against, if any. */
-      secondaryDefence: new fields.StringField({
-        initial: "", blank: true, choices: ["", "ref", "fort", "will"]
-      }),
-      secondaryStatus: new fields.StringField({ initial: "", blank: true }),
 
-      targetDefence: new fields.StringField({
-        initial: "ref", choices: ["ref", "fort", "will"]
-      }),
+      /** Printed target line, free text — "One creature within 12 squares and line of sight". */
+      target: new fields.StringField({ initial: "", blank: true }),
       range: new fields.NumberField({ initial: 6, min: 0 }),
       area: new fields.StringField({ initial: "", blank: true }),
       duration: new fields.StringField({ initial: "", blank: true }),
-      /** Area attacks can neither crit nor combo (§5.1). */
-      isArea: new fields.BooleanField({ initial: false })
+      isArea: new fields.BooleanField({ initial: false }),
+
+      damageType: new fields.StringField({
+        initial: "unaspected", choices: LASTARC.allDamageTypes
+      }),
+
+      /**
+       * The outcome table (§18.6).
+       *
+       * This replaces a flat `spellcraftDC` + `damage` + `damageScaling` +
+       * `secondaryDefence` + `secondaryStatus`, which could not express what
+       * the book actually prints. Real entries take two shapes and COMBINE
+       * them:
+       *
+       *   1. Opposed — "Should your check beat the target's Fort Defence, the
+       *      target becomes silenced." One row, `dc: null`, `opposedDefence`
+       *      set.
+       *   2. Tiered — "The result of the check determines the effect": rows at
+       *      DC 15/20/25/30/35/40, each printed as a DELTA on the row above.
+       *
+       * and a tier may itself branch on an opposed check, giving a reduced
+       * effect rather than none:
+       *
+       *   "DC 20: Should your check beat a target's Fort Defence, the target
+       *    takes 2d6 dark damage and suffers −10 Break Threshold. Otherwise,
+       *    targets take half damage and only suffer −5."
+       *
+       * Rows are stored ABSOLUTE, not as deltas: the book writes "As DC 20,
+       * except 3d6" for brevity in print, but storing deltas would mean every
+       * consumer has to resolve the chain before it can show a row.
+       */
+      outcomes: new fields.ArrayField(
+        new fields.SchemaField({
+          /** null = not tiered; the row applies whenever the spell is cast. */
+          dc: new fields.NumberField({ initial: null, integer: true, nullable: true }),
+          /** Defence the check is compared against, if this row is opposed. */
+          opposedDefence: new fields.StringField({
+            initial: "", blank: true, choices: ["", "ref", "fort", "will"]
+          }),
+          damage: new fields.StringField({ initial: "", blank: true }),
+          status: new fields.StringField({ initial: "", blank: true }),
+          healing: new fields.StringField({ initial: "", blank: true }),
+          /** Break Threshold modifier imposed on the target, e.g. −10. */
+          thresholdMod: new fields.NumberField({ initial: 0, integer: true }),
+          /** Turns, where the book gives a scaling duration. */
+          durationTurns: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
+          /** What happens when an opposed row FAILS — usually a halved effect. */
+          onFail: new fields.SchemaField({
+            damageMultiplier: new fields.NumberField({ initial: 0, min: 0 }),
+            thresholdMod: new fields.NumberField({ initial: 0, integer: true })
+          }),
+          notes: new fields.StringField({ initial: "", blank: true })
+        }),
+        { initial: [] }
+      ),
+
+      /**
+       * Recurring riders (§18.7), modelled once here rather than per spell.
+       */
+      /** "Higher-level targets gain a +5 bonus to their defence against this spell." */
+      higherLevelTargetBonus: new fields.NumberField({ initial: 0, integer: true }),
+      /** Decay ticks as fractions of the initial damage, e.g. [0.5, 0.25]. */
+      damageOverTime: new fields.ArrayField(new fields.NumberField({ min: 0 }), { initial: [] }),
+      /** DR applies ONLY to the initial hit, never to decay ticks. */
+      drAppliesToInitialOnly: new fields.BooleanField({ initial: true }),
+
+      special: new fields.StringField({ initial: "", blank: true })
     };
   }
 }

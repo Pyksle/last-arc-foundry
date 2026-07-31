@@ -1,0 +1,78 @@
+{{!-- Spell result card. Deliberately shaped unlike the attack card: there is no
+      hit/miss, because a Spellcraft check SELECTS AN OUTCOME rather than
+      succeeding or failing. What the card has to answer is "which tier did I
+      reach, and did the target resist it?" --}}
+<div class="lastarc-card lastarc-card--spell">
+
+  <header class="lastarc-card__head">
+    <img src="{{spellImg}}" alt="" class="lastarc-card__img">
+    <div class="lastarc-card__title">
+      <span class="lastarc-card__weapon">{{spellName}}</span>
+      <span class="lastarc-card__sub">{{schoolLabel}} · {{localize "LASTARC.Card.SpellCast"}}</span>
+    </div>
+    <div class="lastarc-card__total">{{total}}</div>
+  </header>
+
+  <div class="lastarc-card__natural">
+    <span class="lastarc-mana">{{localize "LASTARC.Card.ManaSpent" n=cost}}</span>
+    {{#if parts.length}}
+      <span class="lastarc-card__parts">
+        {{#each parts}}
+          <span class="lastarc-part" data-tooltip="{{localize this.label}}">
+            {{lasignal this.value}}
+          </span>
+        {{/each}}
+      </span>
+    {{/if}}
+  </div>
+
+  {{#if arcanaLabel}}
+    <p class="lastarc-rider lastarc-rider--arcana"
+       data-tooltip="{{localize 'LASTARC.Tooltip.HighArcana'}}">{{arcanaLabel}}</p>
+  {{/if}}
+
+  {{#if achieved}}
+    {{#if dc}}
+      <p class="lastarc-verdict lastarc-verdict--good">
+        {{localize "LASTARC.Card.Achieved" dc=dc}}
+      </p>
+    {{/if}}
+
+    {{#if opposed}}
+      <p class="lastarc-verdict {{#if beat}}lastarc-verdict--good{{else}}lastarc-verdict--bad{{/if}}">
+        {{#if targetName}}<strong>{{targetName}}</strong>{{/if}}
+        {{#if beat}}
+          {{localize "LASTARC.Card.SpellBeat" defence=defence}}
+        {{else}}
+          {{localize "LASTARC.Card.SpellResisted" defence=defence}}
+        {{/if}}
+        {{#if bonusApplied}}
+          <span class="lastarc-vs">{{localize "LASTARC.Card.HigherLevelTarget" n=bonusApplied}}</span>
+        {{/if}}
+      </p>
+    {{/if}}
+  {{else}}
+    <p class="lastarc-verdict lastarc-verdict--neutral">
+      {{localize "LASTARC.Card.NoEffect"}}
+    </p>
+  {{/if}}
+
+  {{#if damage}}
+    <div class="lastarc-card__damage">
+      <span class="lastarc-card__total">{{damage.total}}</span>
+      <span class="lastarc-card__type">{{damageTypeLabel}}</span>
+    </div>
+    {{#each decay}}
+      <p class="lastarc-decay">{{localize "LASTARC.Card.DecayTick" amount=this.amount n=this.turnsAhead}}</p>
+    {{/each}}
+  {{/if}}
+
+  {{#if statusLabel}}
+    <p class="lastarc-rider lastarc-rider--status">
+      {{localize "LASTARC.Card.OnHitApplies"}} <strong>{{statusLabel}}</strong>
+    </p>
+  {{/if}}
+
+  {{#if notes}}<p class="lastarc-note">{{notes}}</p>{{/if}}
+
+</div>

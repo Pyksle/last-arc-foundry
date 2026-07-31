@@ -16,6 +16,7 @@ import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollSkill, rollAttribute } from "../dice/rolls.mjs";
 import { rollAttack, defenceToBeat } from "../dice/attack.mjs";
+import { castSpell } from "../dice/magic.mjs";
 import { heroPointDefenceBoost } from "../dice/hero-points.mjs";
 import * as AE from "../action-economy.mjs";
 import { getTurnState, setTurnState, holdTurn, resetActions } from "../combat.mjs";
@@ -43,6 +44,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       deleteItem: LastArcCharacterSheet.#onDeleteItem,
       toggleEquip: LastArcCharacterSheet.#onToggleEquip,
       rollAttack: LastArcCharacterSheet.#onRollAttack,
+      castSpell: LastArcCharacterSheet.#onCastSpell,
       addPersistent: LastArcCharacterSheet.#onAddPersistent,
       clearPersistent: LastArcCharacterSheet.#onClearPersistent,
       heroBoost: LastArcCharacterSheet.#onHeroBoost,
@@ -244,10 +246,50 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const snapshot = sys.prerequisiteSnapshot();
     const technicks = [];
     const inventory = [];
+    const spells = [];
+    const performances = [];
 
     const EQUIPPABLE = new Set(["weapon", "armour", "shield", "accessory", "prostheticLimb"]);
 
+    // Subtypes intentionally not listed on the sheet, and WHY. Anything absent
+    // from both this set and the branches below is a bug, and the fallthrough
+    // at the bottom of the loop says so out loud rather than dropping it.
+    //
+    // `race` and `class` are read from actor fields (system.details.race,
+    // system.classes) and rendered in the header, so an Item of those types is
+    // redundant rather than ignored.
+    const NOT_SHOWN = new Set(["race", "class"]);
+
     for (const item of this.document.items) {
+      if (item.type === "spell") {
+        spells.push({
+          id: item.id,
+          name: item.name,
+          img: item.img,
+          school: item.system.school,
+          schoolLabel: game.i18n.localize(`LASTARC.School.${item.system.school}`),
+          mpCost: item.system.mpCost,
+          castingTimeLabel: game.i18n.localize(
+            LASTARC.castingTimes[item.system.castingTime]?.label ?? ""
+          ),
+          target: item.system.target,
+          affordable: (sys.resources.mp?.value ?? 0) >= item.system.mpCost
+        });
+        continue;
+      }
+
+      if (item.type === "performance") {
+        performances.push({
+          id: item.id,
+          name: item.name,
+          img: item.img,
+          mpCost: item.system.mpCost,
+          specialisation: item.system.specialisation,
+          affordable: (sys.resources.mp?.value ?? 0) >= item.system.mpCost
+        });
+        continue;
+      }
+
       if (item.type === "technick" || item.type === "talent") {
         const check = D.checkPrerequisites(item.system.prerequisites, snapshot);
         technicks.push({
@@ -262,7 +304,20 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
         continue;
       }
 
-      if (typeof item.system?.bulk !== "number") continue;
+      // THE SILENT DROP. This line used to be the only fallthrough, so every
+      // subtype without a bulk value vanished from the sheet without trace —
+      // a spell added to a character was simply not there. Anything reaching
+      // here that we have not deliberately excluded is now loud.
+      if (typeof item.system?.bulk !== "number") {
+        if (!NOT_SHOWN.has(item.type)) {
+          console.warn(
+            `Last Arc | "${item.name}" (${item.type}) has no bulk and no panel, so it ` +
+            `will not appear on the sheet. Give it a panel in character-sheet.mjs ` +
+            `or add it to NOT_SHOWN with a reason.`
+          );
+        }
+        continue;
+      }
 
       inventory.push({
         id: item.id,
@@ -279,6 +334,15 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
     context.technicks = technicks;
     context.inventory = inventory;
+    context.spells = spells;
+    context.performances = performances;
+    context.knownSpellLimit = D.knownSpellLimit
+      ? D.knownSpellLimit(sys.attributes.int.mod)
+      : null;
+    context.overSpellLimit = spells.length > (context.knownSpellLimit ?? Infinity);
+    context.highArcanaOptions = LASTARC.highArcanaIds.map((id) => ({
+      value: id, label: game.i18n.localize(LASTARC.highArcana[id].label)
+    }));
     context.attacks = this.#prepareAttacks(sys);
     context.bulkState = sys.bulk.state === "none" ? null : sys.bulk.state;
     context.bulkStateLabel = context.bulkState ? `LASTARC.Status.${context.bulkState}` : null;
@@ -631,6 +695,27 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const targeted = [...(game.user.targets ?? [])][0]?.actor;
     await rollAttack(this.document, weapon, {
       targetDefence: defenceToBeat(targeted)
+    });
+  }
+
+  /**
+   * Cast from the sheet.
+   *
+   * `threatCount` is asked for rather than computed: whether a creature
+   * threatens you depends on reach, positioning and GM ruling, and guessing it
+   * from token distance would silently get the defensive-casting penalty wrong
+   * (which is −5 PER threat, so an error compounds).
+   */
+  static async #onCastSpell(event, target) {
+    const spell = this.document.items.get(target.dataset.itemId);
+    if (!spell) return;
+
+    const targeted = [...(game.user.targets ?? [])][0]?.actor;
+
+    await castSpell(this.document, spell, {
+      target: targeted,
+      castDefensively: !!event.shiftKey,
+      threatCount: event.shiftKey ? 1 : 0
     });
   }
 

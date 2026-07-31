@@ -1308,3 +1308,100 @@
   .la-skill { grid-template-columns: minmax(6rem, 1fr) 2.6rem 2rem 2rem 2rem 2.4rem; }
   .la-skill input[name$=".misc"] { display: none; }
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Spells & performances                                                      */
+/* -------------------------------------------------------------------------- */
+
+.la-spells { display: flex; flex-direction: column; gap: 1px; }
+
+.la-spell {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) auto auto 1.6rem 1.6rem;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.18rem 0.3rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--la-rule) 40%, transparent);
+}
+.la-spell:nth-child(even) { background: color-mix(in srgb, var(--la-paper-3) 25%, transparent); }
+
+/* Name + cost is the cast target, mirroring the Attacks panel. */
+.la-spell__cast,
+.la-spell__static {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+  color: var(--la-ink);
+  text-align: left;
+}
+.la-spell__cast { cursor: pointer; }
+.la-spell__cast:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--la-bronze) 60%, transparent);
+  background: color-mix(in srgb, var(--la-bronze) 10%, transparent);
+}
+.la-spell__cast:disabled { cursor: not-allowed; }
+
+.la-spell__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The MP cost, which is the thing a caster actually budgets around. */
+.la-spell__cost {
+  font-family: var(--la-font-num);
+  font-weight: 700;
+  color: var(--la-bronze-bright);
+}
+.la-spell__cost::after {
+  content: " MP";
+  font-size: 0.55rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--la-ink-faint);
+}
+
+/* Unaffordable is stated by the greyed cost, not by hiding the row — a caster
+   needs to see the spell they cannot currently afford. */
+.la-spell.is-unaffordable { opacity: 0.5; }
+.la-spell.is-unaffordable .la-spell__cost { color: var(--la-oxblood); }
+
+.la-spell__school,
+.la-spell__time {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--la-ink-faint);
+  white-space: nowrap;
+}
+
+/* School colours follow the book's own naming. Kept desaturated so five of them
+   in a column reads as a table rather than as a paint chart. */
+.la-spell__school--black { color: #6b5b8a; }
+.la-spell__school--blue  { color: #3f6b8a; }
+.la-spell__school--green { color: #4a7a4a; }
+.la-spell__school--red   { color: #9c4a3a; }
+.la-spell__school--white { color: #8a7a4a; }
+
+@media (prefers-color-scheme: dark) {
+  .la-spell__school--black { color: #a695c4; }
+  .la-spell__school--blue  { color: #7fb0d4; }
+  .la-spell__school--green { color: #86bd86; }
+  .la-spell__school--red   { color: #d4867a; }
+  .la-spell__school--white { color: #d4c48a; }
+}
+
+.la-note.is-warning { color: var(--la-oxblood); font-weight: 600; }
+
+.lastarc-mana {
+  font-family: var(--la-font-num);
+  font-size: 0.8rem;
+  color: var(--la-bronze-bright);
+}
+.lastarc-decay {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  color: var(--la-ink-faint);
+}

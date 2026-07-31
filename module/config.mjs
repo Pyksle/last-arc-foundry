@@ -399,6 +399,26 @@ LASTARC.statusEffects = {
     agiDenied: true,
     noReactions: true
   },
+  /* ── Applied by spells (§18.8). These are referenced by Chapter 8 entries and
+     were absent from the table; an unregistered id throws at toggle time, the
+     same way `unconscious` did. ──────────────────────────────────────────── */
+  /** Black Magick. The target is animated but not itself — treated as undead. */
+  zombified: {
+    treatedAsUndead: true
+  },
+  /** Blue Magick. Halved speed; the book pairs it with a paralysis upgrade. */
+  slowed: {
+    speedMultiplier: 0.5
+  },
+  /**
+   * Blue Magick, with a duration that scales off the check (2–5 turns).
+   * Deliberately carries no derived-stat payload: what being incorporeal DOES
+   * is a positioning and targeting ruling, not an arithmetic one, and inventing
+   * numbers here would be worse than leaving it to the GM.
+   */
+  incorporeal: {},
+  /** Blue Magick. Retargeting is a GM ruling; the badge is the mechanical part. */
+  charmed: {},
   /**
    * Applied at 0 HP alongside `prone` and `helpless` (§5.6).
    *
@@ -514,7 +534,51 @@ LASTARC.ethosMorality = ["good", "neutral", "evil"];
 /*  Spells (§11)                                                               */
 /* -------------------------------------------------------------------------- */
 
-LASTARC.spellSchools = ["black", "blue", "green", "red", "white", "highArcana"];
+/**
+ * The FIVE schools of magick (§18.5, book p.140).
+ *
+ * `highArcana` was previously listed here as a sixth school. It is not a school:
+ * the book says "There are 5 different schools of magick" and names these five.
+ * High Arcana are METAMAGIC modifiers applied on top of a spell — see
+ * `LASTARC.highArcana` below.
+ */
+LASTARC.spellSchools = ["black", "blue", "green", "red", "white"];
+
+/**
+ * High Arcana — metamagic, not a school (book p.155).
+ *
+ * Shared rules, which the casting pipeline must honour:
+ *   - using one DOUBLES the spell's MP cost;
+ *   - they CANNOT be stacked (at most one per casting);
+ *   - anything that reduces MP cost applies AFTER the doubling, so a cost
+ *     reduction is worth half as much on an enhanced spell. Order matters.
+ */
+LASTARC.highArcana = Object.freeze({
+  adamant: { label: "LASTARC.HighArcana.adamant", ignoresBreakPenalty: true },
+  distant: { label: "LASTARC.HighArcana.distant", rangeMultiplier: 2 },
+  /** Explicitly does NOT extend secondary effects. */
+  enlarged: { label: "LASTARC.HighArcana.enlarged", areaMultiplier: 2 },
+  intensified: { label: "LASTARC.HighArcana.intensified", damageDiceMultiplier: 2 },
+  /** Only affects spells whose duration scales. */
+  lingering: { label: "LASTARC.HighArcana.lingering", durationMultiplier: 2 },
+  /** Extra targets = Mnd modifier (min 1); single-target spells only. */
+  multi: { label: "LASTARC.HighArcana.multi", extraTargetsFromMnd: true }
+});
+
+LASTARC.highArcanaIds = Object.keys(LASTARC.highArcana);
+
+/** MP cost multiplier applied when any High Arcana is used. */
+LASTARC.highArcanaCostMultiplier = 2;
+
+/**
+ * Casting times seen across Chapters 8 and 9. These map onto the §9 action
+ * slots directly — there is no minor-action casting.
+ */
+LASTARC.castingTimes = Object.freeze({
+  primary: { label: "LASTARC.CastingTime.primary", slot: "primary" },
+  secondary: { label: "LASTARC.CastingTime.secondary", slot: "secondary" },
+  allOut: { label: "LASTARC.CastingTime.allOut", slot: "allOut" }
+});
 
 /**
  * Shield bash damage by shield size (§11). Note this is the SHIELD's own size,

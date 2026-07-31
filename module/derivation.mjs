@@ -364,6 +364,20 @@ export function skillAdjustmentParts(skill = {}, breakPenalty = 0) {
 }
 
 /**
+ * Spells a caster may know = 1 + Int modifier (§18.1, book p.140).
+ *
+ * Learned from scrolls. If the Int modifier later rises the limit increases
+ * RETROACTIVELY, which is why this is derived on every prepare rather than
+ * stored — a stored count would silently go stale on an attribute increase.
+ *
+ * Floors at zero: a caster with a punishing Int knows nothing, rather than
+ * owing the game a spell.
+ */
+export function knownSpellLimit(intMod = 0) {
+  return Math.max(0, 1 + intMod);
+}
+
+/**
  * Number of trained skills = class base + Int modifier (+1 for half-elves).
  *
  * Throws rather than guessing when the class base is unknown — four of the six

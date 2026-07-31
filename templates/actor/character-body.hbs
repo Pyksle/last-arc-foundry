@@ -366,6 +366,64 @@
   </section>
 
   {{!-- ── Technicks & talents ─────────────────────────────────────────────── --}}
+  {{!-- Spells. The name is the cast button, matching the Attacks panel: in play
+        you click the thing you just said out loud. --}}
+  <section class="la-panel la-panel--spells">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Spells"}}</h2>
+
+    <p class="la-note {{#if overSpellLimit}}is-warning{{/if}}">
+      {{spells.length}} / {{knownSpellLimit}}
+    </p>
+
+    <div class="la-spells">
+      {{#each spells}}
+        <div class="la-spell {{#unless this.affordable}}is-unaffordable{{/unless}}"
+             data-item-id="{{this.id}}">
+          <button type="button" class="la-spell__cast" data-action="castSpell"
+                  data-item-id="{{this.id}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.CastSpell'}}"
+                  {{#unless this.affordable}}disabled{{/unless}}>
+            <span class="la-spell__name">{{this.name}}</span>
+            <span class="la-spell__cost">{{this.mpCost}}</span>
+          </button>
+          <span class="la-spell__school la-spell__school--{{this.school}}">{{this.schoolLabel}}</span>
+          <span class="la-spell__time">{{this.castingTimeLabel}}</span>
+          <button type="button" class="la-item__edit" data-action="editItem"
+                  data-item-id="{{this.id}}">✎</button>
+          <button type="button" class="la-item__delete" data-action="deleteItem"
+                  data-item-id="{{this.id}}">×</button>
+        </div>
+      {{else}}
+        <p class="la-note">{{localize "LASTARC.Note.NoSpells"}}</p>
+      {{/each}}
+    </div>
+  </section>
+
+  {{#if performances.length}}
+    <section class="la-panel la-panel--performances">
+      <h2 class="la-panel__title">{{localize "LASTARC.Section.Performances"}}</h2>
+      <div class="la-spells">
+        {{#each performances}}
+          <div class="la-spell {{#unless this.affordable}}is-unaffordable{{/unless}}">
+            {{!-- No perform button yet: Chapter 9 has not been read, and a
+                  button that guessed at the rules would be worse than none.
+                  Entries are visible and editable so they can be entered by
+                  hand today. --}}
+            <span class="la-spell__static">
+              <span class="la-spell__name">{{this.name}}</span>
+              <span class="la-spell__cost">{{this.mpCost}}</span>
+            </span>
+            <span class="la-spell__time">{{this.specialisation}}</span>
+            <button type="button" class="la-item__edit" data-action="editItem"
+                    data-item-id="{{this.id}}">✎</button>
+            <button type="button" class="la-item__delete" data-action="deleteItem"
+                    data-item-id="{{this.id}}">×</button>
+          </div>
+        {{/each}}
+      </div>
+    </section>
+  {{/if}}
+
   <section class="la-panel la-panel--technicks">
     <h2 class="la-panel__title">{{localize "LASTARC.Section.Technicks"}}</h2>
 
