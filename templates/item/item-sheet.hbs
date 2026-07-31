@@ -1,0 +1,263 @@
+{{!-- One template for all item subtypes; sections switch on itemType. --}}
+<div class="la-body la-body--item">
+
+  <header class="la-header la-header--item">
+    <div class="la-header__portrait">
+      <img src="{{document.img}}" alt="{{document.name}}" data-edit="img">
+    </div>
+    <div class="la-header__fields">
+      <div class="la-field la-field--name">
+        <input type="text" name="name" value="{{document.name}}">
+        <label>{{localize "LASTARC.Field.Name"}}</label>
+      </div>
+      <div class="la-field-row">
+        <div class="la-field">
+          <input type="text" name="system.slug" value="{{system.slug}}"
+                 placeholder="{{localize 'LASTARC.Field.SlugPlaceholder'}}">
+          <label>{{localize "LASTARC.Field.Slug"}}</label>
+        </div>
+        <div class="la-field">
+          <input type="text" name="system.source" value="{{system.source}}">
+          <label>{{localize "LASTARC.Field.Source"}}</label>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  {{#if isPhysical}}
+    <section class="la-panel">
+      <h2 class="la-panel__title">{{localize "LASTARC.Section.Item"}}</h2>
+      <div class="la-field-row">
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.cost" value="{{system.cost}}" min="0">
+          <label>{{localize "LASTARC.Field.Cost"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.bulk" value="{{system.bulk}}" min="0" step="0.1">
+          <label>{{localize "LASTARC.Field.Bulk"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.quantity" value="{{system.quantity}}" min="0">
+          <label>{{localize "LASTARC.Field.Quantity"}}</label>
+        </div>
+        <div class="la-field">
+          <select name="system.availability">
+            {{#each availabilityOptions}}
+              <option value="{{this.value}}" {{#if (laeq this.value ../system.availability)}}selected{{/if}}>{{localize this.label}}</option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.Availability"}}</label>
+        </div>
+        <label class="la-checkfield">
+          <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}}>
+          {{localize "LASTARC.Field.Equipped"}}
+        </label>
+      </div>
+    </section>
+  {{/if}}
+
+  {{#if (laeq itemType "weapon")}}
+    <section class="la-panel">
+      <h2 class="la-panel__title">{{localize "LASTARC.Section.Weapon"}}</h2>
+      <div class="la-field-row">
+        <div class="la-field">
+          <select name="system.category">
+            {{#each weaponCategoryOptions}}
+              <option value="{{this.value}}" {{#if (laeq this.value ../system.category)}}selected{{/if}}>{{localize this.label}}</option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.Category"}}</label>
+        </div>
+        <div class="la-field">
+          <select name="system.size">
+            {{#each sizeOptions}}
+              <option value="{{this.value}}" {{#if (laeq this.value ../system.size)}}selected{{/if}}>{{localize this.label}}</option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.WeaponSize"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.atkBonus" value="{{system.atkBonus}}">
+          <label>{{localize "LASTARC.Field.AtkBonus"}}</label>
+        </div>
+      </div>
+      <div class="la-field-row">
+        <div class="la-field">
+          <input type="text" name="system.damage" value="{{system.damage}}">
+          <label>{{localize "LASTARC.Field.Damage"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.damageBonus" value="{{system.damageBonus}}">
+          <label>{{localize "LASTARC.Field.DamageBonus"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.reach" value="{{system.reach}}" min="0">
+          <label>{{localize "LASTARC.Field.Reach"}}</label>
+        </div>
+      </div>
+
+      {{#if wieldCategory}}
+        <p class="la-derived">
+          {{localize "LASTARC.Derived.WieldCategory"}}
+          <strong>{{localize (lookup config.wieldLabels wieldCategory)}}</strong>
+          {{#if wieldChoice}}<em>{{localize "LASTARC.Derived.WieldChoice"}}</em>{{/if}}
+          — {{localize "LASTARC.Derived.StrMultiplier"}} ×{{strMultiplier}}
+        </p>
+      {{else}}
+        <p class="la-note">{{localize "LASTARC.Note.WieldNeedsActor"}}</p>
+      {{/if}}
+    </section>
+  {{/if}}
+
+  {{#if (laeq itemType "armour")}}
+    <section class="la-panel">
+      <h2 class="la-panel__title">{{localize "LASTARC.Section.Armour"}}</h2>
+      <div class="la-field-row">
+        <div class="la-field">
+          <select name="system.type">
+            {{#each armourTypeOptions}}
+              <option value="{{this.value}}" {{#if (laeq this.value ../system.type)}}selected{{/if}}>{{localize this.label}}</option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.ArmourType"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.refBonus" value="{{system.refBonus}}">
+          <label>{{localize "LASTARC.Field.RefBonus"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.dr" value="{{system.dr}}" min="0">
+          <label>{{localize "LASTARC.Field.DR"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.maxAgiBonus" value="{{system.maxAgiBonus}}"
+                 placeholder="∞" data-tooltip="{{localize 'LASTARC.Tooltip.MaxAgiBonus'}}">
+          <label>{{localize "LASTARC.Field.MaxAgiBonus"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.checkPenalty" value="{{system.checkPenalty}}" min="0"
+                 data-tooltip="{{localize 'LASTARC.Tooltip.CheckPenalty'}}">
+          <label>{{localize "LASTARC.Field.CheckPenalty"}}</label>
+        </div>
+      </div>
+      <p class="la-derived">
+        {{localize "LASTARC.Derived.EffectiveDR"}} <strong>{{system.effectiveDr}}</strong>
+      </p>
+    </section>
+  {{/if}}
+
+  {{#if (laeq itemType "spell")}}
+    <section class="la-panel">
+      <h2 class="la-panel__title">{{localize "LASTARC.Section.Spell"}}</h2>
+      <div class="la-field-row">
+        <div class="la-field">
+          <select name="system.school">
+            {{#each schoolOptions}}
+              <option value="{{this.value}}" {{#if (laeq this.value ../system.school)}}selected{{/if}}>{{localize this.label}}</option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.School"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.mpCost" value="{{system.mpCost}}" min="0">
+          <label>{{localize "LASTARC.Field.MPCost"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.spellcraftDC" value="{{system.spellcraftDC}}">
+          <label>{{localize "LASTARC.Field.SpellcraftDC"}}</label>
+        </div>
+      </div>
+      <p class="la-note">{{localize "LASTARC.Note.SpellTripleDuty"}}</p>
+      <div class="la-field-row">
+        <div class="la-field">
+          <input type="text" name="system.damage" value="{{system.damage}}">
+          <label>{{localize "LASTARC.Field.Damage"}}</label>
+        </div>
+        <div class="la-field">
+          <input type="text" name="system.damageScaling" value="{{system.damageScaling}}">
+          <label>{{localize "LASTARC.Field.DamageScaling"}}</label>
+        </div>
+        <div class="la-field">
+          <input type="text" name="system.secondaryStatus" value="{{system.secondaryStatus}}">
+          <label>{{localize "LASTARC.Field.SecondaryStatus"}}</label>
+        </div>
+      </div>
+    </section>
+  {{/if}}
+
+  {{#if isTechnick}}
+    <section class="la-panel">
+      <h2 class="la-panel__title">{{localize "LASTARC.Section.Prerequisites"}}</h2>
+      <div class="la-field-row">
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.prerequisites.characterLevel"
+                 value="{{system.prerequisites.characterLevel}}" min="0">
+          <label>{{localize "LASTARC.Field.CharacterLevel"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.prerequisites.classLevel"
+                 value="{{system.prerequisites.classLevel}}" min="0">
+          <label>{{localize "LASTARC.Field.ClassLevelReq"}}</label>
+        </div>
+        <label class="la-checkfield">
+          <input type="checkbox" name="system.repeatable" {{#if system.repeatable}}checked{{/if}}>
+          {{localize "LASTARC.Field.Repeatable"}}
+        </label>
+      </div>
+
+      {{#if prereqCheck}}
+        {{#if prereqCheck.met}}
+          <p class="la-derived la-derived--good">{{localize "LASTARC.Derived.PrereqsMet"}}</p>
+        {{else}}
+          <p class="la-warning">
+            {{localize "LASTARC.Derived.PrereqsUnmet"}}
+            {{#each prereqCheck.unmet}}<span class="la-prereq">{{this}}</span>{{/each}}
+          </p>
+        {{/if}}
+      {{/if}}
+    </section>
+
+    <section class="la-panel">
+      <h2 class="la-panel__title">{{localize "LASTARC.Section.Grants"}}</h2>
+      <p class="la-note">{{localize "LASTARC.Note.Grants"}}</p>
+      <div class="la-field-row">
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.grants.defences.ref" value="{{system.grants.defences.ref}}">
+          <label>{{localize "LASTARC.Defence.ref"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.grants.defences.fort" value="{{system.grants.defences.fort}}">
+          <label>{{localize "LASTARC.Defence.fort"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.grants.defences.will" value="{{system.grants.defences.will}}">
+          <label>{{localize "LASTARC.Defence.will"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.grants.breakThreshold" value="{{system.grants.breakThreshold}}">
+          <label>{{localize "LASTARC.Field.Threshold"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.grants.heroPoints" value="{{system.grants.heroPoints}}">
+          <label>{{localize "LASTARC.Field.HeroPoints"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.grants.initiativeSteps"
+                 value="{{system.grants.initiativeSteps}}" min="0"
+                 data-tooltip="{{localize 'LASTARC.Tooltip.InitiativeSteps'}}">
+          <label>{{localize "LASTARC.Field.InitSteps"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.grants.speed" value="{{system.grants.speed}}">
+          <label>{{localize "LASTARC.Resource.Speed"}}</label>
+        </div>
+      </div>
+    </section>
+  {{/if}}
+
+  <section class="la-panel">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Description"}}</h2>
+    <div class="la-description">{{{enrichedDescription}}}</div>
+  </section>
+
+</div>

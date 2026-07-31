@@ -1,0 +1,211 @@
+{{!-- NPC sheet — shaped like a printed statblock rather than a character sheet.
+      NPCs are authored numbers, not builds (§3.2), so nearly everything here is
+      a direct input. The Break Gauge is the exception: printed defences are the
+      UNBROKEN values and the gauge moves them. --}}
+<div class="la-body la-body--npc">
+
+  <header class="la-header la-header--npc">
+    <div class="la-header__portrait">
+      <img src="{{document.img}}" alt="{{document.name}}" data-edit="img">
+    </div>
+    <div class="la-header__fields">
+      <div class="la-field la-field--name">
+        <input type="text" name="name" value="{{document.name}}">
+        <label>{{localize "LASTARC.Field.Name"}}</label>
+      </div>
+      <div class="la-field-row">
+        <div class="la-field">
+          <input type="text" name="system.details.type" value="{{system.details.type}}"
+                 placeholder="{{localize 'LASTARC.Field.CreatureType'}}">
+          <label>{{localize "LASTARC.Field.CreatureType"}}</label>
+        </div>
+        <div class="la-field">
+          <select name="system.details.size">
+            {{#each sizeOptions}}
+              <option value="{{this.value}}" {{#if (laeq this.value ../system.details.size)}}selected{{/if}}>{{localize this.label}}</option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.Size"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.details.cr" value="{{system.details.cr}}" min="0">
+          <label>{{localize "LASTARC.Field.CR"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.details.xp" value="{{system.details.xp}}" min="0">
+          <label>{{localize "LASTARC.Field.Experience"}}</label>
+        </div>
+      </div>
+      <div class="la-field-row">
+        <div class="la-field">
+          <input type="text" name="system.details.temperament" value="{{system.details.temperament}}">
+          <label>{{localize "LASTARC.Field.Temperament"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.details.space" value="{{system.details.space}}" min="0">
+          <label>{{localize "LASTARC.Field.Space"}}</label>
+        </div>
+        <div class="la-field la-field--narrow">
+          <input type="number" name="system.details.reach" value="{{system.details.reach}}" min="0">
+          <label>{{localize "LASTARC.Field.Reach"}}</label>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="la-panel la-panel--attributes">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Attributes"}}</h2>
+    <div class="la-attributes">
+      {{#each attributes}}
+        <div class="la-attribute">
+          <button type="button" class="la-attribute__abbr" data-action="rollAttribute"
+                  data-attribute="{{this.key}}">{{localize this.abbr}}</button>
+          <input class="la-attribute__score" type="number"
+                 name="system.attributes.{{this.key}}.value" value="{{this.value}}" min="1">
+          <div class="la-attribute__mod">{{lasignal this.mod}}</div>
+        </div>
+      {{/each}}
+    </div>
+  </section>
+
+  <section class="la-panel la-panel--vitals">
+    <div class="la-vital la-vital--hp">
+      <h3>{{localize "LASTARC.Resource.HitPoints"}}</h3>
+      <div class="la-vital__pair">
+        <input type="number" name="system.resources.hp.value" value="{{system.resources.hp.value}}">
+        <span class="la-sep">/</span>
+        <input type="number" name="system.resources.hp.max" value="{{system.resources.hp.max}}">
+      </div>
+    </div>
+    <div class="la-vital la-vital--mp">
+      <h3>{{localize "LASTARC.Resource.Mana"}}</h3>
+      <div class="la-vital__pair">
+        <input type="number" name="system.resources.mp.value" value="{{system.resources.mp.value}}">
+        <span class="la-sep">/</span>
+        <input type="number" name="system.resources.mp.max" value="{{system.resources.mp.max}}">
+      </div>
+    </div>
+    <div class="la-vital">
+      <h3>{{localize "LASTARC.Resource.Initiative"}}</h3>
+      <div class="la-vital__single">{{system.initiative.effectiveDie}}</div>
+      <label class="la-vital__sub">
+        <input type="text" name="system.initiative.die" value="{{system.initiative.die}}">
+      </label>
+    </div>
+    <div class="la-vital">
+      <h3>{{localize "LASTARC.Resource.Speed"}}</h3>
+      <div class="la-vital__pair">
+        <input type="number" name="system.movement.base" value="{{system.movement.base}}" min="0">
+      </div>
+    </div>
+    <div class="la-vital">
+      <h3>{{localize "LASTARC.Resource.DamageReduction"}}</h3>
+      <div class="la-vital__pair">
+        <input type="number" name="system.damageMods.dr" value="{{system.damageMods.dr}}" min="0">
+      </div>
+    </div>
+    <div class="la-vital">
+      <h3>{{localize "LASTARC.Skill.passivePerception"}}</h3>
+      <div class="la-vital__pair">
+        <input type="number" name="system.passivePerception" value="{{system.passivePerception}}">
+      </div>
+    </div>
+  </section>
+
+  {{!-- Printed (base) values on the left, live values after the gauge on the right. --}}
+  <section class="la-panel la-panel--defences">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Defences"}}</h2>
+    <p class="la-note">{{localize "LASTARC.Note.NpcDefences"}}</p>
+    <div class="la-defences">
+      {{#each defenceRows}}
+        <div class="la-defence">
+          <span class="la-defence__label">{{localize this.label}}</span>
+          <span class="la-defence__value">{{this.value}}</span>
+          <div class="la-defence__parts">
+            <input type="number" name="system.defences.{{this.key}}.base" value="{{this.base}}"
+                   data-tooltip="{{localize 'LASTARC.Tooltip.PrintedValue'}}">
+          </div>
+        </div>
+      {{/each}}
+      <div class="la-defence">
+        <span class="la-defence__label">{{localize "LASTARC.Defence.flatFooted"}}</span>
+        <span class="la-defence__value">{{system.defences.ref.flatFooted}}</span>
+        <div class="la-defence__parts">
+          <input type="number" name="system.defences.ref.flatFootedBase"
+                 value="{{system.defences.ref.flatFootedBase}}"
+                 placeholder="{{localize 'LASTARC.Field.Derived'}}"
+                 data-tooltip="{{localize 'LASTARC.Tooltip.FlatFootedOverride'}}">
+        </div>
+      </div>
+      <div class="la-defence la-defence--threshold">
+        <span class="la-defence__label">{{localize "LASTARC.Section.BreakThreshold"}}</span>
+        <span class="la-defence__value la-defence__value--accent">{{system.breakGauge.threshold}}</span>
+        <div class="la-defence__parts">
+          <input type="number" name="system.breakGauge.thresholdBase"
+                 value="{{system.breakGauge.thresholdBase}}"
+                 placeholder="{{localize 'LASTARC.Field.Derived'}}"
+                 data-tooltip="{{localize 'LASTARC.Tooltip.ThresholdOverride'}}">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="la-panel la-panel--break">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.BreakGauge"}}</h2>
+    <div class="la-break">
+      {{#each breakTrack}}
+        <button type="button"
+                class="la-break__cell
+                       {{#if this.isCurrent}}is-current{{/if}}
+                       {{#if this.isPassed}}is-passed{{/if}}
+                       {{#if this.isPersistent}}is-persistent{{/if}}
+                       {{#if this.isTerminal}}is-terminal{{/if}}"
+                data-action="setBreakStep" data-step="{{this.step}}">
+          <span class="la-break__penalty">{{this.label}}</span>
+          <span class="la-break__index">{{this.step}}</span>
+        </button>
+      {{/each}}
+    </div>
+    <p class="la-break__legend">{{localize "LASTARC.Break.AppliesTo"}}</p>
+  </section>
+
+  <section class="la-panel">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.DamageMods"}}</h2>
+    <div class="la-damagemods">
+      <label class="la-damagemod">
+        <span>{{localize "LASTARC.Field.Weakness"}}</span>
+        <input type="text" name="system.damageMods.weakness" value="{{weaknessText}}"
+               placeholder="{{localize 'LASTARC.Field.DamageTypeList'}}">
+      </label>
+      <label class="la-damagemod">
+        <span>{{localize "LASTARC.Field.Resistance"}}</span>
+        <input type="text" name="system.damageMods.resistance" value="{{resistanceText}}"
+               placeholder="{{localize 'LASTARC.Field.DamageTypeList'}}">
+      </label>
+      <label class="la-damagemod">
+        <span>{{localize "LASTARC.Field.Immunity"}}</span>
+        <input type="text" name="system.damageMods.immunity" value="{{immunityText}}"
+               placeholder="{{localize 'LASTARC.Field.DamageTypeList'}}">
+      </label>
+    </div>
+  </section>
+
+  <section class="la-panel">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Items"}}</h2>
+    <div class="la-items">
+      {{#each items}}
+        <div class="la-item" data-item-id="{{this.id}}">
+          <img class="la-item__img" src="{{this.img}}" alt="">
+          <button type="button" class="la-item__name" data-action="editItem"
+                  data-item-id="{{this.id}}">{{this.name}}</button>
+          <span class="la-item__type">{{this.typeLabel}}</span>
+          <button type="button" class="la-item__delete" data-action="deleteItem"
+                  data-item-id="{{this.id}}">×</button>
+        </div>
+      {{else}}
+        <p class="la-note">{{localize "LASTARC.Note.NoItems"}}</p>
+      {{/each}}
+    </div>
+  </section>
+
+</div>
