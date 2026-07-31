@@ -170,6 +170,26 @@ function buildContext() {
     ],
     canSpendHero: true,
     misfortuneBlocksReroll: true,
+
+    // Mid-Recovery with the primary already spent — the state where the
+    // interrupt rule matters and the one worth eyeballing.
+    actionEconomy: {
+      slots: [
+        { key: "primary", label: "LASTARC.Action.Primary",
+          tooltip: "LASTARC.Tooltip.SlotPrimary", available: false },
+        { key: "secondary", label: "LASTARC.Action.Secondary",
+          tooltip: "LASTARC.Tooltip.SlotSecondary", available: true },
+        { key: "minor", label: "LASTARC.Action.Minor",
+          tooltip: "LASTARC.Tooltip.SlotMinor", available: true }
+      ],
+      availableMinors: 2,
+      banked: {
+        active: true, label: "LASTARC.Action.Recovery",
+        count: 2, required: 3, pips: [true, true, false]
+      },
+      reactionUsed: false,
+      reactionsBlocked: false
+    },
     defenceRows: ["ref", "fort", "will"].map((key) => ({
       key, label: `LASTARC.Defence.${key}`,
       value: defs[key],

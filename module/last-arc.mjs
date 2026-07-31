@@ -19,6 +19,10 @@ import { rollAttack, rollDamage, applyDamage } from "./dice/attack.mjs";
 import { explodeDice, rollExplodingDice } from "./dice/explode.mjs";
 import * as heroPoints from "./dice/hero-points.mjs";
 import { registerChatListeners } from "./chat.mjs";
+import { registerCombat, holdTurn, spendAction, resetActions, rollGroupInitiative }
+  from "./combat.mjs";
+import * as INIT from "./initiative.mjs";
+import * as AE from "./action-economy.mjs";
 
 const SYSTEM_ID = "last-arc";
 
@@ -43,7 +47,13 @@ Hooks.once("init", () => {
     applyDamage,
     explodeDice,
     rollExplodingDice,
-    heroPoints
+    heroPoints,
+    initiative: INIT,
+    actionEconomy: AE,
+    holdTurn,
+    spendAction,
+    resetActions,
+    rollGroupInitiative
   };
 
   CONFIG.Actor.dataModels.character = LastArcCharacterData;
@@ -55,7 +65,7 @@ Hooks.once("init", () => {
   registerHandlebarsHelpers();
   registerStatusEffects();
   registerChatListeners();
-  applyInvertedInitiative();
+  registerCombat();
 });
 
 /* -------------------------------------------------------------------------- */
@@ -182,32 +192,6 @@ function registerStatusEffects() {
   // at 0 HP is unconscious, prone and helpless rather than dead, and death is a
   // separate outcome of the Vitality check (§5.6).
   CONFIG.specialStatusEffects.DEFEATED = "helpless";
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Inverted initiative (§8)                                                   */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Foundry sorts combatants DESCENDING by initiative. Last Arc runs ascending:
- * lowest acts first, ties broken by higher Agility SCORE.
- *
- * Strictly this is Phase 4 work, but §16 flags it as painful to retrofit and the
- * override is small — installing it now means every later combat feature is
- * built against the correct ordering.
- *
- * Deliberately NOT solved by storing a negated initiative value: that surfaces
- * wrong in the tracker UI and to every module that reads `combatant.initiative`.
- */
-function applyInvertedInitiative() {
-  Combat.prototype._sortCombatants = function (a, b) {
-    const ia = Number.isNumeric(a.initiative) ? a.initiative : Infinity;
-    const ib = Number.isNumeric(b.initiative) ? b.initiative : Infinity;
-    return D.compareInitiative(
-      { initiative: ia, agiScore: a.actor?.system?.attributes?.agi?.total ?? 0 },
-      { initiative: ib, agiScore: b.actor?.system?.attributes?.agi?.total ?? 0 }
-    ) || (a.id > b.id ? 1 : -1);
-  };
 }
 
 /* -------------------------------------------------------------------------- */

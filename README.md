@@ -23,7 +23,9 @@ Phase 1 of 6, plus the item layer. What works today:
 - All 17 statuses and 8 curses with mechanical payloads and original icon art
 - Named persistent Break conditions, each cleared separately
 - Hero point spending, including the misfortune interaction
-- Inverted initiative sorting (lowest acts first)
+- Inverted initiative: class dice, lowest acts first, Hold Turn that permanently
+  reorders, group initiative, and per-pair surprise awareness
+- Action economy with downgrades and the banked-minor interrupt rule
 
 | Phase | Deliverable | Status |
 |---|---|---|
@@ -31,7 +33,7 @@ Phase 1 of 6, plus the item layer. What works today:
 | 1+ | Item data models, item sheets, technick wiring, inventory | ✅ |
 | 2 | Attack/damage pipeline, exploding dice, weapon rolls | ✅ |
 | 3 | Break Gauge subsystem, statuses, Active Effects | ✅ |
-| 4 | Initiative + action economy tracking | ⬜ |
+| 4 | Inverted initiative + action economy tracking | ✅ |
 | 5 | Compendium ingestion | ⬜ |
 | 6 | Technick/talent automation | ⬜ |
 
@@ -121,3 +123,10 @@ worth knowing before reading anything:
    doubled-explosion variant is a branching process — a depth cap of *N* permits
    2^*N* rolls. The cascade also only terminates while `k/faces < 1`, so a d2
    with the doubled variant is exactly critical.
+6. **Banked minor actions survive the turn boundary but not an interruption.**
+   A Recovery spans turns by design; *any* intervening action breaks it —
+   including a reaction taken on someone else's turn. Resetting the bank in
+   `beginTurn` would quietly make Recovery single-turn-only.
+7. **Turn order is a separate key from the initiative roll.** Hold Turn
+   permanently reorders the tracker, so order genuinely diverges from what was
+   rolled. The displayed initiative stays the die result.

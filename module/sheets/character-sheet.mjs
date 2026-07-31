@@ -17,6 +17,8 @@ import * as D from "../derivation.mjs";
 import { rollSkill, rollAttribute } from "../dice/rolls.mjs";
 import { rollAttack } from "../dice/attack.mjs";
 import { heroPointDefenceBoost } from "../dice/hero-points.mjs";
+import * as AE from "../action-economy.mjs";
+import { getTurnState, setTurnState, holdTurn, resetActions } from "../combat.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -43,7 +45,11 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       rollAttack: LastArcCharacterSheet.#onRollAttack,
       addPersistent: LastArcCharacterSheet.#onAddPersistent,
       clearPersistent: LastArcCharacterSheet.#onClearPersistent,
-      heroBoost: LastArcCharacterSheet.#onHeroBoost
+      heroBoost: LastArcCharacterSheet.#onHeroBoost,
+      toggleSlot: LastArcCharacterSheet.#onToggleSlot,
+      bankAim: LastArcCharacterSheet.#onBankAim,
+      holdTurn: LastArcCharacterSheet.#onHoldTurn,
+      resetActions: LastArcCharacterSheet.#onResetActions
     }
   };
 
@@ -156,8 +162,52 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.levelMismatch = sys.details.levelMismatch;
 
     this.#prepareItems(context, sys);
+    context.actionEconomy = this.#prepareActionEconomy();
 
     return context;
+  }
+
+  /**
+   * Action economy panel, shown only while this actor is in an active combat.
+   *
+   * The state lives on the COMBATANT, not the actor — the same actor can be in
+   * two combats, and action slots are per-encounter. Returns null when not in
+   * combat so the template can omit the whole panel rather than show an inert one.
+   */
+  #prepareActionEconomy() {
+    const combatant = game.combat?.getCombatantByActor?.(this.document.id);
+    if (!combatant) return null;
+
+    const state = getTurnState(combatant);
+    const bankedFor = state.bankedFor;
+    const sequence = bankedFor ? AE.SEQUENCES[bankedFor] : null;
+
+    // Shake it Off lowers the Recovery requirement, so read the derived value.
+    const required = bankedFor === "recovery"
+      ? (this.document.system.breakGauge.recoveryRequired ?? sequence?.minors)
+      : sequence?.minors;
+
+    return {
+      slots: [
+        { key: "primary", label: "LASTARC.Action.Primary",
+          tooltip: "LASTARC.Tooltip.SlotPrimary", available: state.primary },
+        { key: "secondary", label: "LASTARC.Action.Secondary",
+          tooltip: "LASTARC.Tooltip.SlotSecondary", available: state.secondary },
+        { key: "minor", label: "LASTARC.Action.Minor",
+          tooltip: "LASTARC.Tooltip.SlotMinor", available: state.minor }
+      ],
+      availableMinors: AE.availableMinors(state),
+      banked: {
+        active: !!bankedFor,
+        label: sequence?.label,
+        count: state.bankedMinors,
+        required,
+        // One pip per required minor, filled to the current count.
+        pips: Array.from({ length: required ?? 0 }, (_, i) => i < state.bankedMinors)
+      },
+      reactionUsed: state.reactionUsed,
+      reactionsBlocked: this.document.statuses?.has("flatFooted") ?? false
+    };
   }
 
   /**
@@ -389,6 +439,59 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
    * and derived live — that is §15 A2, and it means this button can be used
    * reactively to shrug off an incoming hit.
    */
+  /**
+   * Toggle a slot by hand.
+   *
+   * Restoring a slot deliberately does NOT restore banked minor progress — an
+   * interrupted sequence is interrupted, and un-spending the action that broke
+   * it does not un-break it. GMs correcting a misclick can use Reset.
+   */
+  static async #onToggleSlot(event, target) {
+    const combatant = game.combat?.getCombatantByActor?.(this.document.id);
+    if (!combatant) return;
+
+    const slot = target.dataset.slot;
+    const state = getTurnState(combatant);
+    await setTurnState(combatant, { ...state, [slot]: !state[slot] });
+    this.render();
+  }
+
+  static async #onBankAim(event, target) {
+    const combatant = game.combat?.getCombatantByActor?.(this.document.id);
+    if (!combatant) return;
+
+    const state = getTurnState(combatant);
+    const before = state.bankedMinors;
+    const result = AE.spend(state, { type: "minor", banks: "aim" });
+
+    if (!result.ok) {
+      ui.notifications?.warn(game.i18n.localize(result.reason));
+      return;
+    }
+    await setTurnState(combatant, result.state);
+
+    if (before > 0 && result.state.bankedFor !== state.bankedFor) {
+      ui.notifications?.info(
+        game.i18n.format("LASTARC.Action.SequenceInterrupted", { banked: before })
+      );
+    }
+    this.render();
+  }
+
+  static async #onHoldTurn(event, target) {
+    const combatant = game.combat?.getCombatantByActor?.(this.document.id);
+    if (!combatant) return;
+    await holdTurn(combatant);
+    this.render();
+  }
+
+  static async #onResetActions(event, target) {
+    const combatant = game.combat?.getCombatantByActor?.(this.document.id);
+    if (!combatant) return;
+    await resetActions(combatant);
+    this.render();
+  }
+
   static async #onHeroBoost(event, target) {
     const grassrunner = this.document.items.some(
       (i) => i.type === "race" && i.system?.slug === "grassrunner"

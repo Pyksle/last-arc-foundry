@@ -874,6 +874,110 @@
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Action economy                                                             */
+/* -------------------------------------------------------------------------- */
+
+.la-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--la-gap); }
+
+.la-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.35rem 0.2rem;
+  background: color-mix(in srgb, var(--la-paper-3) 45%, transparent);
+  border: 1px solid var(--la-rule);
+  border-radius: var(--la-radius);
+  cursor: pointer;
+  color: var(--la-ink);
+  font-family: var(--la-font-head);
+}
+.la-slot__name {
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.la-slot__state { font-size: 1rem; line-height: 1; color: var(--la-bronze); }
+.la-slot.is-spent { opacity: 0.4; }
+.la-slot.is-spent .la-slot__state { color: var(--la-ink-faint); }
+.la-slot:hover { border-color: var(--la-bronze); }
+
+/* The primary slot is visually widest-reaching because it is the most flexible
+   — it can pay for any of the three. */
+.la-slot--primary { border-left: 3px solid var(--la-bronze); }
+.la-slot--secondary { border-left: 3px solid color-mix(in srgb, var(--la-bronze) 60%, transparent); }
+.la-slot--minor { border-left: 3px solid color-mix(in srgb, var(--la-bronze) 30%, transparent); }
+
+.la-slots__note {
+  margin: 0.4rem 0 0;
+  font-size: 0.68rem;
+  text-align: center;
+  color: var(--la-ink-soft);
+}
+.la-slots__note strong { font-family: var(--la-font-num); font-size: 0.9rem; }
+.la-slots__hint {
+  display: block;
+  font-size: 0.58rem;
+  font-style: italic;
+  color: var(--la-ink-faint);
+}
+
+/* Banked minors get real visual weight: ANY intervening action, including a
+   reaction on someone else's turn, wipes this. It is the single thing in the
+   action economy that a table cannot reliably track by hand. */
+.la-banked {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px dashed var(--la-rule);
+  border-radius: var(--la-radius);
+  font-size: 0.7rem;
+  min-height: 1.9rem;
+}
+.la-banked.is-active {
+  border-style: solid;
+  border-color: var(--la-bronze);
+  background: color-mix(in srgb, var(--la-bronze) 10%, transparent);
+}
+.la-banked__idle { color: var(--la-ink-faint); font-style: italic; font-size: 0.65rem; }
+.la-banked__label {
+  font-family: var(--la-font-head);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.6rem;
+}
+.la-banked__pips { display: flex; gap: 0.25rem; }
+.la-banked__pip {
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 1px solid var(--la-bronze);
+  border-radius: 999px;
+}
+.la-banked__pip.is-filled { background: var(--la-bronze); }
+.la-banked__count { font-family: var(--la-font-num); }
+
+.la-reaction-state {
+  margin-top: 0.35rem;
+  text-align: center;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--la-good);
+}
+.la-reaction-state.is-used { color: var(--la-ink-faint); }
+
+.la-slots__buttons {
+  display: flex;
+  gap: 0.3rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Attacks                                                                    */
 /* -------------------------------------------------------------------------- */
 

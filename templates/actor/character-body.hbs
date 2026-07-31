@@ -267,6 +267,73 @@
     </div>
   </section>
 
+  {{!-- ── Action economy · only while in combat ───────────────────────────── --}}
+  {{#if actionEconomy}}
+    <section class="la-panel la-panel--actions">
+      <h2 class="la-panel__title">{{localize "LASTARC.Section.Actions"}}</h2>
+
+      <div class="la-slots">
+        {{#each actionEconomy.slots}}
+          <button type="button"
+                  class="la-slot la-slot--{{this.key}} {{#unless this.available}}is-spent{{/unless}}"
+                  data-action="toggleSlot" data-slot="{{this.key}}"
+                  data-tooltip="{{localize this.tooltip}}">
+            <span class="la-slot__name">{{localize this.label}}</span>
+            <span class="la-slot__state">{{#if this.available}}●{{else}}○{{/if}}</span>
+          </button>
+        {{/each}}
+      </div>
+
+      <p class="la-slots__note">
+        {{localize "LASTARC.Action.MinorsAvailable"}}
+        <strong>{{actionEconomy.availableMinors}}</strong>
+        <span class="la-slots__hint">{{localize "LASTARC.Action.DowngradeHint"}}</span>
+      </p>
+
+      {{!-- Banked minors for Aim and Recovery. Shown prominently because ANY
+            intervening action — including a reaction on someone else's turn —
+            resets it, and nobody tracks that by hand. --}}
+      <div class="la-banked {{#if actionEconomy.banked.active}}is-active{{/if}}">
+        {{#if actionEconomy.banked.active}}
+          <span class="la-banked__label">{{localize actionEconomy.banked.label}}</span>
+          <span class="la-banked__pips">
+            {{#each actionEconomy.banked.pips}}
+              <span class="la-banked__pip {{#if this}}is-filled{{/if}}"></span>
+            {{/each}}
+          </span>
+          <span class="la-banked__count">
+            {{actionEconomy.banked.count}} / {{actionEconomy.banked.required}}
+          </span>
+        {{else}}
+          <span class="la-banked__idle">{{localize "LASTARC.Action.NothingBanked"}}</span>
+        {{/if}}
+      </div>
+
+      <div class="la-reaction-state {{#if actionEconomy.reactionUsed}}is-used{{/if}}">
+        {{#if actionEconomy.reactionsBlocked}}
+          {{localize "LASTARC.Action.ReactionsBlocked"}}
+        {{else if actionEconomy.reactionUsed}}
+          {{localize "LASTARC.Action.ReactionUsed"}}
+        {{else}}
+          {{localize "LASTARC.Action.ReactionAvailable"}}
+        {{/if}}
+      </div>
+
+      <div class="la-slots__buttons">
+        <button type="button" class="la-button" data-action="bankAim">
+          {{localize "LASTARC.Action.Aim"}}
+        </button>
+        <button type="button" class="la-button" data-action="holdTurn"
+                data-tooltip="{{localize 'LASTARC.Tooltip.HoldTurn'}}">
+          {{localize "LASTARC.Action.HoldTurn"}}
+        </button>
+        <button type="button" class="la-button" data-action="resetActions">
+          {{localize "LASTARC.Action.Reset"}}
+        </button>
+      </div>
+    </section>
+  {{/if}}
+
   {{!-- ── Attacks ─────────────────────────────────────────────────────────── --}}
   <section class="la-panel la-panel--attacks">
     <h2 class="la-panel__title">{{localize "LASTARC.Section.Attacks"}}</h2>
