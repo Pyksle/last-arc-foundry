@@ -386,3 +386,87 @@ describe("system.json manifest", () => {
     assert.ok(gitignore.includes("last-arc-foundry-system-spec.md"));
   });
 });
+
+
+/* -------------------------------------------------------------------------- */
+
+describe("no orphaned exports", () => {
+  /**
+   * THE SYSTEMIC GUARD. Every serious bug in this project so far has had the
+   * same shape: a pure function, written correctly, unit tested, and never
+   * wired to Foundry.
+   *
+   *   - `isFlatFooted` was right; nothing ever applied the status, so the
+   *     surprise round did not exist.
+   *   - the initiative die logic was right; the override sat on the wrong
+   *     class, so rolling initiative threw.
+   *   - the whole magic system was modelled and had no pipeline at all.
+   *
+   * Unit tests cannot see this, because the function they test is correct. So
+   * this checks the one thing they cannot: that somebody CALLS it.
+   *
+   * A function here is not necessarily a bug — some are genuinely public API,
+   * and some are pending a UI. But every one must be named below with a reason,
+   * so "we forgot" and "we decided" stop looking identical.
+   */
+  const ALLOWED = new Map([
+    // Genuinely public surface / analysis helpers, not wiring gaps.
+    ["explodingDieEV", "analysis helper: expected value of an exploding die, used when tuning"],
+
+    // Written against rules that exist, awaiting the feature that calls them.
+    ["rollSurprise", "GM-invoked surprise resolution; needs a tracker button (#32)"],
+    ["counterattackDisruptsCasting", "needs counterattacks to exist first (#32)"],
+    ["restRecovery", "needs a rest UI (#32)"],
+    ["joinCombat", "joining mid-combat; needs a tracker button"],
+    ["useFreeAction", "free actions are not yet surfaced in the action tracker"],
+    ["sequenceComplete", "banked Recovery/Aim completion is not consumed anywhere yet"],
+    ["surpriseActions", "surprise-round action limits are not enforced yet"],
+    ["holderPriority", "Hold Turn ordering helper, not yet needed by the tracker"],
+    ["initiativeDieFor", "die lookup superseded by the derived actor value"],
+    ["heroPointReroll", "hero point spend with no UI — 2 of 4 spends are unreachable"],
+    ["heroPointPreventDeath", "hero point spend with no UI — 2 of 4 spends are unreachable"]
+  ]);
+
+  test("every exported function is called somewhere, or explained", () => {
+    const files = readdirSync(join(root, "module"), { recursive: true })
+      .filter((f) => typeof f === "string" && f.endsWith(".mjs"))
+      .map((f) => ({
+        name: f,
+        source: readFileSync(join(root, "module", f), "utf8")
+      }));
+
+    const corpus = files.map((f) => f.source).join("\n");
+
+    const orphans = [];
+    for (const { name, source } of files) {
+      for (const m of source.matchAll(/^export\s+(?:async\s+)?function\s+([A-Za-z0-9_]+)/gm)) {
+        const fn = m[1];
+        // One occurrence means the definition and nothing else.
+        const uses = [...corpus.matchAll(new RegExp(`\\b${fn}\\b`, "g"))].length;
+        if (uses <= 1 && !ALLOWED.has(fn)) orphans.push(`${name}: ${fn}`);
+      }
+    }
+
+    assert.deepEqual(orphans, [],
+      `exported but never called — wire them, or add them to ALLOWED with a reason:\n  ` +
+      orphans.join("\n  "));
+  });
+
+  test("the allowlist has no stale entries", () => {
+    // An allowlisted function that HAS been wired should leave the list, or the
+    // list slowly becomes a place bugs hide.
+    const files = readdirSync(join(root, "module"), { recursive: true })
+      .filter((f) => typeof f === "string" && f.endsWith(".mjs"))
+      .map((f) => readFileSync(join(root, "module", f), "utf8"))
+      .join("\n");
+
+    const stale = [];
+    for (const fn of ALLOWED.keys()) {
+      const uses = [...files.matchAll(new RegExp(`\\b${fn}\\b`, "g"))].length;
+      if (uses === 0) stale.push(`${fn} (no longer exists)`);
+      else if (uses > 1) stale.push(`${fn} (now wired — remove from ALLOWED)`);
+    }
+
+    assert.deepEqual(stale, [], `stale allowlist entries:\n  ` + stale.join("\n  "));
+  });
+});

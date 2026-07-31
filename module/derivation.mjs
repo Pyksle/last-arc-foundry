@@ -862,17 +862,3 @@ export function improvedInitiativeDie(baseDie, steps = 1) {
   return ladder[Math.min(ladder.length - 1, i + steps)];
 }
 
-/**
- * Ascending initiative comparator (§8): lowest result acts first, ties broken by
- * higher Agi SCORE (not modifier), then coin flip.
- *
- * Foundry sorts descending by default. This must be wired into
- * `Combat.prototype._sortCombatants` rather than worked around by storing a
- * negated initiative — a negated value surfaces wrong in the tracker UI and to
- * every module that reads it.
- */
-export function compareInitiative(a, b) {
-  if (a.initiative !== b.initiative) return a.initiative - b.initiative;
-  if (a.agiScore !== b.agiScore) return b.agiScore - a.agiScore;
-  return 0;
-}

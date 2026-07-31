@@ -10,6 +10,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import { LASTARC } from "../module/config.mjs";
+import { compareTurnOrder } from "../module/initiative.mjs";
 import {
   rd,
   signed,
@@ -48,7 +49,6 @@ import {
   secondWindHeal,
   canUseSecondWind,
   improvedInitiativeDie,
-  compareInitiative,
   aggregateGrants,
   checkPrerequisites
 } from "../module/derivation.mjs";
@@ -505,7 +505,7 @@ describe("§8 initiative — inverted", () => {
     const order = [
       { name: "slow", initiative: 9, agiScore: 18 },
       { name: "fast", initiative: 2, agiScore: 10 }
-    ].sort(compareInitiative);
+    ].sort(compareTurnOrder);
     assert.equal(order[0].name, "fast");
   });
 
@@ -513,7 +513,7 @@ describe("§8 initiative — inverted", () => {
     const order = [
       { name: "lowAgi", initiative: 4, agiScore: 11 },
       { name: "highAgi", initiative: 4, agiScore: 17 }
-    ].sort(compareInitiative);
+    ].sort(compareTurnOrder);
     assert.equal(order[0].name, "highAgi");
   });
 });
