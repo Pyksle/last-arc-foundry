@@ -479,6 +479,65 @@ describe("system.json manifest", () => {
     }
   });
 
+  /**
+   * Release plumbing, which failed silently for the whole of 0.1.0.
+   *
+   * Foundry decides an update exists by fetching the `manifest` URL and
+   * comparing that file's `version` to the installed one. The version was never
+   * bumped, so every commit was served correctly and reported as "no update
+   * available" — nothing errored anywhere, and the only symptom was a user
+   * looking at an old version number and wondering why.
+   */
+  test("the download URL points at an asset for THIS version", () => {
+    const { version, download } = systemJson;
+
+    assert.match(version, /^\d+\.\d+\.\d+$/, `version "${version}" is not semver`);
+
+    // A download that does not name the version cannot have been rebuilt for
+    // it, and installs will silently receive a different build.
+    assert.ok(
+      download.includes(version),
+      `download URL does not mention version ${version}:\n  ${download}\n` +
+      `Bump both together, then run: node tools/build-release.mjs`
+    );
+
+    // GitHub's source archives wrap everything in a top-level directory and
+    // always serve the current branch, so the tag in the URL means nothing.
+    assert.ok(
+      !download.includes("/archive/refs/"),
+      `download points at a GitHub source archive:\n  ${download}\n` +
+      `Those nest the system inside a folder and ignore the requested version. ` +
+      `Attach a built zip to a release instead.`
+    );
+  });
+
+  test("the manifest URL serves the current branch, not a tag", () => {
+    // The manifest must always describe the LATEST version, or Foundry can
+    // never learn that a newer one exists. It is the one URL that should not
+    // be pinned.
+    assert.match(
+      systemJson.manifest,
+      /raw\.githubusercontent\.com\/.+\/main\/system\.json$/,
+      `manifest should be the system.json on main: ${systemJson.manifest}`
+    );
+  });
+
+  test("the release build includes everything the system loads at runtime", () => {
+    const build = readFileSync(join(root, "tools/build-release.mjs"), "utf8");
+    const included = [...build.matchAll(/^\s+"([\w.]+)",?$/gm)].map((m) => m[1]);
+
+    // Every path system.json tells Foundry to load must be in the archive, or
+    // the published system is broken in a way no local test can see.
+    const needed = new Set([
+      ...systemJson.esmodules.map((p) => p.split("/")[0]),
+      ...systemJson.styles.map((p) => p.split("/")[0]),
+      ...(systemJson.languages ?? []).map((l) => l.path.split("/")[0])
+    ]);
+
+    const absent = [...needed].filter((d) => !included.includes(d));
+    assert.deepEqual(absent, [], `build-release.mjs would omit: ${absent.join(", ")}`);
+  });
+
   test("compendium packs are declared but ship EMPTY (§17)", () => {
     assert.ok(systemJson.packs.length > 0);
     const gitignore = readFileSync(join(root, ".gitignore"), "utf8");
