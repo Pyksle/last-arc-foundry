@@ -82,11 +82,18 @@ Electron GUI and simply serves the app over HTTP.
    mkdir -p ~/foundry/app ~/foundry/data
    ```
 
-3. Launch it. Note the path: in **v13 `main.js` sits at the root** of the
-   extracted archive, where older versions nested it under `resources/app/`.
+3. Launch it. Two path gotchas: in **v13 `main.js` sits at the top level** of the
+   archive (older versions nested it under `resources/app/`), but the archive
+   **extracts into its own versioned folder**, so the real path includes that:
 
    ```bash
-   node ~/foundry/app/main.js --dataPath=$HOME/foundry/data --port=30000
+   node ~/foundry/app/FoundryVTT-Node-13.351/main.js --dataPath=$HOME/foundry/data --port=30000
+   ```
+
+   Adjust the version folder to match what you downloaded. If in doubt:
+
+   ```bash
+   find ~/foundry/app -maxdepth 3 -name main.js
    ```
 
 4. Open <http://localhost:30000>, paste your licence key and accept the EULA.
@@ -109,13 +116,28 @@ npm i -D playwright && npx playwright install chromium
 npm run test:integration
 ```
 
-Playwright is deliberately *not* a hard dependency — it pulls ~100MB of browser
-binaries, which has no business being mandatory for someone who only wants to run
-the unit suite.
+Playwright is deliberately *not* a hard dependency — installing it downloads
+~100MB of browser binaries, which has no business being mandatory for someone who
+only wants to run the unit suite. Install it with `-D` if you like; just don't
+commit the manifest change.
 
 Useful flags: `--headed` to watch it run, `--url=` for a non-default host,
 `--dataPath=` on `npm run link` if your data directory is elsewhere (it also
 honours `$FOUNDRY_DATA_PATH`).
+
+**Close any browser tab sitting in the world first.** Foundry disables the
+`<option>` for a user who is already logged in, so leaving a tab open on the
+Gamemaster session means the driver has no free user to join as. It will say so
+rather than hanging.
+
+> **macOS: `ERR_DLOPEN_FAILED` on `classic-level.node`.** Gatekeeper refuses to
+> load the unsigned native LevelDB binary while the download quarantine flag is
+> set, and the server dies on boot with `library load disallowed by system
+> policy`. Clear it on the app directory only:
+>
+> ```bash
+> xattr -dr com.apple.quarantine ~/foundry/app
+> ```
 
 > **Node version.** Foundry v13 requires Node 22+. Newer majors generally work but
 > are not what upstream tests against — if the server misbehaves on a very recent

@@ -44,7 +44,12 @@ try {
 /* -------------------------------------------------------------------------- */
 
 const browser = await chromium.launch({ headless: !HEADED });
-const page = await browser.newPage();
+
+// Foundry hard-requires 1024x768 and logs a console *error* below that — and
+// Playwright's default viewport is 1280x720, which is 48px too short. Without
+// this the run trips the console-error check on every invocation regardless of
+// whether anything is actually wrong.
+const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
 
 // Surface browser-side errors: a system that throws during init produces a
 // perfectly clean-looking run of zero tests otherwise.
@@ -75,25 +80,42 @@ try {
 
   console.log("→ running Quench batches");
   const results = await page.evaluate(async (timeout) => {
-    const runner = await globalThis.quench.runAllBatches();
+    // Quench's Mocha reporter writes results into its own QuenchResults window.
+    // If that window has never been rendered its `element` is undefined, every
+    // reporter callback throws "Cannot read properties of undefined (reading
+    // 'querySelector')", and the run dies before a single test executes —
+    // presenting as a bare timeout with zero tests run. Render it first.
+    await globalThis.quench.app.render(true);
 
-    // runAllBatches resolves with the Mocha runner; wait for it to finish.
+    // `runBatches(filter = "**")` defaults to every registered batch and
+    // resolves with the Mocha runner — the tests are still going at that point.
+    const runner = await globalThis.quench.runBatches();
+
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Quench timed out")), timeout);
-      if (runner.stats?.end) { clearTimeout(timer); return resolve(); }
-      runner.once("end", () => { clearTimeout(timer); resolve(); });
+      const done = () => { clearTimeout(timer); resolve(); };
+      if (runner.stats?.end) return done();
+      runner.once("end", done);
     });
 
+    // Walk the finished suite tree rather than listening for "fail" events.
+    // A listener attached after `runBatches` resolves can race past failures
+    // that already fired, and `runner.failures` is a COUNT in Mocha, not a
+    // list — calling .map on it throws and turns a red run into a crash.
     const failures = [];
-    runner.on?.("fail", () => {});   // no-op; collected below
+    (function walk(suite) {
+      for (const t of suite.tests ?? []) {
+        if (t.state === "failed") {
+          failures.push({
+            title: t.fullTitle?.() ?? t.title,
+            error: t.err?.stack ?? t.err?.message ?? String(t.err)
+          });
+        }
+      }
+      for (const s of suite.suites ?? []) walk(s);
+    })(runner.suite);
 
-    return {
-      stats: { ...runner.stats },
-      failures: (runner.failures ?? []).map((t) => ({
-        title: t.fullTitle?.() ?? t.title,
-        error: t.err?.message ?? String(t.err)
-      }))
-    };
+    return { stats: { ...runner.stats }, failures };
   }, TIMEOUT);
 
   report(results);
@@ -124,26 +146,43 @@ process.exit(exitCode);
  * the form being absent.
  */
 async function joinAsUser(page) {
-  const form = page.locator("form#join-game, form.join-form").first();
-  if (!(await form.count())) return;
+  // Anchor on the user <select> rather than the form. In v13 the form is
+  // `#join-game-form`, and there is a second `#join-game-setup` form on the same
+  // page posting to the same endpoint — matching on form id is both
+  // version-fragile and ambiguous. `select[name="userid"]` appears exactly once
+  // and only on the join screen.
+  const select = page.locator("select[name='userid']").first();
 
   try {
-    await form.waitFor({ state: "visible", timeout: 10_000 });
+    await select.waitFor({ state: "visible", timeout: 10_000 });
   } catch {
-    return;   // already joined
+    return;   // already joined, or the world auto-joined a single user
   }
 
-  console.log(`→ joining as ${USER}`);
-  const select = page.locator("select[name='userid']").first();
-  if (await select.count()) {
-    await select.selectOption({ label: USER }).catch(async () => {
-      // Some setups list users by id rather than label.
-      await select.selectOption({ index: 1 });
-    });
+  // Foundry disables the <option> for any user already logged in, so the
+  // requested user may be unselectable simply because a browser tab is sitting
+  // on that session. Fall back to any free user rather than timing out for 30s
+  // on a disabled option.
+  const options = await select.evaluate((el) =>
+    [...el.options].map((o) => ({ label: o.label, value: o.value, disabled: o.disabled }))
+  );
+  const free = options.filter((o) => o.value && !o.disabled);
+  const target = free.find((o) => o.label === USER) ?? free[0];
+
+  if (!target) {
+    const taken = options.filter((o) => o.value).map((o) => o.label).join(", ");
+    throw new Error(
+      `No user is available to join — every user is already logged in (${taken}). ` +
+      `Close the browser tab holding that session, or add a second Gamemaster ` +
+      `user in the world for the test driver to use.`
+    );
   }
 
-  if (PASSWORD) await page.fill("input[name='password']", PASSWORD);
-  await page.click("button[name='join'], button[type='submit']");
+  console.log(`→ joining as ${target.label}`);
+  await select.selectOption({ value: target.value });
+
+  if (PASSWORD) await page.fill("#join-game-form input[name='password']", PASSWORD);
+  await page.click("button[name='join']");
 }
 
 function report({ stats, failures }) {

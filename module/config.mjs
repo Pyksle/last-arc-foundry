@@ -399,6 +399,24 @@ LASTARC.statusEffects = {
     agiDenied: true,
     noReactions: true
   },
+  /**
+   * Applied at 0 HP alongside `prone` and `helpless` (§5.6).
+   *
+   * This has to be defined here rather than inherited from Foundry: registration
+   * REPLACES `CONFIG.statusEffects` wholesale, so core's `unconscious` does not
+   * survive, and `applyDamage` asking for it by id would throw "Invalid status
+   * ID" on every character that dropped.
+   *
+   * It carries no `agiOverride` of its own — `helpless` is applied in the same
+   * breath and supplies the −5, and doubling it up here would make the override
+   * order-dependent.
+   */
+  unconscious: {
+    agiDenied: true,
+    noActions: true,
+    noReactions: true,
+    blocksRecovery: true
+  },
   prone: {
     /** Modifiers others get when attacking it, and its own melee penalty. */
     incomingMeleeBonus: 5,

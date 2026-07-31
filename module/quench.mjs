@@ -357,7 +357,7 @@ function registerSheetBatch(quench) {
             await sheet.render(true);
             assert.exists(sheet.element, "sheet produced no DOM");
             assert.isTrue(sheet.rendered);
-            await sheet.close();
+            await sheet.close({ animate: false });
           });
         });
 
@@ -366,19 +366,23 @@ function registerSheetBatch(quench) {
           try {
             await npc.sheet.render(true);
             assert.isTrue(npc.sheet.rendered);
-            await npc.sheet.close();
+            await npc.sheet.close({ animate: false });
           } finally {
             await npc.delete();
           }
         });
 
+        // 17 subtypes, each a document create + render + close + delete. Render
+        // itself is single-digit milliseconds; it is the round trips that add
+        // up, and Mocha's default is 2000ms.
         it("renders an item sheet for every subtype", async function () {
+          this.timeout(20_000);
           for (const type of Object.keys(game.system.documentTypes?.Item ?? {})) {
             const item = await Item.create({ name: `Quench ${type}`, type });
             try {
               await item.sheet.render(true);
               assert.isTrue(item.sheet.rendered, `${type} sheet did not render`);
-              await item.sheet.close();
+              await item.sheet.close({ animate: false });
             } finally {
               await item.delete();
             }
@@ -390,7 +394,7 @@ function registerSheetBatch(quench) {
             await actor.sheet.render(true);
             const text = actor.sheet.element?.textContent ?? "";
             const leaked = text.match(/LASTARC\.[A-Za-z0-9_.]+/g);
-            await actor.sheet.close();
+            await actor.sheet.close({ animate: false });
             assert.isNull(leaked, `raw localisation keys visible: ${leaked?.join(", ")}`);
           });
         });

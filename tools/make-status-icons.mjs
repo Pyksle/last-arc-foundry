@@ -28,6 +28,24 @@ const svg = (body) =>
   `stroke-linecap="round" stroke-linejoin="round">\n${body}\n</svg>\n`;
 
 /**
+ * An Archimedean spiral as a polyline, for `unconscious`.
+ *
+ * The one glyph that is computed rather than hand-drawn. Getting a spiral right
+ * with SVG arc flags is fiddly and easy to get subtly wrong; sampling r = a·θ is
+ * exact. Everything else stays literal.
+ */
+function spiral({ cx = 32, cy = 32, turns = 1.9, rMax = 17, steps = 160 } = {}) {
+  const thetaMax = turns * 2 * Math.PI;
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = (i / steps) * thetaMax;
+    const r = (rMax * t) / thetaMax;
+    pts.push(`${(cx + r * Math.cos(t)).toFixed(1)} ${(cy + r * Math.sin(t)).toFixed(1)}`);
+  }
+  return `<path d="M${pts.join("L")}"/>`;
+}
+
+/**
  * One glyph per status. Kept literal and readable rather than clever — these
  * are read far more often than they are written, and a parametric generator
  * would make "what does petrify look like?" hard to answer.
@@ -76,6 +94,14 @@ const GLYPHS = {
 
   helpless: `<circle cx="32" cy="18" r="8"/><path d="M20 52c0-8 5-14 12-14s12 6 12 14"/>
 <path d="M10 30l10 6M54 30l-10 6"/>`,
+
+  // "Out cold" as a spiral. The first draft was a slumped figure, which at 24px
+  // was indistinguishable from `helpless` — and `unconscious`, `prone` and
+  // `helpless` are all applied together at 0 HP (§5.6), so they sit side by side
+  // on one token and MUST stay tellable apart. The spiral is the only unused
+  // shape in the set: every other glyph is a figure, a circle-with-contents, or
+  // an object silhouette.
+  unconscious: spiral(),
 
   flatFooted: `<path d="M32 6v22M32 40v4"/><circle cx="32" cy="32" r="24"/>
 <circle cx="32" cy="46" r="2.5" fill="currentColor" stroke="none"/>`,

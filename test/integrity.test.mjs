@@ -293,6 +293,30 @@ describe("status assets", () => {
       assert.ok(svg.includes("currentColor"), `${file} should use currentColor`);
     }
   });
+
+  /**
+   * REGRESSION GUARD. `applyDamage` called toggleStatusEffect("unconscious"),
+   * but registration REPLACES CONFIG.statusEffects wholesale — so core's
+   * `unconscious` did not survive and the id resolved to nothing. Foundry
+   * answers an unknown id with a thrown "Invalid status ID", meaning every
+   * character who actually hit 0 HP in play would have blown up mid-turn.
+   *
+   * Nothing in the unit suite could see it: the id only exists as a string
+   * literal handed to a Foundry API. This scans for those literals instead.
+   */
+  test("every status id used in code is a registered status", () => {
+    const sources = readdirSync(join(root, "module"), { recursive: true })
+      .filter((f) => typeof f === "string" && f.endsWith(".mjs"))
+      .map((f) => ({ name: f, source: readFileSync(join(root, "module", f), "utf8") }));
+
+    const bad = [];
+    for (const { name, source } of sources) {
+      for (const m of source.matchAll(/toggleStatusEffect\??\.?\(\s*["'`]([^"'`]+)["'`]/g)) {
+        if (!LASTARC.allStatusIds.includes(m[1])) bad.push(`${name}: "${m[1]}"`);
+      }
+    }
+    assert.deepEqual(bad, [], `unregistered status ids passed to Foundry: ${bad.join(", ")}`);
+  });
 });
 
 describe("templates compile", () => {
