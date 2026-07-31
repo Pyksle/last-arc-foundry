@@ -309,7 +309,6 @@
   "LASTARC.HeroPoint.MisfortuneBlocks": "Misfortune prevents rerolling d20s, including with a hero point.",
   "LASTARC.HeroPoint.DefenceBoost": "Hero Point: +{amount} {defence}",
   "LASTARC.HeroPoint.DeathPrevented": "Death prevented — unconscious.",
-  "LASTARC.HeroPoint.InjuryTableBlocked": "The Injury & Dismemberment roll has not been made. The transcribed table has overlapping ranges and an uncovered band (spec ambiguity A7), and the readings differ by a factor of three on how often dismemberment occurs. Resolve it manually from the rulebook rather than letting the system guess.",
   "LASTARC.Roll.SkillCheck": "{label} Check",
   "LASTARC.Roll.AttributeCheck": "{label} Check",
   "LASTARC.Roll.Success": "Success",
