@@ -25,6 +25,11 @@ only unit tested.
 - Statblock attacks, so a GM can run a monster from its own sheet
 - **Counterattacks**, including the rule that one beating your Break Threshold
   destroys a casting and wastes the mana
+- **Block** — the shield reaction, offered on any card whose roll targets your
+  Reflex, with the cumulative penalty for repeat blocks before your next turn
+  and the skill your shield's relative size dictates
+- Healing that shows its arithmetic: what was rolled, what landed, and what was
+  wasted against the maximum
 - Inverted initiative (class dice, lowest acts first), Hold Turn, group
   initiative, round-1 flat-footed
 - Action economy with downgrades and the banked-minor interrupt rule
@@ -33,6 +38,8 @@ only unit tested.
 - 33 statuses and curses with mechanical payloads and original icon art
 - Hand-authoring of all 17 item subtypes from the sheet they belong on, which is
   how content gets in — see [Content](#content)
+- Manual ordering of every item list, and Second Wind tracked as boxes you tick
+  and untick yourself
 
 Not implemented: a bulk importer for the rulebook (there is no legal source to
 import from), airships (out of scope), and advanced classes / Aeons / optional

@@ -1,0 +1,46 @@
+{{!-- Healing. The three numbers a player actually wants are rolled, applied and
+      wasted, and only the first of those is what the dice said. A bare total
+      hides the case that matters: healing 14 into a 3-point wound. --}}
+<div class="lastarc-card lastarc-card--healing {{#if inverted}}lastarc-card--inverted{{/if}}">
+
+  <header class="lastarc-card__head">
+    <img src="{{sourceImg}}" alt="" class="lastarc-card__img">
+    <div class="lastarc-card__title">
+      <span class="lastarc-card__weapon">{{sourceName}}</span>
+      <span class="lastarc-card__sub">
+        {{#if inverted}}
+          {{localize "LASTARC.Card.HealingInverted"}}
+        {{else}}
+          {{localize "LASTARC.Card.Healing"}}
+        {{/if}}
+      </span>
+    </div>
+    <div class="lastarc-card__total {{#unless inverted}}is-heal{{/unless}}"
+         data-tooltip="{{breakdown}}">
+      {{#if inverted}}−{{else}}+{{/if}}{{applied}}
+    </div>
+  </header>
+
+  {{#if dice.length}}
+    <div class="lastarc-dice">
+      {{#each dice}}<span class="lastarc-die">{{this.result}}</span>{{/each}}
+    </div>
+  {{/if}}
+
+  <p class="lastarc-calc">
+    {{#if formula}}<span class="lastarc-calc__formula">{{formula}}</span>{{/if}}
+    <span class="lastarc-calc__sum">{{breakdown}}</span>
+  </p>
+
+  <p class="lastarc-verdict {{#if inverted}}lastarc-verdict--bad{{else}}lastarc-verdict--good{{/if}}">
+    <strong>{{targetName}}</strong>
+    <span class="lastarc-vs">{{hpValue}} / {{hpMax}}</span>
+  </p>
+
+  {{#if wasted}}
+    {{!-- Shown only when it happened. This is the line that answers "why did my
+          2d8 potion give me four hit points?" --}}
+    <p class="lastarc-note">{{localize "LASTARC.Card.HealWasted" n=wasted}}</p>
+  {{/if}}
+
+</div>

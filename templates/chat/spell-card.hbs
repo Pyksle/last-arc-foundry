@@ -1,7 +1,9 @@
 {{!-- Spell result card. Deliberately shaped unlike the attack card: there is no
       hit/miss, because a Spellcraft check SELECTS AN OUTCOME rather than
       succeeding or failing. What the card has to answer is "which tier did I
-      reach, and did the target resist it?" --}}
+      reach, and did the target resist it?" — and, since issue #11, "what does
+      this spell actually do", which it previously left to the caster to look up
+      mid-turn. --}}
 <div class="lastarc-card lastarc-card--spell">
 
   <header class="lastarc-card__head">
@@ -10,10 +12,11 @@
       <span class="lastarc-card__weapon">{{spellName}}</span>
       <span class="lastarc-card__sub">{{schoolLabel}} · {{localize "LASTARC.Card.SpellCast"}}</span>
     </div>
-    <div class="lastarc-card__total">{{total}}</div>
+    <div class="lastarc-card__total" data-tooltip="{{breakdown}}">{{total}}</div>
   </header>
 
   <div class="lastarc-card__natural">
+    <span class="lastarc-card__die">d20: <strong>{{natural}}</strong></span>
     <span class="lastarc-mana">{{localize "LASTARC.Card.ManaSpent" n=cost}}</span>
     {{#if parts.length}}
       <span class="lastarc-card__parts">
@@ -36,6 +39,7 @@
     {{#if dc}}
       <p class="lastarc-verdict lastarc-verdict--good">
         {{localize "LASTARC.Card.Achieved" dc=dc}}
+        <span class="lastarc-vs">{{total}} {{localize "LASTARC.Card.Versus"}} {{localize "LASTARC.Card.DC"}} {{dc}}</span>
       </p>
     {{/if}}
 
@@ -47,9 +51,12 @@
         {{else}}
           {{localize "LASTARC.Card.SpellResisted" defence=defence}}
         {{/if}}
-        {{#if bonusApplied}}
-          <span class="lastarc-vs">{{localize "LASTARC.Card.HigherLevelTarget" n=bonusApplied}}</span>
-        {{/if}}
+        {{!-- Both numbers, named. "Resisted" alone was the reported complaint:
+              a verdict with no arithmetic behind it. --}}
+        <span class="lastarc-vs">
+          {{total}} {{localize "LASTARC.Card.Versus"}} {{defenceLabel}} {{defence}}
+          {{#if bonusApplied}}({{localize "LASTARC.Card.HigherLevelTarget" n=bonusApplied}}){{/if}}
+        </span>
       </p>
     {{/if}}
   {{else}}
@@ -60,12 +67,35 @@
 
   {{#if damage}}
     <div class="lastarc-card__damage">
-      <span class="lastarc-card__total">{{damage.total}}</span>
+      <span class="lastarc-card__total" data-tooltip="{{damageBreakdown}}">{{damage.total}}</span>
       <span class="lastarc-card__type">{{damageTypeLabel}}</span>
     </div>
+    {{#if damage.results.length}}
+      <div class="lastarc-dice">
+        {{#each damage.results}}
+          <span class="lastarc-die {{#if this.exploded}}is-exploded{{/if}}
+                       {{#if this.generation}}is-extra{{/if}}">{{this.result}}</span>
+        {{/each}}
+      </div>
+    {{/if}}
+    <p class="lastarc-calc"><span class="lastarc-calc__sum">{{damageBreakdown}}</span></p>
     {{#each decay}}
       <p class="lastarc-decay">{{localize "LASTARC.Card.DecayTick" amount=this.amount n=this.turnsAhead}}</p>
     {{/each}}
+  {{/if}}
+
+  {{#if healing}}
+    {{!-- The heal posts its own card with the full sum; this is the pointer, so
+          the cast and its effect are not two unrelated messages. A zombified
+          target turns the heal into damage (§12), which must not be announced
+          as healing. --}}
+    <p class="lastarc-rider {{#if healing.inverted}}lastarc-rider--crit{{else}}lastarc-rider--heal{{/if}}">
+      {{#if healing.inverted}}
+        {{localize "LASTARC.Card.HealingInverted"}}
+      {{else}}
+        {{localize "LASTARC.Card.HealedFor" n=healing.applied}}
+      {{/if}}
+    </p>
   {{/if}}
 
   {{#if statusLabel}}
@@ -75,5 +105,12 @@
   {{/if}}
 
   {{#if notes}}<p class="lastarc-note">{{notes}}</p>{{/if}}
+
+  {{#if description}}
+    <details class="lastarc-card__desc">
+      <summary>{{localize "LASTARC.Card.WhatItDoes"}}</summary>
+      <div class="lastarc-card__desc-body">{{{description}}}</div>
+    </details>
+  {{/if}}
 
 </div>

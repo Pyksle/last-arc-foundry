@@ -66,6 +66,7 @@ Hooks.once("init", () => {
   registerResourceDefaults();
   registerSheets();
   registerHandlebarsHelpers();
+  registerPartials();
   registerStatusEffects();
   registerChatListeners();
   registerCombat();
@@ -237,6 +238,25 @@ function registerHandlebarsHelpers() {
 
   Handlebars.registerHelper("laeq", (a, b) => a === b);
   Handlebars.registerHelper("lagte", (a, b) => Number(a) >= Number(b));
+}
+
+/**
+ * Markup shared between panels, registered under a short alias.
+ *
+ * NOT awaited: `init` handlers are called synchronously by Foundry, and the
+ * sheets that use these partials cannot render until a document is opened,
+ * which is long after the fetch settles. Awaiting here would only delay `init`
+ * for everything else.
+ */
+function registerPartials() {
+  foundry.applications.handlebars.loadTemplates({
+    laItemOrder: `systems/${SYSTEM_ID}/templates/actor/item-order.hbs`
+  }).catch((err) => {
+    // A missing partial fails at RENDER time, as "The partial laItemOrder could
+    // not be found" from deep inside Handlebars, with nothing pointing back
+    // here. Say it out loud at load instead.
+    console.error("Last Arc | Shared partials failed to load; sheets will not render.", err);
+  });
 }
 
 /* -------------------------------------------------------------------------- */

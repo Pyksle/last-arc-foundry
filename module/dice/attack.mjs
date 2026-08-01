@@ -9,6 +9,7 @@
 import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollDamageDice } from "./explode.mjs";
+import { describeCheck } from "./breakdown.mjs";
 
 /* -------------------------------------------------------------------------- */
 /*  Attack resolution — pure                                                   */
@@ -581,10 +582,12 @@ async function postAttackCard({
       total: roll.total,
       natural: outcome.natural,
       parts: mods.parts,
+      breakdown: describeCheck(roll, mods.parts),
       outcome,
       targetDefence: options.targetDefence ?? null,
       hasTarget: options.targetDefence != null,
       hasAttackIndex: attackIndex != null,
+      targetName: options.target?.name ?? null,
       statusLabel: isNpc && attack.appliesStatus
         ? game.i18n.localize(`LASTARC.Status.${attack.appliesStatus}`)
         : null
@@ -601,7 +604,13 @@ async function postAttackCard({
         actorId: actor.id,
         weaponId: weapon?.id ?? null,
         attackIndex,
-        outcome
+        outcome,
+        // Who may answer this with a Block (issue #12). Every weapon attack
+        // targets Reflex, and Reflex is what a shield opposes.
+        targetId: options.target?.id ?? null,
+        targetsDefence: "ref",
+        attackerName: actor.name,
+        attackTotal: roll.total
       }
     }
   });

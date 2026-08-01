@@ -356,6 +356,7 @@
     <div class="la-items">
       {{#each items}}
         <div class="la-item" data-item-id="{{this.id}}">
+          {{> laItemOrder}}
           <img class="la-item__img" src="{{this.img}}" alt="">
           <button type="button" class="la-item__name" data-action="editItem"
                   data-item-id="{{this.id}}">{{this.name}}</button>
@@ -414,6 +415,7 @@
     <div class="la-items">
       {{#each technicks}}
         <div class="la-item">
+          {{> laItemOrder}}
           <img class="la-item__img" src="{{this.img}}" alt="">
           <button type="button" class="la-item__name" data-action="editItem"
                   data-item-id="{{this.id}}">{{this.name}}</button>

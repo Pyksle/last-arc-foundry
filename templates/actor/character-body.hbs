@@ -121,6 +121,27 @@
               data-tooltip="{{localize 'LASTARC.Tooltip.SecondWind'}}">
         +{{system.resources.secondWind.healAmount}}
       </button>
+      {{!-- One box per use, tickable BOTH ways (issue #10). The button above
+            spends a use and heals; these are the record, and a table that has
+            just rested clears them by hand. Nothing here resets on its own
+            because nothing in the software knows a rest happened.
+
+            A <button role="checkbox"> rather than an <input type="checkbox">:
+            the sheet form submits on change, so a real checkbox would fire a
+            form submission racing the action's own update. The Break Gauge
+            track next door is buttons for the same reason. --}}
+      <div class="la-secondwind" role="group"
+           aria-label="{{localize 'LASTARC.Resource.SecondWindUses'}}">
+        {{#each secondWindPips}}
+          <button type="button" class="la-secondwind__pip"
+                  role="checkbox" aria-checked="{{#if this.spent}}true{{else}}false{{/if}}"
+                  data-action="setSecondWind" data-index="{{this.index}}"
+                  aria-label="{{this.label}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.SecondWindPip'}}">
+            {{#if this.spent}}✕{{/if}}
+          </button>
+        {{/each}}
+      </div>
     </div>
   </section>
 
@@ -418,6 +439,11 @@
     <div class="la-attacks">
       {{#each attacks}}
         <div class="la-attack {{#if this.unusable}}is-unusable{{/if}}">
+          {{!-- Reordering is per PANEL, so the group travels with the button.
+                A weapon appears here AND in Inventory and both arrows write the
+                one `sort`, which is correct — an item has one place in the
+                world. The arrows disable at the ends rather than wrapping. --}}
+          {{> laItemOrder}}
           <img class="la-item__img" src="{{this.img}}" alt="">
           <button type="button" class="la-attack__name" data-action="rollAttack"
                   data-item-id="{{this.id}}"
@@ -458,6 +484,7 @@
       {{#each spells}}
         <div class="la-spell {{#unless this.affordable}}is-unaffordable{{/unless}}"
              data-item-id="{{this.id}}">
+          {{> laItemOrder}}
           <button type="button" class="la-spell__cast" data-action="castSpell"
                   data-item-id="{{this.id}}"
                   data-tooltip="{{localize 'LASTARC.Tooltip.CastSpell'}}"
@@ -497,6 +524,7 @@
     <div class="la-spells">
       {{#each performances}}
         <div class="la-spell {{#unless this.affordable}}is-unaffordable{{/unless}}">
+          {{> laItemOrder}}
           <button type="button" class="la-spell__cast" data-action="performItem"
                   data-item-id="{{this.id}}"
                   data-tooltip="{{localize 'LASTARC.Tooltip.Perform'}}">
@@ -528,6 +556,7 @@
     <div class="la-items">
       {{#each technicks}}
         <div class="la-item {{#unless this.prereqsMet}}is-invalid{{/unless}}">
+          {{> laItemOrder}}
           <img class="la-item__img" src="{{this.img}}" alt="">
           <button type="button" class="la-item__name" data-action="editItem"
                   data-item-id="{{this.id}}">{{this.name}}</button>
@@ -564,6 +593,7 @@
     <div class="la-items">
       {{#each features}}
         <div class="la-item">
+          {{> laItemOrder}}
           <img class="la-item__img" src="{{this.img}}" alt="">
           <button type="button" class="la-item__name" data-action="editItem"
                   data-item-id="{{this.id}}">{{this.name}}</button>
@@ -610,6 +640,7 @@
       {{#each inventory}}
         <div class="la-item {{#if this.equipped}}is-equipped{{/if}}
                     {{#if this.broken}}is-broken{{/if}}">
+          {{> laItemOrder}}
           <img class="la-item__img" src="{{this.img}}" alt="">
           <button type="button" class="la-item__name" data-action="editItem"
                   data-item-id="{{this.id}}">{{this.name}}</button>

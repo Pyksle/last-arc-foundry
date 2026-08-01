@@ -20,6 +20,8 @@
 import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollDamageDice } from "./explode.mjs";
+import { rollHealing } from "./healing.mjs";
+import { describeCheck, describeDamage } from "./breakdown.mjs";
 import { applyDamage } from "./attack.mjs";
 import * as CB from "../combat.mjs";
 
@@ -95,12 +97,17 @@ export function resolveOpposed(outcome, {
   higherLevelTargetBonus = 0
 } = {}) {
   const key = outcome?.opposedDefence;
-  if (!key) return { opposed: false, beat: true, defence: null, bonusApplied: 0 };
+  if (!key) {
+    return { opposed: false, beat: true, defence: null, defenceKey: null, bonusApplied: 0 };
+  }
 
   const bonusApplied = targetLevel > casterLevel ? higherLevelTargetBonus : 0;
   const defence = (targetDefences[key] ?? 0) + bonusApplied;
 
-  return { opposed: true, beat: checkTotal >= defence, defence, bonusApplied };
+  // `defence` is the NUMBER to beat and `defenceKey` names which defence it is.
+  // Both are needed and they are easy to confuse: the card wants "vs Ref 15",
+  // and only a spell opposing Reflex may be answered with a Block (issue #12).
+  return { opposed: true, beat: checkTotal >= defence, defence, defenceKey: key, bonusApplied };
 }
 
 /**
@@ -475,6 +482,22 @@ export async function castSpell(actor, spell, options = {}) {
     }
   }
 
+  /* -- healing, if the row has any ---------------------------------------- */
+
+  // `outcomes[].healing` had been an editable field on every spell sheet with
+  // no reader anywhere: a cure spell rolled its check, announced a tier and
+  // healed nobody (issue #11). Resolved against the target where there is one
+  // and the caster otherwise, which is how a self-heal is cast in practice.
+  if (outcome?.healing && (!opposed.opposed || opposed.beat)) {
+    const recipient = target ?? actor;
+    result.healing = await rollHealing(recipient, {
+      formula: outcome.healing,
+      sourceName: spell.name,
+      sourceImg: spell.img,
+      healer: actor
+    });
+  }
+
   /* -- status rider -------------------------------------------------------- */
 
   if (outcome?.status && (!opposed.opposed || opposed.beat) && target) {
@@ -536,7 +559,18 @@ async function postSpellCard({ actor, spell, result, target }) {
       spellImg: spell.img,
       schoolLabel: game.i18n.localize(`LASTARC.School.${spell.system.school}`),
       total: result.roll.total,
+      natural: result.roll.dice[0]?.results?.[0]?.result ?? 0,
       parts: result.parts,
+      // "What was rolled and the modifiers included" (issue #11), as one line
+      // on the total. The per-chip tooltips name each modifier but never say
+      // what the die showed, so the sum could not be checked from the card.
+      breakdown: describeCheck(result.roll, result.parts),
+      // The spell's own text. Its absence was reported directly: casting
+      // announced a tier and a number with no statement of what the spell
+      // actually does, so the caster had to open the item to read their own
+      // spell mid-turn.
+      description: await foundry.applications.ux.TextEditor
+        .implementation.enrichHTML(spell.system.description ?? "", { relativeTo: spell }),
       cost: result.cost,
       arcanaLabel: result.highArcana
         ? game.i18n.localize(LASTARC.highArcana[result.highArcana].label)
@@ -547,12 +581,20 @@ async function postSpellCard({ actor, spell, result, target }) {
       opposed: result.opposed.opposed,
       beat: result.opposed.beat,
       defence: result.opposed.defence,
+      defenceLabel: result.opposed.defenceKey
+        ? game.i18n.localize(`LASTARC.Defence.${result.opposed.defenceKey}`)
+        : null,
       bonusApplied: result.opposed.bonusApplied,
       targetName: target?.name ?? null,
       damage: result.damage,
+      // The damage sum, spelled out. "When rolling damage the damage
+      // calculation does not display" (issue #11) — the card showed a total
+      // and a row of dice with no statement of how one became the other.
+      damageBreakdown: result.damage ? describeDamage(result.damage) : null,
       damageTypeLabel: result.damage
         ? game.i18n.localize(`LASTARC.DamageType.${result.damage.damageType}`)
         : null,
+      healing: result.healing ?? null,
       decay: result.decay ?? [],
       statusLabel: result.statusApplied
         ? game.i18n.localize(`LASTARC.Status.${result.statusApplied}`)
@@ -565,6 +607,20 @@ async function postSpellCard({ actor, spell, result, target }) {
     speaker: ChatMessage.getSpeaker({ actor }),
     content,
     rolls: [result.roll],
-    flags: { "last-arc": { type: "spell", actorId: actor.id, spellId: spell.id } }
+    flags: {
+      "last-arc": {
+        type: "spell",
+        actorId: actor.id,
+        spellId: spell.id,
+        // A spell that opposes Reflex may be blocked with a shield, area
+        // effects included (book p.109, issue #12). One that opposes Fortitude
+        // or Will may not, so the defence travels with the card rather than
+        // being assumed.
+        targetId: target?.id ?? null,
+        targetsDefence: result.opposed.defenceKey,
+        attackerName: actor.name,
+        attackTotal: result.roll.total
+      }
+    }
   });
 }

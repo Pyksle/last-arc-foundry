@@ -11,7 +11,7 @@
         <span class="lastarc-type">{{localize damageTypeLabel}}</span>
       </span>
     </div>
-    <div class="lastarc-card__total">{{total}}</div>
+    <div class="lastarc-card__total" data-tooltip="{{breakdown}}">{{total}}</div>
   </header>
 
   {{#if critMultiplierLabel}}
@@ -39,6 +39,11 @@
       </span>
     </div>
   {{/if}}
+
+  {{!-- The sum, in full. The dice above and the modifier chips beside them were
+        both present, but nothing stated how they combined into the total —
+        reported as "the damage calculation does not display" (issue #11). --}}
+  <p class="lastarc-calc"><span class="lastarc-calc__sum">{{breakdown}}</span></p>
 
   {{#if capped}}
     <p class="lastarc-verdict lastarc-verdict--bad">{{localize "LASTARC.Card.DiceCapped"}}</p>

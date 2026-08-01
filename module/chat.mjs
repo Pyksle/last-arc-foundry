@@ -14,10 +14,15 @@ import {
   canSpendHeroPoint, heroPointReroll, heroPointBonusRoll,
   heroPointPreventDeath, HERO_SPEND
 } from "./dice/hero-points.mjs";
+import { rollBlock, canBlock } from "./dice/block.mjs";
+import { describeDamage } from "./dice/breakdown.mjs";
 
 export function registerChatListeners() {
   Hooks.on("renderChatMessageHTML", (message, element) => {
     offerHeroReroll(message, element);
+    offerBlock(message, element);
+    markBlockedAttack(message, element);
+    refreshBlockedAttack(message);
 
     element.querySelectorAll("[data-action^='lastarc']").forEach((button) => {
       button.addEventListener("click", (event) => onChatAction(event, message));
@@ -80,6 +85,113 @@ function offerHeroReroll(message, element) {
   element.querySelector(".message-content")?.appendChild(wrap);
 }
 
+/**
+ * Offer a Block to whoever is being attacked (book p.109, issue #12).
+ *
+ * Injected here rather than baked into the attack card for two reasons. The
+ * card is rendered once by the ATTACKER and stored; the decision about who may
+ * block depends on who is LOOKING at it, and that differs per client. And doing
+ * it in one place covers spell cards too — a spell opposing Reflex is blockable
+ * and a spell opposing Will is not, which the card itself has no reason to know.
+ *
+ * Not shown when it cannot be used. `canBlock` explains a missing shield or a
+ * flat-footed defender, and those explanations are worth surfacing; but a
+ * player who owns no shield at all should not see a Block button on every
+ * attack for the rest of the campaign, so the no-shield case stays silent.
+ */
+function offerBlock(message, element) {
+  const flags = message.flags?.["last-arc"] ?? {};
+  if (flags.type !== "attack" && flags.type !== "spell") return;
+  if (flags.targetsDefence !== "ref") return;
+  if (flags.attackTotal == null) return;
+
+  const defender = game.actors.get(flags.targetId);
+  if (!defender?.isOwner) return;
+
+  // Already answered — one block per triggering attack.
+  if (blockFor(message)) return;
+
+  const check = canBlock(defender);
+  if (!check.shield) return;              // no shield: silence, not a dead button
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "lastarc-block-offer";
+  button.dataset.action = "lastarcBlock";
+  button.dataset.actorId = defender.id;
+  button.textContent = game.i18n.format("LASTARC.Block.Offer", { shield: check.shield.name });
+
+  if (!check.allowed) {
+    button.disabled = true;
+    button.dataset.tooltip = game.i18n.localize(check.reason);
+  } else {
+    button.dataset.tooltip = game.i18n.localize("LASTARC.Block.OfferTooltip");
+  }
+
+  element.querySelector(".message-content")?.appendChild(button);
+}
+
+/**
+ * Strike through an attack that was subsequently blocked.
+ *
+ * Computed on every client from a LATER block message rather than by editing
+ * the attack message, because the defender does not own the attacker's chat
+ * message and could not write to it. Every client reaches the same answer from
+ * the same log, so nobody needs permission to keep the card honest.
+ */
+function markBlockedAttack(message, element) {
+  const flags = message.flags?.["last-arc"] ?? {};
+  if (flags.type !== "attack" && flags.type !== "spell") return;
+
+  const block = blockFor(message);
+  if (!block?.flags?.["last-arc"]?.blocked) return;
+
+  element.querySelector(".lastarc-card")?.classList.add("is-blocked");
+  element.querySelectorAll("[data-action='lastarcRollDamage']").forEach((b) => {
+    b.disabled = true;
+    b.dataset.tooltip = game.i18n.localize("LASTARC.Block.DamageBlocked");
+  });
+}
+
+/**
+ * When a block card arrives, redraw the attack it answered.
+ *
+ * Foundry renders a chat message once and leaves it alone, so without this the
+ * strike-through above would not appear until the log was rebuilt — which for a
+ * player means "not this session". Doing it from the BLOCK card's own render
+ * means every client fixes its own copy as the card lands, with no socket and
+ * no permission to edit someone else's message.
+ *
+ * No recursion: re-rendering the attack does not re-render the block.
+ */
+function refreshBlockedAttack(message) {
+  const flags = message.flags?.["last-arc"] ?? {};
+  if (flags.type !== "block" || !flags.blocksMessageId) return;
+
+  const attack = game.messages?.get(flags.blocksMessageId);
+  if (attack) ui.chat?.updateMessage?.(attack);
+}
+
+/**
+ * The block message answering this one, if any.
+ *
+ * Walks backward from the end of the log and stops early: a chat log runs to
+ * thousands of messages over a campaign and a full scan on every render would
+ * be felt. A block always follows its attack closely, so the window is small.
+ */
+function blockFor(message) {
+  const messages = game.messages?.contents ?? [];
+  const start = Math.max(0, messages.length - BLOCK_SEARCH_WINDOW);
+  for (let i = messages.length - 1; i >= start; i--) {
+    const f = messages[i].flags?.["last-arc"];
+    if (f?.type === "block" && f.blocksMessageId === message.id) return messages[i];
+  }
+  return null;
+}
+
+/** How far back to look for a block answering an attack. */
+const BLOCK_SEARCH_WINDOW = 50;
+
 async function onChatAction(event, message) {
   event.preventDefault();
   const button = event.currentTarget;
@@ -93,6 +205,7 @@ async function onChatAction(event, message) {
       case "lastarcHeroReroll": return await onHeroReroll(button, message);
       case "lastarcHeroBonus": return await onHeroBonus(button, message);
       case "lastarcPreventDeath": return await onPreventDeath(button);
+      case "lastarcBlock": return await onBlock(button, message);
     }
   } catch (err) {
     console.error("Last Arc | Chat action failed", err);
@@ -160,6 +273,25 @@ async function onPreventDeath(button) {
   const actor = resolveActor(button);
   await heroPointPreventDeath(actor);
   button.disabled = true;
+}
+
+/**
+ * Block the attack in this message.
+ *
+ * Disabled immediately: the roll is asynchronous, and a second click before it
+ * settles would spend a second reaction against the same trigger, which is
+ * exactly what "once per triggering action" forbids.
+ */
+async function onBlock(button, message) {
+  const actor = resolveActor(button);
+  const flags = message.flags?.["last-arc"] ?? {};
+  button.disabled = true;
+
+  await rollBlock(actor, {
+    attackTotal: flags.attackTotal,
+    attackerName: flags.attackerName ?? null,
+    sourceMessageId: message.id
+  });
 }
 
 function resolveActor(button) {
@@ -306,6 +438,7 @@ async function postDamageCard({ actor, name, img, result }) {
       total: result.total,
       results: result.results,
       parts: result.terms?.parts ?? [],
+      breakdown: describeDamage(result),
       capped: result.capped,
       damageType: result.damageType,
       damageTypeLabel: `LASTARC.DamageType.${result.damageType}`,

@@ -22,6 +22,9 @@ import * as AE from "../action-economy.mjs";
 import { getTurnState, setTurnState, holdTurn, resetActions } from "../combat.mjs";
 import { promptCreateItem } from "./item-creation.mjs";
 import { shareItem } from "../dice/share-item.mjs";
+import { orderBySort } from "../item-order.mjs";
+import { markOrder, moveItem } from "./reorder.mjs";
+import { applyHealing } from "../dice/healing.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -38,6 +41,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       setBreakStep: LastArcCharacterSheet.#onSetBreakStep,
       bankRecovery: LastArcCharacterSheet.#onBankRecovery,
       secondWind: LastArcCharacterSheet.#onSecondWind,
+      setSecondWind: LastArcCharacterSheet.#onSetSecondWind,
       takeRest: LastArcCharacterSheet.#onTakeRest,
       addSubskill: LastArcCharacterSheet.#onAddSubskill,
       removeSubskill: LastArcCharacterSheet.#onRemoveSubskill,
@@ -47,6 +51,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       shareItem: LastArcCharacterSheet.#onShareItem,
       editItem: LastArcCharacterSheet.#onEditItem,
       deleteItem: LastArcCharacterSheet.#onDeleteItem,
+      moveItem: LastArcCharacterSheet.#onMoveItem,
       toggleEquip: LastArcCharacterSheet.#onToggleEquip,
       rollAttack: LastArcCharacterSheet.#onRollAttack,
       castSpell: LastArcCharacterSheet.#onCastSpell,
@@ -162,6 +167,16 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.persistentSources = sys.breakGauge.persistentSources
       .map((s, index) => ({ ...s, index }));
 
+    // One checkbox per Second Wind use (issue #10). `max` is derived — Extra
+    // Second Wind grants more — so the row grows and shrinks with the build
+    // rather than being a fixed pair of boxes.
+    const wind = sys.resources.secondWind;
+    context.secondWindPips = Array.from({ length: wind.max }, (_, index) => ({
+      index,
+      spent: index < wind.used,
+      label: game.i18n.format("LASTARC.Resource.SecondWindUseN", { n: index + 1 })
+    }));
+
     // Gauge fills. Computed here rather than in CSS because both need a
     // divide-by-zero guard and a clamp — a character with 0 max MP must not
     // produce NaN%, and temp HP can push the current value above max.
@@ -270,7 +285,10 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
     const EQUIPPABLE = new Set(["weapon", "armour", "shield", "accessory", "prostheticLimb"]);
 
-    for (const item of this.document.items) {
+    // Ordered ONCE, here, so every panel below inherits the player's manual
+    // order (issue #9). Sorting inside each branch instead would be four
+    // chances to forget one.
+    for (const item of orderBySort([...this.document.items])) {
       // Race and class Items used to be dropped here as "redundant", on the
       // grounds that the header already reads system.details.race and
       // system.classes. That was wrong twice over: #onHeroBoost reads a race
@@ -372,6 +390,13 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.spells = spells;
     context.performances = performances;
     context.features = features;
+    context.attacks = this.#prepareAttacks(sys);
+
+    // Reorder controls, and the order the reorder handler will work against.
+    // Recorded from the rendered arrays rather than recomputed later, so the
+    // handler and the list on screen cannot disagree about what "next" means.
+    markOrder(this, { attacks: context.attacks, spells, performances, technicks, features, inventory });
+
     context.knownSpellLimit = D.knownSpellLimit
       ? D.knownSpellLimit(sys.attributes.int.mod)
       : null;
@@ -381,7 +406,6 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.highArcanaOptions = LASTARC.highArcanaIds.map((id) => ({
       value: id, label: game.i18n.localize(LASTARC.highArcana[id].label)
     }));
-    context.attacks = this.#prepareAttacks(sys);
     context.bulkState = sys.bulk.state === "none" ? null : sys.bulk.state;
     context.bulkStateLabel = context.bulkState ? `LASTARC.Status.${context.bulkState}` : null;
   }
@@ -398,7 +422,10 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
   #prepareAttacks(sys) {
     const out = [];
 
-    for (const item of this.document.items) {
+    // Same manual order as every other panel (issue #9). Iterating the raw
+    // collection here would have left the Attacks panel rendering in database
+    // order while its own arrows wrote sort values nothing read back.
+    for (const item of orderBySort([...this.document.items])) {
       if (item.type !== "weapon" || !item.system.equipped) continue;
 
       const wield = D.wieldCategory(sys.details.size, item.system.size, item.system.category);
@@ -690,14 +717,39 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       ui.notifications?.warn(game.i18n.localize("LASTARC.Warning.SecondWind"));
       return;
     }
-    const healed = Math.min(
-      sys.resources.hp.max,
-      sys.resources.hp.value + sys.resources.secondWind.healAmount
-    );
+    // Spend first, then heal. `applyHealing` writes HP itself and posts the
+    // card that shows the sum, so it cannot be folded into one update — and
+    // healing without a card was half of issue #11.
     await this.document.update({
-      "system.resources.hp.value": healed,
       "system.resources.secondWind.used": sys.resources.secondWind.used + 1
     });
+
+    await applyHealing(this.document, {
+      amount: sys.resources.secondWind.healAmount,
+      sourceName: game.i18n.localize("LASTARC.Resource.SecondWind"),
+      sourceImg: this.document.img
+    });
+  }
+
+  /**
+   * Tick or untick one Second Wind use (issue #10).
+   *
+   * Clicking a spent box UNSPENDS everything from it onward, so the leftmost
+   * box is a reset. That is the whole point of the request: Second Wind comes
+   * back on a rest, and no part of this software knows when a table decided one
+   * happened, so the record has to be freely editable in both directions.
+   *
+   * Reads the index rather than the checkbox's own checked state, because the
+   * re-render immediately replaces the element and its transient state with the
+   * value from the document.
+   */
+  static async #onSetSecondWind(event, target) {
+    const index = Number(target.dataset.index);
+    const used = this.document.system.resources.secondWind.used;
+
+    // Ticking box i means "i+1 spent"; clicking the last spent box gives it back.
+    const next = used === index + 1 ? index : index + 1;
+    await this.document.update({ "system.resources.secondWind.used": next });
   }
 
   static async #onAddSubskill(event, target) {
@@ -732,7 +784,10 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
     const targeted = [...(game.user.targets ?? [])][0]?.actor;
     await rollAttack(this.document, weapon, {
-      targetDefence: defenceToBeat(targeted)
+      targetDefence: defenceToBeat(targeted),
+      // Carried so the card can offer the target a Block (issue #12). Weapon
+      // attacks always target Reflex, which is exactly what a shield answers.
+      target: targeted
     });
   }
 
@@ -863,6 +918,11 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       content: `<p>${game.i18n.format("LASTARC.Dialog.DeleteItem.content", { name: item.name })}</p>`
     });
     if (confirmed) await item.delete();
+  }
+
+  /** Move an item one place up or down its panel (issue #9). */
+  static async #onMoveItem(event, target) {
+    await moveItem(this, target);
   }
 
   /**

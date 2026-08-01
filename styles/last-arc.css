@@ -465,6 +465,34 @@
   color: var(--la-ink-faint);
 }
 .la-vital__sub input { width: 2.6rem; font-size: 0.8rem; }
+
+/* Second Wind uses, one box each (issue #10). Tickable in both directions, so
+   they are the record AND the reset — the button above spends a use, and a
+   table that has just rested clears the boxes by hand. */
+.la-secondwind {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-top: 0.3rem;
+}
+.la-secondwind__pip {
+  width: 0.95rem;
+  height: 0.95rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid var(--la-rule);
+  border-radius: 2px;
+  background: var(--la-paper);
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--la-oxblood);
+}
+.la-secondwind__pip[aria-checked="true"] {
+  background: color-mix(in srgb, var(--la-oxblood) 15%, var(--la-paper));
+}
 .la-vital--hp { border-color: var(--la-oxblood); }
 .la-vital--hp .la-vital__max { color: var(--la-oxblood); }
 
@@ -1104,6 +1132,36 @@
 .la-item.is-equipped .la-item__name { font-weight: 600; }
 .la-item__delete { color: var(--la-oxblood); font-size: 1rem; }
 
+/* Reorder arrows (issue #9). A vertical pair at the start of the row, in the
+   grip position — the arrows are the handle for the row, not another action on
+   it, so they sit apart from edit/share/delete at the other end.
+
+   Faint until hovered, because six panels' worth of arrows would otherwise
+   dominate a sheet whose actual content is the numbers. Disabled ones stay
+   visible rather than disappearing: a gap where a control used to be is more
+   confusing than a control that is plainly unavailable. */
+.la-item__order {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  line-height: 0.7;
+}
+.la-item__move {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  width: 1rem;
+  height: 0.7rem;
+  font-size: 0.5rem;
+  line-height: 0.7;
+  color: var(--la-ink-faint);
+  opacity: 0.55;
+}
+.la-item__move:hover:enabled { opacity: 1; color: var(--la-bronze-bright); }
+.la-item__move:disabled { opacity: 0.15; cursor: default; }
+
 .la-item__warn {
   font-size: 0.58rem;
   text-transform: uppercase;
@@ -1318,7 +1376,8 @@
 
 .la-attack {
   display: grid;
-  grid-template-columns: 1.5rem minmax(6rem, 1fr) auto 2.6rem auto auto;
+  /* order · img · name · wield · bonus · damage · type */
+  grid-template-columns: auto 1.5rem minmax(6rem, 1fr) auto 2.6rem auto auto;
   align-items: center;
   gap: 0.5rem;
   padding: 0.2rem 0.3rem;
@@ -1477,13 +1536,24 @@
  * sets its own background and its own text colour, and every rule below states
  * a colour rather than trusting inheritance.
  */
+/* LITERAL colours, not var(--la-paper) with a fallback.
+ *
+ * `--la-paper` is scoped to `.last-arc` and flips to #1d1a17 in dark mode. A
+ * chat message is outside that scope today, so the fallback is what actually
+ * paints — but the variable would win the moment anything put the class on a
+ * message, and every colour layered on this card (verdicts, riders, the heal
+ * total) is a fixed DARK value chosen against cream. Paper going dark under
+ * fixed dark ink is precisely the failure this card already had once.
+ *
+ * The font stack stays a variable: a wrong font is a cosmetic regression, a
+ * wrong background is an unreadable card. */
 .lastarc-card {
   font-family: var(--la-font-body, Georgia, serif);
   border: 1px solid #b9ab8f;
   border-radius: 3px;
   padding: 0.4rem;
-  background: var(--la-paper, #f5f0e4);
-  color: var(--la-ink, #1c1815);
+  background: #f5f0e4;
+  color: #1c1815;
 }
 /* Foundry's chat log sets its own link and strong colours; override within. */
 .lastarc-card strong,
@@ -1507,11 +1577,14 @@
 }
 .lastarc-card__title { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
 .lastarc-card__weapon { font-size: 0.95rem; font-weight: 600; }
+/* 0.58rem is ~9px, and uppercase at 9px is harder to read than its contrast
+   ratio suggests — letterforms lose the ascender/descender cues that make
+   lowercase scannable. Bigger, and less dimmed. */
 .lastarc-card__sub {
-  font-size: 0.58rem;
+  font-size: 0.66rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  opacity: 0.7;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
 }
 .lastarc-card__total {
   font-size: 1.7rem;
@@ -1527,60 +1600,67 @@
   align-items: center;
   gap: 0.4rem;
   flex-wrap: wrap;
-  font-size: 0.7rem;
-  opacity: 0.85;
+  font-size: 0.76rem;
+  opacity: 0.9;
 }
 .lastarc-part {
   border: 1px solid currentColor;
   border-radius: 999px;
   padding: 0 0.35rem;
-  font-size: 0.62rem;
-  opacity: 0.75;
+  font-size: 0.68rem;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Chat messages render OUTSIDE the .last-arc scope, so these cannot use the
-   sheet's theme variables and cannot know whether the chat log is light or
-   dark. Colours are therefore mid-tone and paired with a solid tinted
-   background, which stays legible either way — a pale-on-pale or dark-on-dark
-   pairing is the failure mode here. */
+/* Reported as "the font for the DC and the comparison to the target's defence
+   is hard to read" (issue #11), and it was very hard to read indeed.
+ *
+ * The card sets its OWN opaque cream background — it has to, because chat is
+ * dark whatever the sheet theme is. But these rules still carried a
+ * `prefers-color-scheme: dark` override from when the card was translucent,
+ * lightening the verdict text to #8fd39c and #f0a0a0. Pale green on the pale
+ * green verdict plate measures 1.12:1. Not dim: invisible.
+ *
+ * The overrides are gone rather than corrected. A card that paints its own
+ * paper must not care what is behind it, and every colour below is chosen
+ * against that paper — measured at ~7:1 through the verdict's tinted plate, not
+ * against the raw card. Do not reintroduce a scheme query here. */
 .lastarc-verdict {
   margin: 0.3rem 0 0;
-  font-size: 0.82rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.3rem;
+  font-size: 0.86rem;
   font-weight: 700;
-  padding: 0.2rem 0.45rem;
+  padding: 0.22rem 0.45rem;
   border-radius: 2px;
   border-left: 3px solid currentColor;
 }
-.lastarc-verdict--good { background: rgba(78, 135, 87, 0.28); color: #2f5c39; }
-.lastarc-verdict--bad { background: rgba(176, 74, 74, 0.28); color: #7a2020; }
+.lastarc-verdict--good { background: rgba(78, 135, 87, 0.28); color: #1f4327; }
+.lastarc-verdict--bad { background: rgba(176, 74, 74, 0.28); color: #6b1c1c; }
 .lastarc-verdict--neutral {
   background: rgba(128, 128, 128, 0.18);
   font-style: italic;
   font-weight: 500;
 }
-.lastarc-vs { float: right; font-weight: 500; opacity: 0.85; }
-
-@media (prefers-color-scheme: dark) {
-  .lastarc-verdict--good { color: #8fd39c; }
-  .lastarc-verdict--bad { color: #f0a0a0; }
-}
+/* Was `float: right; opacity: 0.85` — a float inside a bold verdict overlapped
+   the label at narrow chat widths, and this half of the line is the half a
+   player actually reads. Full strength, and laid out by the flex row above. */
+.lastarc-vs { font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .lastarc-rider {
   margin: 0.3rem 0 0;
-  font-size: 0.74rem;
+  font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   padding: 0.2rem 0.45rem;
   border-left: 3px solid currentColor;
   border-radius: 2px;
 }
-.lastarc-rider--combo { color: #7a5f2c; background: rgba(176, 141, 79, 0.24); }
-.lastarc-rider--crit { color: #7a2020; background: rgba(176, 74, 74, 0.24); }
-
-@media (prefers-color-scheme: dark) {
-  .lastarc-rider--combo { color: #e0bd76; }
-  .lastarc-rider--crit { color: #f0a0a0; }
-}
+.lastarc-rider--combo { color: #544015; background: rgba(176, 141, 79, 0.24); }
+.lastarc-rider--crit { color: #6b1c1c; background: rgba(176, 74, 74, 0.24); }
 
 /* Deliberately prominent. The most likely rules error in this whole pipeline is
    treating an automatic hit as unblockable — Block and Dodge are opposed
@@ -1623,6 +1703,77 @@
 .lastarc-applied { margin: 0.15rem 0; font-size: 0.8rem; }
 .lastarc-type { font-style: italic; }
 
+/* "Show your working" line (issue #11). Monospaced numerals so the dice and the
+   total line up, and full-strength ink — this is the line a player reads when
+   they think a number is wrong, which is exactly when it must not be faint. */
+.lastarc-calc {
+  margin: 0.25rem 0 0;
+  font-size: 0.76rem;
+  font-family: var(--la-font-num, Georgia, serif);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.lastarc-calc__formula { opacity: 0.7; font-style: italic; }
+.lastarc-calc__sum { font-weight: 600; }
+
+/* Damage inside a spell card — the second big number on a card that already has
+   one, so it gets a rule above it to separate the two. */
+.lastarc-card__damage {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  padding-top: 0.3rem;
+  border-top: 1px solid rgba(185, 171, 143, 0.5);
+}
+
+/* The spell's own text, collapsed. Open by default would bury the result of the
+   roll under a paragraph of prose on every single cast. */
+.lastarc-card__desc { margin-top: 0.4rem; font-size: 0.82rem; }
+.lastarc-card__desc > summary {
+  cursor: pointer;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
+}
+.lastarc-card__desc-body { margin-top: 0.25rem; line-height: 1.4; }
+.lastarc-card__desc-body p { margin: 0 0 0.4rem; }
+
+.lastarc-card__total.is-heal { color: #1f4327; }
+.lastarc-rider--heal { color: #1f4327; background: rgba(78, 135, 87, 0.24); }
+/* A heal turned into damage by the zombified curse (§12). Reads as a wound,
+   because that is what it is. */
+.lastarc-card--inverted .lastarc-card__total { color: #6b1c1c; }
+
+/* Block offer, injected per-viewer into an attack card (issue #12). Sized like
+   the hero-point spends beside it, since both are "you may answer this". */
+.lastarc-block-offer {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.25rem 0.4rem;
+  cursor: pointer;
+}
+.lastarc-block-offer:disabled { cursor: not-allowed; opacity: 0.55; }
+
+/* An attack a later Block stopped. Struck through rather than hidden: the roll
+   happened and the log should still say so. */
+.lastarc-card.is-blocked .lastarc-card__total {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+.lastarc-card.is-blocked .lastarc-verdict--good {
+  background: rgba(128, 128, 128, 0.18);
+  color: var(--la-ink, #1c1815);
+  text-decoration: line-through;
+}
+
 .lastarc-dc,
 .lastarc-result,
 .lastarc-auto {
@@ -1657,7 +1808,11 @@
 
 .la-spell {
   display: grid;
-  grid-template-columns: minmax(8rem, 1fr) auto auto 1.6rem 1.6rem;
+  /* order · cast · school · time · edit · share · delete.
+     The template used to declare five columns for six children, so the delete
+     button wrapped onto a second grid row of its own. Count the children when
+     changing this. */
+  grid-template-columns: auto minmax(8rem, 1fr) auto auto 1.6rem 1.6rem 1.6rem;
   align-items: center;
   gap: 0.4rem;
   padding: 0.18rem 0.3rem;

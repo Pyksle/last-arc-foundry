@@ -829,6 +829,99 @@ export function strDamageMultiplier(wieldCat) {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Block (book p.109)                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Which weapon skills a shield's Block roll may use.
+ *
+ * The book names three classes of shield by size RELATIVE to the wielder, and
+ * each names a skill rather than a bonus — Block is an opposed attack roll with
+ * the shield, never a flat addition to Reflex:
+ *
+ *   one size smaller   → light shield: EITHER Light Weapon or 1-Handed
+ *   two or more smaller→ light shield: Light Weapon only
+ *   same size          → standard shield: 1-Handed
+ *   one size larger    → heavy shield: 2-Handed, or 1-Handed at Str 15+
+ *
+ * Returns every legal option rather than one answer, because two of the four
+ * rows are a genuine choice and the sheet should offer whichever the character
+ * is actually better at. An empty list means the shield is unusable.
+ *
+ * @returns {string[]} skill keys, best-first is NOT implied — the caller ranks them
+ */
+export function shieldSkillOptions(wielderSize, shieldSize, { strScore = 0 } = {}) {
+  const a = LASTARC.sizeOrder.indexOf(wielderSize);
+  const s = LASTARC.sizeOrder.indexOf(shieldSize);
+  if (a < 0) throw new Error(`Unknown wielder size: ${wielderSize}`);
+  if (s < 0) throw new Error(`Unknown shield size: ${shieldSize}`);
+
+  const delta = s - a;
+
+  if (delta >= 2) return [];                       // nothing that big is a shield
+  if (delta === 1) {
+    return strScore >= LASTARC.heavyShieldStrWaiver
+      ? ["twoHanded", "oneHanded"]
+      : ["twoHanded"];
+  }
+  if (delta === 0) return ["oneHanded"];
+  if (delta === -1) return ["lightWeapon", "oneHanded"];
+  return ["lightWeapon"];
+}
+
+/**
+ * Modifiers on a Block roll.
+ *
+ * Two separate penalties come from lacking Shield Proficiency and both apply:
+ * a flat −5 on any check made with a shield, AND a doubled cumulative rate for
+ * repeat blocks. They are listed as separate parts so the card can show which
+ * is which — a player who sees a single −15 has no way to tell that half of it
+ * would go away with a proficiency and half of it goes away next turn.
+ *
+ * `previousBlocks` counts blocks made SINCE THE BLOCKER'S LAST TURN STARTED,
+ * not since the start of the round. Those differ for everyone but the current
+ * combatant, which is precisely who is blocking.
+ *
+ * @returns {{total:number, parts:Array<{label:string, value:number}>}}
+ */
+export function blockModifiers({
+  skillMod = 0,
+  shieldBonus = 0,
+  previousBlocks = 0,
+  proficient = true,
+  situational = 0
+} = {}) {
+  const parts = [];
+  const add = (label, value) => { if (value) parts.push({ label, value }); };
+
+  add("LASTARC.Mod.skill", skillMod);
+  add("LASTARC.Mod.shield", shieldBonus);
+
+  if (!proficient) add("LASTARC.Mod.nonProficientShield", -LASTARC.nonProficientShieldPenalty);
+
+  const rate = proficient
+    ? LASTARC.blockPenaltyPerBlock.proficient
+    : LASTARC.blockPenaltyPerBlock.nonProficient;
+  add("LASTARC.Mod.repeatBlock", -(Math.max(0, previousBlocks) * rate));
+
+  add("LASTARC.Mod.situational", situational);
+
+  return { total: parts.reduce((sum, p) => sum + p.value, 0), parts };
+}
+
+/**
+ * Did the block stop the attack?
+ *
+ * "Should your attack beat the opposing check, it is treated as if it did not
+ * beat your Ref Defence." BEAT, not meet — a tie goes to the attacker, which is
+ * the opposite of the meet-it-beat-it rule used everywhere else in this system
+ * and is the single most likely thing to be implemented wrongly here.
+ */
+export function resolveBlock({ blockTotal, attackTotal }) {
+  return { blocked: blockTotal > attackTotal, blockTotal, attackTotal };
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Damage pipeline (§5.5)                                                     */
 /* -------------------------------------------------------------------------- */
 
@@ -907,6 +1000,33 @@ export function secondWindHeal(vitScore, maxHp) {
 
 export function canUseSecondWind(currentHp, maxHp) {
   return currentHp <= rd(maxHp / 2);
+}
+
+/**
+ * Resolve a heal against what the target can actually receive.
+ *
+ * Returns every term the card needs to show its working (issue #11: "when
+ * healing there is no calculation listed"). `wasted` is the part that hit the
+ * maximum and vanished, which is the number a player wants when deciding
+ * whether to spend the potion now or later — and the one a bare "+8" hides.
+ *
+ * `becomesDamage` is the zombified curse (§12): healing a zombified creature
+ * deals that much unaspected damage instead. It is a full inversion, not a
+ * reduction, so it short-circuits the maximum entirely — there is no cap on
+ * being hurt.
+ *
+ * @returns {{applied:number, newHp:number, wasted:number, inverted:boolean}}
+ */
+export function resolveHealing({ amount = 0, current = 0, max = 0, becomesDamage = false } = {}) {
+  const heal = Math.max(0, amount);
+
+  if (becomesDamage) {
+    const newHp = Math.max(0, current - heal);
+    return { applied: current - newHp, newHp, wasted: 0, inverted: true };
+  }
+
+  const newHp = Math.min(max, current + heal);
+  return { applied: newHp - current, newHp, wasted: heal - (newHp - current), inverted: false };
 }
 
 /* -------------------------------------------------------------------------- */

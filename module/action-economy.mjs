@@ -44,7 +44,17 @@ export function createTurnState() {
     minor: true,
     bankedMinors: 0,
     bankedFor: null,
-    reactionUsed: false
+    reactionUsed: false,
+    /**
+     * Blocks made since this turn began (book p.109).
+     *
+     * Not carried across the turn boundary by `beginTurn`, because the rule
+     * counts blocks "made before the start of your next turn" — the counter
+     * resetting IS the rule, not an optimisation. Blocking is explicitly
+     * allowed more than once per turn, so this is a count rather than the
+     * boolean `reactionUsed` beside it.
+     */
+    blocksUsed: 0
   };
 }
 

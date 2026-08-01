@@ -17,6 +17,8 @@ import { rollAttribute } from "../dice/rolls.mjs";
 import { rollNpcAttack, defenceToBeat } from "../dice/attack.mjs";
 import { promptCreateItem } from "./item-creation.mjs";
 import { shareItem } from "../dice/share-item.mjs";
+import { orderBySort } from "../item-order.mjs";
+import { markOrder, moveItem } from "./reorder.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -65,7 +67,8 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       createItem: LastArcNpcSheet.#onCreateItem,
       shareItem: LastArcNpcSheet.#onShareItem,
       editItem: LastArcNpcSheet.#onEditItem,
-      deleteItem: LastArcNpcSheet.#onDeleteItem
+      deleteItem: LastArcNpcSheet.#onDeleteItem,
+      moveItem: LastArcNpcSheet.#onMoveItem
     }
   };
 
@@ -176,7 +179,7 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // distinguish them.
     const technicks = [];
     const items = [];
-    for (const i of this.document.items) {
+    for (const i of orderBySort([...this.document.items])) {
       const row = {
         id: i.id,
         name: i.name,
@@ -191,6 +194,7 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     context.technicks = technicks;
     context.items = items;
+    markOrder(this, { technicks, items });
 
     return context;
   }
@@ -238,7 +242,10 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     await rollNpcAttack(this.document, index, {
       targetDefence: defenceToBeat(targeted),
       targetProne: !!targeted?.statuses?.has?.("prone"),
-      targetHelpless: !!targeted?.statuses?.has?.("helpless")
+      targetHelpless: !!targeted?.statuses?.has?.("helpless"),
+      // Carried so the card can offer the target a Block (issue #12). A
+      // monster's attack is the commonest thing a player will want to block.
+      target: targeted
     });
   }
 
@@ -354,5 +361,10 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       content: `<p>${game.i18n.format("LASTARC.Dialog.DeleteItem.content", { name: item.name })}</p>`
     });
     if (confirmed) await item.delete();
+  }
+
+  /** Move an item one place up or down its panel (issue #9). */
+  static async #onMoveItem(event, target) {
+    await moveItem(this, target);
   }
 }

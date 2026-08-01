@@ -1,0 +1,48 @@
+{{!-- Block result (book p.109). The verdict states both totals, because the
+      whole card is one comparison and "blocked" without the numbers is an
+      assertion the table cannot check. --}}
+<div class="lastarc-card lastarc-card--block">
+
+  <header class="lastarc-card__head">
+    <img src="{{shieldImg}}" alt="" class="lastarc-card__img">
+    <div class="lastarc-card__title">
+      <span class="lastarc-card__weapon">{{shieldName}}</span>
+      <span class="lastarc-card__sub">{{localize "LASTARC.Card.Block"}} · {{skillLabel}}</span>
+    </div>
+    <div class="lastarc-card__total" data-tooltip="{{breakdown}}">{{total}}</div>
+  </header>
+
+  <div class="lastarc-card__natural">
+    <span class="lastarc-card__die">d20: <strong>{{natural}}</strong></span>
+    {{#if parts.length}}
+      <span class="lastarc-card__parts">
+        {{#each parts}}
+          <span class="lastarc-part" data-tooltip="{{localize this.label}}">
+            {{lasignal this.value}}
+          </span>
+        {{/each}}
+      </span>
+    {{/if}}
+  </div>
+
+  <p class="lastarc-verdict {{#if blocked}}lastarc-verdict--good{{else}}lastarc-verdict--bad{{/if}}">
+    {{#if blocked}}
+      {{localize "LASTARC.Card.Blocked"}}
+    {{else}}
+      {{localize "LASTARC.Card.BlockFailed"}}
+    {{/if}}
+    <span class="lastarc-vs">
+      {{total}} {{localize "LASTARC.Card.Versus"}} {{attackTotal}}
+      {{#if attackerName}}({{attackerName}}){{/if}}
+    </span>
+  </p>
+
+  {{#if previousBlocks}}
+    {{!-- The cumulative penalty is the reason a second block is a real
+          decision, so it says so rather than hiding inside the modifier chips. --}}
+    <p class="lastarc-rider lastarc-rider--combo">
+      {{localize "LASTARC.Card.RepeatBlock" n=previousBlocks}}
+    </p>
+  {{/if}}
+
+</div>

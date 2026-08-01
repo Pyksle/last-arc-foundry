@@ -15,6 +15,7 @@
  */
 
 import { LASTARC } from "../config.mjs";
+import { nextSort } from "../item-order.mjs";
 
 /**
  * Prompt for a name and subtype, then create the item on `actor` and open it.
@@ -65,7 +66,14 @@ export async function promptCreateItem(actor, group) {
 
   if (!result?.type) return null;
 
-  const data = { name: result.name || typeLabel(result.type), type: result.type };
+  // Land at the END of the list. Foundry leaves `sort` at 0 on creation, so
+  // without this a new item outranks everything the player has deliberately
+  // ordered and jumps to the top of its panel (issue #9).
+  const data = {
+    name: result.name || typeLabel(result.type),
+    type: result.type,
+    sort: nextSort([...actor.items])
+  };
 
   // A weapon created from the Attacks panel arrives equipped. That panel lists
   // equipped weapons only, so creating one that then failed to appear in the

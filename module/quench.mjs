@@ -22,6 +22,9 @@ import * as ATK from "./dice/attack.mjs";
 import * as CB from "./combat.mjs";
 import * as MAGIC from "./dice/magic.mjs";
 import * as D from "./derivation.mjs";
+import * as BLOCK from "./dice/block.mjs";
+import * as HEAL from "./dice/healing.mjs";
+import * as ORDER from "./item-order.mjs";
 
 const SYSTEM_ID = "last-arc";
 
@@ -819,8 +822,11 @@ function registerSheetBatch(quench) {
             "resources.mp.max": "DERIVED from class, level and Mind",
             "resources.heroPoints.max": "DERIVED from level and technick grants",
             "resources.secondWind.max": "DERIVED from technick grants",
-            "resources.secondWind.used": "ACTION — the Second Wind button spends it",
-            "resources.secondWind.usedThisEncounter": "ACTION — reset by combat lifecycle",
+            "resources.secondWind.used": "ACTION — one checkbox per use, tickable " +
+              "both ways, plus the Second Wind button which spends one (issue #10). " +
+              "`usedThisEncounter` used to sit beside this claiming it was 'reset by " +
+              "combat lifecycle'; nothing ever wrote it, so the once-per-encounter " +
+              "cap did not exist. The field is gone rather than the claim fixed.",
             "defences.ref.value": "DERIVED total",
             "defences.fort.value": "DERIVED total",
             "defences.will.value": "DERIVED total",
@@ -1497,6 +1503,186 @@ function registerCombatBatch(quench) {
 
         it("has no defence to beat when nothing is targeted", function () {
           assert.isNull(ATK.defenceToBeat(undefined));
+        });
+      });
+
+      /* -- Block (issue #12) ------------------------------------------------ */
+
+      describe("block", function () {
+        it("refuses without an equipped shield, and allows with one", async function () {
+          await withActor({}, async (pc) => {
+            assert.isFalse(BLOCK.canBlock(pc).allowed, "no shield, no block");
+
+            await pc.createEmbeddedDocuments("Item", [{
+              name: "ZZ board", type: "shield",
+              system: { size: "medium", equipped: false }
+            }]);
+            assert.isFalse(BLOCK.canBlock(pc).allowed, "a shield in the pack is not in hand");
+
+            const shield = pc.items.find((i) => i.type === "shield");
+            await shield.update({ "system.equipped": true });
+            assert.isTrue(BLOCK.canBlock(pc).allowed);
+          });
+        });
+
+        /**
+         * Reactions are blocked entirely while flat-footed (§8, §12). This is
+         * the interaction most likely to be missed, because Block is offered
+         * from a chat card rather than from the sheet that shows the status.
+         */
+        it("a flat-footed defender cannot block", async function () {
+          await withActor({}, async (pc) => {
+            await pc.createEmbeddedDocuments("Item", [{
+              name: "ZZ board", type: "shield",
+              system: { size: "medium", equipped: true }
+            }]);
+            await pc.toggleStatusEffect("flatFooted", { active: true });
+
+            const check = BLOCK.canBlock(pc);
+            assert.isFalse(check.allowed);
+            assert.equal(check.reason, "LASTARC.Block.FlatFooted");
+          });
+        });
+
+        it("picks the better of the two skills a light shield allows", async function () {
+          await withActor({
+            system: {
+              details: { size: "medium" },
+              skills: { lightWeapon: { trained: true, focus: 6 }, oneHanded: { trained: false } }
+            }
+          }, async (pc) => {
+            const [shield] = await pc.createEmbeddedDocuments("Item", [{
+              name: "ZZ buckler", type: "shield",
+              system: { size: "small", equipped: true }
+            }]);
+            assert.equal(BLOCK.bestShieldSkill(pc, shield), "lightWeapon");
+          });
+        });
+
+        /**
+         * An NPC has no `proficiencies` list and stores skills as a printed
+         * array rather than a keyed object. Reading the character-shaped path
+         * against a statblock yields undefined and silently rolls a bare d20 —
+         * the same failure that made every light-weapon attack roll with no
+         * skill bonus.
+         */
+        it("reads a statblock's printed skill rather than rolling bare", async function () {
+          await withNpc({
+            system: { details: { size: "medium" }, skills: [{ key: "oneHanded", value: 9 }] }
+          }, async (npc) => {
+            await npc.createEmbeddedDocuments("Item", [{
+              name: "ZZ board", type: "shield",
+              system: { size: "medium", equipped: true, blockBonus: 2 }
+            }]);
+
+            const result = await BLOCK.rollBlock(npc, { attackTotal: 0 });
+            const natural = result.roll.dice[0].results[0].result;
+            assert.equal(result.roll.total, natural + 11,
+              "printed 9 plus the shield's 2, and no non-proficiency penalty");
+          });
+        });
+
+        it("counts repeat blocks against the blocker's own turn", async function () {
+          await withActor({}, async (pc) => {
+            await pc.createEmbeddedDocuments("Item", [{
+              name: "ZZ board", type: "shield",
+              system: { size: "medium", equipped: true }
+            }]);
+
+            const combat = await Combat.create({});
+            try {
+              await combat.createEmbeddedDocuments("Combatant", [{ actorId: pc.id }]);
+
+              assert.equal(BLOCK.previousBlocks(pc), 0);
+              await BLOCK.rollBlock(pc, { attackTotal: 99 });
+              assert.equal(BLOCK.previousBlocks(pc), 1, "a failed block still counts");
+
+              const combatant = combat.getCombatantByActor(pc.id);
+              await CB.setTurnState(combatant, AE.beginTurn(CB.getTurnState(combatant)));
+              assert.equal(BLOCK.previousBlocks(pc), 0,
+                "the count clears at the start of the blocker's next turn");
+            } finally {
+              await combat.delete();
+            }
+          });
+        });
+      });
+
+      /* -- Healing (issue #11) ---------------------------------------------- */
+
+      describe("healing", function () {
+        it("heals, caps at the maximum, and posts a card with the sum", async function () {
+          await withActor({}, async (pc) => {
+            const max = pc.system.resources.hp.max;
+            await pc.update({ "system.resources.hp.value": 1 });
+
+            const before = game.messages.size;
+            const result = await HEAL.applyHealing(pc, { amount: max * 10 });
+
+            assert.equal(pc.system.resources.hp.value, max);
+            assert.equal(result.applied, max - 1);
+            assert.isAbove(result.wasted, 0, "the overflow is reported, not swallowed");
+            assert.equal(game.messages.size, before + 1, "healing must show its working");
+          });
+        });
+
+        /**
+         * `outcomes[].healing` was editable on every spell sheet and read by
+         * nothing: a cure spell rolled its check, announced a tier, and healed
+         * no one (issue #11).
+         */
+        it("a spell outcome's healing formula actually heals", async function () {
+          await withActor({}, async (pc) => {
+            await pc.update({ "system.resources.hp.value": 1, "system.resources.mp.value": 20 });
+
+            const [spell] = await pc.createEmbeddedDocuments("Item", [{
+              name: "ZZ mend", type: "spell",
+              system: {
+                school: "white", mpCost: 1,
+                outcomes: [{ dc: 0, healing: "4" }]
+              }
+            }]);
+
+            await MAGIC.castSpell(pc, spell);
+            assert.equal(pc.system.resources.hp.value, 5, "1 + 4");
+          });
+        });
+      });
+
+      /* -- Item ordering (issue #9) ----------------------------------------- */
+
+      describe("item ordering", function () {
+        it("a new item lands after the ones already there", async function () {
+          await withActor({}, async (pc) => {
+            const [first] = await pc.createEmbeddedDocuments("Item", [{
+              name: "ZZ one", type: "talent", sort: ORDER.SORT_STEP
+            }]);
+            const [second] = await pc.createEmbeddedDocuments("Item", [{
+              name: "ZZ two", type: "talent", sort: ORDER.nextSort([...pc.items])
+            }]);
+            assert.isAbove(second.sort, first.sort);
+          });
+        });
+
+        it("renumbering a panel survives a round trip through the database", async function () {
+          await withActor({}, async (pc) => {
+            const created = await pc.createEmbeddedDocuments("Item", [
+              { name: "ZZ a", type: "talent" },
+              { name: "ZZ b", type: "talent" },
+              { name: "ZZ c", type: "talent" }
+            ]);
+            const ids = created.map((i) => i.id);
+
+            // Every item starts at sort 0, which is exactly the case a
+            // two-value swap cannot fix.
+            assert.deepEqual(created.map((i) => i.sort), [0, 0, 0]);
+
+            const moved = ORDER.moveInOrder(ids, ids[2], "up");
+            await pc.updateEmbeddedDocuments("Item", ORDER.sortUpdates(moved));
+
+            const ordered = ORDER.orderBySort([...pc.items]).map((i) => i.id);
+            assert.deepEqual(ordered, [ids[0], ids[2], ids[1]]);
+          });
         });
       });
 

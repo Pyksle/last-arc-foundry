@@ -282,7 +282,11 @@ LASTARC.technickFlags = [
   "doubledExplosions",    // each exploding die generates 2 rather than 1 (Backstab)
   "combatCasting",        // multi-threat casting reduced to a single -5
   "brawler",              // unarmed attacks no longer provoke
-  "shieldProficiency",    // cumulative block penalty capped at a flat -5
+  // Held on `proficiencies.shields`, not as a technick flag — see
+  // LASTARC.blockPenaltyPerBlock. It HALVES the repeat-block rate and removes a
+  // flat -5; an earlier note here had it capping the penalty instead, which is
+  // the same words in the wrong direction.
+  "shieldProficiency",
   "hardyAndHearty",       // removes the once-per-encounter Second Wind cap
   "debilitatingInjury"    // damage over Threshold worsens the gauge by 2, not 1
 ];
@@ -708,6 +712,30 @@ LASTARC.shieldDamage = {
 LASTARC.armourDurabilityClass = {
   light: "medium", heavy: "large", mystic: "small"
 };
+
+/* -------------------------------------------------------------------------- */
+/*  Block (book p.109)                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Cumulative penalty per block already made before the blocker's next turn.
+ *
+ * NOTE THE DIRECTION. An earlier draft of the spec recorded shield proficiency
+ * as "caps the cumulative penalty at a flat −5", which is backwards: −5 per
+ * previous block is the NORMAL rate, and being non-proficient makes it worse,
+ * not the proficiency making it better. Getting this inverted turns the
+ * proficiency into a downgrade for anyone who blocks twice.
+ */
+LASTARC.blockPenaltyPerBlock = { proficient: 5, nonProficient: 10 };
+
+/** Flat penalty on any check made with a shield without Shield Proficiency. */
+LASTARC.nonProficientShieldPenalty = 5;
+
+/**
+ * Strength score at which a heavy shield — one size category LARGER than its
+ * wielder — may use the 1-Handed skill instead of 2-Handed.
+ */
+LASTARC.heavyShieldStrWaiver = 15;
 
 /* -------------------------------------------------------------------------- */
 /*  Dice safety (§5.3 rev2)                                                    */

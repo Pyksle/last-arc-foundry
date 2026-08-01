@@ -74,7 +74,7 @@ single most common bug here: correct, tested, and wired to nothing.
 ## Testing
 
 ```bash
-npm test          # 311 tests, no Foundry needed — always run this
+npm test          # 349 tests, no Foundry needed — always run this
 ```
 
 `npm run test:integration` runs the Quench suite inside a real Foundry. **It
@@ -107,6 +107,23 @@ A green `npm test` means the maths is right. It does not mean the UI works.
    whose content area is `position: absolute; inset: 0`. Setting `display` or
    `height` collapses it and the toolbar lands on top of the text. Use the
    `--min-height` variable.
+9. **A chat card is a piece of paper, not a themed surface.** Chat messages
+   render OUTSIDE `.last-arc`, so the palette variables do not reach them. The
+   card states its background and ink as literal hex and every colour on it is
+   chosen against cream. Never add a `prefers-color-scheme` rule for a
+   `.lastarc-*` colour — one shipped and put pale green text on the pale green
+   verdict plate at 1.12:1. `test/contrast.test.mjs` now forbids it.
+10. **NPCs and characters have different shapes.** Characters keep skills as a
+    keyed object of derived rows; NPCs keep a flat printed array of
+    `{key, value}`, and NPCs have no `proficiencies` and no `system.statuses`.
+    Reading a character path against an NPC yields `undefined`, which silently
+    becomes 0 — how every light-weapon attack came to roll a bare d20.
+11. **`data-group` and `data-panel` are different vocabularies.** `data-group`
+    names a `LASTARC.itemCreationGroups` key for the Add button; `data-panel`
+    names a rendered list for the reorder arrows. The Attacks panel is not a
+    creation group and the `npc` creation group renders into a panel called
+    `items`. The integrity suite checks the first and will flag the second if
+    you reuse the attribute.
 
 ## Releasing
 

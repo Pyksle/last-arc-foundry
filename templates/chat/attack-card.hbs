@@ -11,7 +11,8 @@
       <span class="lastarc-card__sub">{{localize "LASTARC.Card.AttackRoll"}}</span>
     </div>
     <div class="lastarc-card__total {{#if outcome.autoHit}}is-auto-good{{/if}}
-                {{#if outcome.autoMiss}}is-auto-bad{{/if}}">
+                {{#if outcome.autoMiss}}is-auto-bad{{/if}}"
+         data-tooltip="{{breakdown}}">
       {{total}}
     </div>
   </header>
@@ -40,7 +41,10 @@
   {{else if hasTarget}}
     <p class="lastarc-verdict {{#if outcome.hit}}lastarc-verdict--good{{else}}lastarc-verdict--bad{{/if}}">
       {{#if outcome.hit}}{{localize "LASTARC.Card.Hit"}}{{else}}{{localize "LASTARC.Card.Miss"}}{{/if}}
-      <span class="lastarc-vs">{{localize "LASTARC.Card.VsReflex"}} {{targetDefence}}</span>
+      {{#if targetName}}<strong>{{targetName}}</strong>{{/if}}
+      <span class="lastarc-vs">
+        {{total}} {{localize "LASTARC.Card.Versus"}} {{localize "LASTARC.Card.VsReflex"}} {{targetDefence}}
+      </span>
     </p>
   {{else}}
     <p class="lastarc-verdict lastarc-verdict--neutral">

@@ -51,7 +51,11 @@ import {
   canUseSecondWind,
   improvedInitiativeDie,
   aggregateGrants,
-  checkPrerequisites
+  checkPrerequisites,
+  shieldSkillOptions,
+  blockModifiers,
+  resolveBlock,
+  resolveHealing
 } from "../module/derivation.mjs";
 
 /* -------------------------------------------------------------------------- */
@@ -531,6 +535,98 @@ describe("§13 rest and second wind", () => {
   test("second wind is unusable above half max HP", () => {
     assert.ok(canUseSecondWind(20, 40));
     assert.ok(!canUseSecondWind(21, 40));
+  });
+
+  test("healing stops at the maximum and reports what was wasted", () => {
+    const r = resolveHealing({ amount: 12, current: 34, max: 40 });
+    assert.equal(r.newHp, 40);
+    assert.equal(r.applied, 6);
+    assert.equal(r.wasted, 6, "the half that vanished is the interesting half");
+  });
+
+  test("healing a zombified target damages it instead, ignoring the maximum", () => {
+    const r = resolveHealing({ amount: 12, current: 34, max: 40, becomesDamage: true });
+    assert.equal(r.inverted, true);
+    assert.equal(r.newHp, 22);
+    assert.equal(r.wasted, 0, "nothing is wasted when the heal is a wound");
+  });
+
+  test("inverted healing floors at 0 rather than going negative", () => {
+    assert.equal(resolveHealing({ amount: 50, current: 8, max: 40, becomesDamage: true }).newHp, 0);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+describe("block — the shield reaction (book p.109)", () => {
+  test("shield class follows size RELATIVE to the wielder", () => {
+    // Medium wielder: tiny is two down, small one down, medium level, large one up.
+    assert.deepEqual(shieldSkillOptions("medium", "medium"), ["oneHanded"]);
+    assert.deepEqual(shieldSkillOptions("medium", "small"), ["lightWeapon", "oneHanded"],
+      "a light shield may use either skill");
+    assert.deepEqual(shieldSkillOptions("medium", "tiny"), ["lightWeapon"],
+      "two sizes down MUST use Light Weapon");
+    assert.deepEqual(shieldSkillOptions("medium", "large"), ["twoHanded"]);
+  });
+
+  test("Strength 15 lets a heavy shield use the 1-Handed skill instead", () => {
+    assert.deepEqual(shieldSkillOptions("medium", "large", { strScore: 14 }), ["twoHanded"]);
+    assert.deepEqual(shieldSkillOptions("medium", "large", { strScore: 15 }),
+      ["twoHanded", "oneHanded"]);
+  });
+
+  test("the classes shift with the wielder, not with the shield alone", () => {
+    // A large shield is a STANDARD shield for a large creature.
+    assert.deepEqual(shieldSkillOptions("large", "large"), ["oneHanded"]);
+    assert.deepEqual(shieldSkillOptions("small", "medium"), ["twoHanded"]);
+  });
+
+  test("a shield two or more sizes larger is unusable", () => {
+    assert.deepEqual(shieldSkillOptions("tiny", "medium"), []);
+  });
+
+  test("the first block of a turn takes no cumulative penalty", () => {
+    const m = blockModifiers({ skillMod: 7, shieldBonus: 2, previousBlocks: 0 });
+    assert.equal(m.total, 9);
+    assert.ok(!m.parts.some((p) => p.label === "LASTARC.Mod.repeatBlock"));
+  });
+
+  test("each earlier block costs a further −5 when proficient", () => {
+    assert.equal(blockModifiers({ skillMod: 7, previousBlocks: 1 }).total, 2);
+    assert.equal(blockModifiers({ skillMod: 7, previousBlocks: 2 }).total, -3);
+  });
+
+  /**
+   * The direction here is the whole point. An earlier draft of the spec had
+   * Shield Proficiency "capping the cumulative penalty at a flat −5", which
+   * makes the proficiency a downgrade for anyone who blocks twice. The book has
+   * it the other way round: −5 each is normal, and lacking the proficiency
+   * doubles it to −10 each AND adds a flat −5 on top.
+   */
+  test("lacking Shield Proficiency doubles the repeat rate AND costs a flat −5", () => {
+    const first = blockModifiers({ skillMod: 7, previousBlocks: 0, proficient: false });
+    assert.equal(first.total, 2, "flat −5 applies even on the first block");
+
+    const second = blockModifiers({ skillMod: 7, previousBlocks: 1, proficient: false });
+    assert.equal(second.total, -8, "−5 flat and −10 for the earlier block");
+
+    const proficientSecond = blockModifiers({ skillMod: 7, previousBlocks: 1 });
+    assert.ok(proficientSecond.total > second.total,
+      "proficiency must never be worse than its absence");
+  });
+
+  test("the two penalties are separate parts, so the card can name them", () => {
+    const m = blockModifiers({ skillMod: 7, previousBlocks: 2, proficient: false });
+    const labels = m.parts.map((p) => p.label);
+    assert.ok(labels.includes("LASTARC.Mod.nonProficientShield"));
+    assert.ok(labels.includes("LASTARC.Mod.repeatBlock"));
+  });
+
+  test("a tie goes to the ATTACKER — the block must beat, not meet", () => {
+    assert.equal(resolveBlock({ blockTotal: 18, attackTotal: 17 }).blocked, true);
+    assert.equal(resolveBlock({ blockTotal: 17, attackTotal: 17 }).blocked, false,
+      "the rest of this system is meet-it-beat-it; this one is not");
+    assert.equal(resolveBlock({ blockTotal: 16, attackTotal: 17 }).blocked, false);
   });
 });
 

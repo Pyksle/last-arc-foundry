@@ -119,9 +119,22 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
           max: new fields.NumberField({ initial: 1, integer: true, min: 0 })
         }),
         secondWind: new fields.SchemaField({
+          /**
+           * Uses spent. Tracked with one checkbox per use on the sheet, and
+           * freely tickable in both directions — see issue #10. There is no
+           * automatic reset because there is nothing to hang one on: Second
+           * Wind refreshes on a rest, but a table decides when a rest happened.
+           *
+           * `usedThisEncounter` used to sit beside this to enforce a
+           * once-per-encounter cap. Nothing ever wrote it, so the cap did not
+           * exist, and its entry in the field-coverage EXEMPT map claimed it
+           * was "reset by combat lifecycle" — a description of code that was
+           * never written. Removed rather than implemented: the design this
+           * sheet is moving toward is manual tracking, and an invisible cap is
+           * the opposite of that.
+           */
           used: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
-          max: new fields.NumberField({ initial: 1, integer: true, min: 0 }),
-          usedThisEncounter: new fields.NumberField({ initial: 0, integer: true, min: 0 })
+          max: new fields.NumberField({ initial: 1, integer: true, min: 0 })
         })
       }),
 

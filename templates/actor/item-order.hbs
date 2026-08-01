@@ -1,0 +1,28 @@
+{{!-- Move-up / move-down arrows for one row of an item panel (issue #9).
+
+      A partial rather than eight copies of the same markup: the six panels on
+      the character sheet and the two on the NPC sheet all need it, and eight
+      copies is eight chances for one list to keep working while another
+      silently stops.
+
+      Expects the enclosing row context to carry `id`, `panel`, `isFirst` and
+      `isLast`, all stamped by markOrder().
+
+      `data-panel`, NOT `data-group`: `data-group` already means "which
+      LASTARC.itemCreationGroups key does the Add button create from", and the
+      two vocabularies only look alike. The Attacks panel is derived from
+      equipped weapons rather than being a creation group, and the NPC creation
+      group `npc` renders into a panel called `items`. The integrity suite
+      caught the collision. --}}
+<span class="la-item__order">
+  <button type="button" class="la-item__move" data-action="moveItem"
+          data-item-id="{{this.id}}" data-panel="{{this.panel}}" data-direction="up"
+          {{#if this.isFirst}}disabled{{/if}}
+          aria-label="{{localize 'LASTARC.Action.MoveUp'}}"
+          data-tooltip="{{localize 'LASTARC.Tooltip.MoveUp'}}">▲</button>
+  <button type="button" class="la-item__move" data-action="moveItem"
+          data-item-id="{{this.id}}" data-panel="{{this.panel}}" data-direction="down"
+          {{#if this.isLast}}disabled{{/if}}
+          aria-label="{{localize 'LASTARC.Action.MoveDown'}}"
+          data-tooltip="{{localize 'LASTARC.Tooltip.MoveDown'}}">▼</button>
+</span>
