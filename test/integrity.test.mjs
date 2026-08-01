@@ -840,3 +840,57 @@ describe("issue #21 — every proficiency is reachable", () => {
   });
 });
 
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * ISSUE #28 — the ratchet.
+ *
+ * Reported as proficiencies granting a permanent, creeping +3 to Will Defence.
+ * The proficiency toggles were innocent; they submitted the form repeatedly and
+ * that was enough to expose this.
+ *
+ * `misc` and attribute values are the paths Active Effects are DELIBERATELY fed
+ * into (CLAUDE.md: effects apply between prepareBaseData and prepareDerivedData,
+ * so anything derived would overwrite them, and the misc slots exist to receive
+ * them). An <input> rendering the PREPARED value therefore shows the number with
+ * the effect already in it — and `submitOnChange` writes that back on the next
+ * change to anything on the sheet. The effect then applies again on top of its
+ * own result, every time, permanently.
+ *
+ * CLAUDE.md already states the rule for derived values, and it shipped twice
+ * before this. This is the same rule with the wider boundary it always needed:
+ * an input must render what is STORED, never what has been prepared.
+ */
+describe("issue #28 — inputs must render stored values", () => {
+  const body = templates.find((t) => t.name.endsWith("character-body.hbs")).source;
+
+  /** Paths an Active Effect is expected to feed, and so must not echo back. */
+  const EFFECT_FED = [
+    "system.defences.{{this.key}}.misc",
+    "system.skills.{{this.key}}.misc",
+    "system.attributes.{{this.key}}.value"
+  ];
+
+  for (const path of EFFECT_FED) {
+    test(`${path} renders a source value`, () => {
+      const re = new RegExp(
+        `name="${path.replace(/[.{}]/g, "\\$&")}"\\s+value="\\{\\{this\\.(\\w+)\\}\\}"`
+      );
+      const m = body.match(re);
+      assert.ok(m, `no input found for ${path}`);
+      assert.match(m[1], /Input$/,
+        `${path} renders "${m[1]}", which is the PREPARED value — it will be ` +
+        `written back on the next submit and the effect will stack on itself`);
+    });
+  }
+
+  test("the source values come from _source, not the prepared model", () => {
+    assert.match(sheetSource, /this\.document\.system\._source/,
+      "the *Input values must be read off _source or they are not stored values");
+    for (const field of ["valueInput", "miscInput"]) {
+      assert.ok(sheetSource.includes(`${field}: src.`),
+        `${field} must be read from the source snapshot`);
+    }
+  });
+});

@@ -84,6 +84,35 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const context = await super._prepareContext(options);
     const sys = this.document.system;
 
+    /**
+     * STORED values, before Active Effects and before derivation (issue #28).
+     *
+     * Anything rendered into an <input> must come from here, never from the
+     * prepared model. CLAUDE.md already says a derived value must not have an
+     * input; the same is true of any path an ACTIVE EFFECT feeds, and effects
+     * are fed deliberately into `misc` and attribute values by design.
+     *
+     * The failure is a ratchet, not a wrong number: the box shows the value
+     * WITH the effect applied, `submitOnChange` writes that back on the next
+     * change to anything on the sheet, and the effect then applies again on top
+     * of its own result. Reported as a permanent, creeping Will bonus that
+     * appeared while clicking the proficiency toggles — the toggles were
+     * innocent, they were just submitting the form repeatedly.
+     */
+    const src = this.document.system._source;
+
+    /**
+     * Flight and hover are ZEROED by derivation when the character is
+     * overencumbered or speed-locked (§4.6). Rendering the prepared value into
+     * the input meant that, while encumbered, any submit wrote those zeros to
+     * storage — so dropping the load did not give the flight speed back. It was
+     * gone. Same defect as the Will ratchet, running the other way.
+     */
+    context.movementInput = {
+      fly: src.movement?.fly ?? 0,
+      hover: !!src.movement?.hover
+    };
+
     context.system = sys;
     context.config = LASTARC;
     context.editable = this.isEditable;
@@ -130,7 +159,11 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       key,
       label: LASTARC.attributes[key].label,
       abbr: LASTARC.attributes[key].abbr,
-      ...sys.attributes[key]
+      ...sys.attributes[key],
+      // Attributes are the commonest Active Effect target of all.
+      valueInput: src.attributes[key]?.value ?? 0,
+      racialModInput: src.attributes[key]?.racialMod ?? 0,
+      capInput: src.attributes[key]?.cap ?? null
     }));
 
     // Skills, standard then weapon, each carrying the five printed columns.
@@ -148,6 +181,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const halfLevel = D.rd(sys.details.level / 2);
     const breakPenalty = sys.breakGauge.penalty;
 
+
     const toRow = (key, cfg) => {
       const s = sys.skills[key];
       const parts = D.skillAdjustmentParts(s, breakPenalty);
@@ -163,6 +197,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
         trained: s.trained,
         focus: s.focus,
         misc: s.misc,
+        miscInput: src.skills[key]?.misc ?? 0,
         total: s.total,
         appliesArmourPenalty: s.appliesArmourPenalty,
         halfLevel,
@@ -228,7 +263,8 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.defenceRows = ["ref", "fort", "will"].map((key) => ({
       key,
       label: `LASTARC.Defence.${key}`,
-      ...sys.defences[key]
+      ...sys.defences[key],
+      miscInput: src.defences[key]?.misc ?? 0
     }));
 
     context.classOptions = Object.entries(LASTARC.classes)

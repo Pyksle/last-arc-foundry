@@ -12,7 +12,7 @@
             {{localize this.abbr}}
           </button>
           <input class="la-attribute__score" type="number"
-                 name="system.attributes.{{this.key}}.value" value="{{this.value}}" min="1">
+                 name="system.attributes.{{this.key}}.value" value="{{this.valueInput}}" min="1">
           <div class="la-attribute__mod">{{lasignal this.mod}}</div>
           {{!-- Racial modifier and cap. Both are stored inputs that derivation
                 READS (total = value + racialMod), and neither had a box, so a
@@ -152,7 +152,7 @@
     <h2 class="la-panel__title">{{localize "LASTARC.Section.Movement"}}</h2>
     <div class="la-field-row">
       <div class="la-field la-field--narrow">
-        <input type="number" name="system.movement.fly" value="{{system.movement.fly}}" min="0">
+        <input type="number" name="system.movement.fly" value="{{movementInput.fly}}" min="0">
         <label>{{localize "LASTARC.Movement.fly"}}</label>
       </div>
       <div class="la-field la-field--narrow">
@@ -164,7 +164,7 @@
         <label>{{localize "LASTARC.Movement.climb"}}</label>
       </div>
       <label class="la-checkfield">
-        <input type="checkbox" name="system.movement.hover" {{#if system.movement.hover}}checked{{/if}}>
+        <input type="checkbox" name="system.movement.hover" {{#if movementInput.hover}}checked{{/if}}>
         {{localize "LASTARC.Movement.hover"}}
       </label>
       <div class="la-field">
@@ -254,7 +254,7 @@
                   data-tooltip="{{localize 'LASTARC.Tooltip.Technicks'}}">
               {{lasignal this.technicks}}
             </span>
-            <input type="number" name="system.defences.{{this.key}}.misc" value="{{this.misc}}"
+            <input type="number" name="system.defences.{{this.key}}.misc" value="{{this.miscInput}}"
                    data-tooltip="{{localize 'LASTARC.Tooltip.Misc'}}">
           </div>
         </div>
@@ -381,7 +381,7 @@
           <span class="la-skill__cell">{{lasignal this.attrMod}}</span>
           <input type="checkbox" name="system.skills.{{this.key}}.trained" {{#if this.trained}}checked{{/if}}>
           <input type="number" name="system.skills.{{this.key}}.focus" value="{{this.focus}}">
-          <input type="number" name="system.skills.{{this.key}}.misc" value="{{this.misc}}">
+          <input type="number" name="system.skills.{{this.key}}.misc" value="{{this.miscInput}}">
           <span class="la-skill__cell la-skill__adjust {{#if this.hasAdjustment}}is-active{{/if}}"
                 data-tooltip="{{this.adjustmentTooltip}}">{{lasignal this.adjustment}}</span>
         </div>
@@ -754,7 +754,7 @@
           <span class="la-skill__cell">{{lasignal this.attrMod}}</span>
           <input type="checkbox" name="system.skills.{{this.key}}.trained" {{#if this.trained}}checked{{/if}}>
           <input type="number" name="system.skills.{{this.key}}.focus" value="{{this.focus}}">
-          <input type="number" name="system.skills.{{this.key}}.misc" value="{{this.misc}}">
+          <input type="number" name="system.skills.{{this.key}}.misc" value="{{this.miscInput}}">
           <span class="la-skill__cell la-skill__adjust {{#if this.hasAdjustment}}is-active{{/if}}"
                 data-tooltip="{{this.adjustmentTooltip}}">{{lasignal this.adjustment}}</span>
         </div>
