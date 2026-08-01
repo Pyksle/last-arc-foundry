@@ -61,6 +61,16 @@ changes in others. Before running the tests, work out which of these apply:
 3. A `LASTARC.*` key in `lang/en.json` for its label and any tooltip.
 4. Wiring in `prepareDerivedData` if anything should read it.
 
+**Adding an `ArrayField` of `choices`** — the Quench check above walks scalar
+leaves and SKIPS arrays, so it will not ask. `test/reachable-choices.test.mjs`
+does, and needs an entry in its `SECTIONS` map naming the template block that
+renders your data model. Both fields of this shape in the codebase shipped with
+no input at all (issue #32): weapons were permanently slashing, and every
+technick flag including Weapon Finesse was unswitchable. If you narrow an
+existing `choices` list, keep the old values valid — see
+`LASTARC.retiredTechnickFlags`. A document holding a value the schema no longer
+accepts will not open.
+
 **Adding a `{{localize "LASTARC.X"}}`** — the key must exist in `lang/en.json`.
 Keys assembled at runtime (`LASTARC.DamageType.${k}`) are checked separately
 against the config lists.

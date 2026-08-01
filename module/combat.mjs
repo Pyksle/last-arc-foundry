@@ -272,9 +272,14 @@ export async function resolveCounterattacks(combatant, actionKey, options = {}) 
 
     const dmg = attacker.type === "npc"
       ? await ATK.rollNpcDamage(attacker, 0, { outcome: res.outcome })
+      // `prompt: false` — a dual-type weapon takes its first type here rather
+      // than opening a picker. This loop runs once per threatening creature, in
+      // the middle of somebody else's turn, so asking would stack a dialog per
+      // counterattacker on a player who did not initiate any of them.
       : await ATK.rollDamage(attacker, attacker.items.find((i) => i.type === "weapon" && i.system.equipped),
-          { outcome: res.outcome, wield: res.wield, isMelee: res.isMelee });
+          { outcome: res.outcome, wield: res.wield, isMelee: res.isMelee, prompt: false });
 
+    if (!dmg) continue;
     const applied = await ATK.applyDamage(defender, { total: dmg.total, type: dmg.damageType });
     totalDamage += applied.final;
     attacks.push({ attacker: threat.name, hit: true, damage: applied.final });

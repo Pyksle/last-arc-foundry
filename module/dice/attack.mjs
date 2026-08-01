@@ -11,6 +11,7 @@ import * as D from "../derivation.mjs";
 import { rollDamageDice, rollExplodingDice } from "./explode.mjs";
 import { describeCheck } from "./breakdown.mjs";
 import { situationalLabel } from "./situational.mjs";
+import * as DT from "./damage-type.mjs";
 
 /* -------------------------------------------------------------------------- */
 /*  Attack resolution — pure                                                   */
@@ -299,8 +300,21 @@ export async function rollAttack(actor, weapon, options = {}) {
  * and technicks are rolled separately and are not multiplied unless the granting
  * effect says so (§5.1).
  */
-export async function rollDamage(actor, weapon, { outcome, wield, isMelee, isThrown = false } = {}) {
+export async function rollDamage(
+  actor, weapon,
+  { outcome, wield, isMelee, isThrown = false, damageType = null, prompt = true } = {}
+) {
   const sys = actor.system;
+
+  /**
+   * Settled BEFORE any dice are rolled, because dismissing the picker has to
+   * mean the attack did not happen. Resolving it afterwards would leave a rolled
+   * result with nowhere to go and a spent Combo.
+   */
+  const type = await DT.resolveDamageType(weapon.system.damageType, {
+    chosen: damageType, prompt, weaponName: weapon.name
+  });
+  if (type === null) return null;
 
   const critMultiplier = outcome?.critical
     ? (hasFlag(actor, "tripleCrit") ? 3 : 2)
@@ -338,7 +352,7 @@ export async function rollDamage(actor, weapon, { outcome, wield, isMelee, isThr
     terms,
     critMultiplier,
     explosionMultiplier,
-    damageType: weapon.system.damageType?.[0] ?? "blunt"
+    damageType: type
   };
 }
 

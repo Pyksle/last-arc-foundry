@@ -273,7 +273,8 @@ export class LastArcTechnickData extends foundry.abstract.TypeDataModel {
 
       grants: grantsSchema(),
       flags: new fields.ArrayField(
-        new fields.StringField({ choices: LASTARC.technickFlags }), { initial: [] }
+        // The superset, not the picker list — see LASTARC.retiredTechnickFlags.
+        new fields.StringField({ choices: LASTARC.allTechnickFlags }), { initial: [] }
       )
     };
   }

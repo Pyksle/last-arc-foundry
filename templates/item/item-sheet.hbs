@@ -96,6 +96,28 @@
         </div>
       </div>
 
+      {{!-- Damage types (issue #32). Toggle buttons rather than a select
+            because the field holds SEVERAL — the book's tables print
+            "Piercing or Slashing" on most polearms — and the wielder picks
+            which at roll time. It had no input at all, so every weapon was
+            stuck on the schema's initial slashing. --}}
+      <h3 class="la-prof__title">{{localize "LASTARC.Section.DamageTypes"}}</h3>
+      <div class="la-prof">
+        {{#each weaponDamageTypes}}
+          <button type="button" class="la-prof__box {{#if this.selected}}is-active{{/if}}"
+                  role="checkbox" aria-checked="{{#if this.selected}}true{{else}}false{{/if}}"
+                  data-action="toggleDamageType" data-key="{{this.value}}">
+            <span class="la-prof__tick">{{#if this.selected}}✓{{else}}·{{/if}}</span>
+            {{localize this.label}}
+          </button>
+        {{/each}}
+      </div>
+      {{#if noDamageType}}
+        <p class="la-note">{{localize "LASTARC.Note.NoDamageType"}}</p>
+      {{else}}
+        <p class="la-note">{{localize "LASTARC.Note.WeaponDamageTypes"}}</p>
+      {{/if}}
+
       {{!-- Ranged weapons are unusable at distance without these: the range
             bands and magazine had no inputs at all. --}}
       <div class="la-field-row">
@@ -439,6 +461,25 @@
           </p>
         {{/if}}
       {{/if}}
+    </section>
+
+    {{!-- Mechanical flags (issue #32). `flagOptions` was built by the sheet and
+          rendered by NOTHING, so Weapon Finesse and its five siblings could not
+          be switched on and the branches reading them never ran. --}}
+    <section class="la-panel">
+      <h2 class="la-panel__title">{{localize "LASTARC.Section.TechnickFlags"}}</h2>
+      <p class="la-note">{{localize "LASTARC.Note.TechnickFlags"}}</p>
+      <div class="la-prof">
+        {{#each flagOptions}}
+          <button type="button" class="la-prof__box {{#if this.selected}}is-active{{/if}}"
+                  role="checkbox" aria-checked="{{#if this.selected}}true{{else}}false{{/if}}"
+                  data-action="toggleTechnickFlag" data-key="{{this.value}}"
+                  data-tooltip="{{localize this.hint}}">
+            <span class="la-prof__tick">{{#if this.selected}}✓{{else}}·{{/if}}</span>
+            {{localize this.label}}
+          </button>
+        {{/each}}
+      </div>
     </section>
   {{/if}}
 

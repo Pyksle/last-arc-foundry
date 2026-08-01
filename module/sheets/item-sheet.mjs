@@ -53,7 +53,9 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     form: { submitOnChange: true, closeOnSubmit: false },
     actions: {
       addOutcome: LastArcItemSheet.#onAddOutcome,
-      deleteOutcome: LastArcItemSheet.#onDeleteOutcome
+      deleteOutcome: LastArcItemSheet.#onDeleteOutcome,
+      toggleDamageType: LastArcItemSheet.#onToggleDamageType,
+      toggleTechnickFlag: LastArcItemSheet.#onToggleTechnickFlag
     }
   };
 
@@ -193,9 +195,19 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       context.prereqTechnicksText = (sys.prerequisites.technicks ?? []).join(", ");
       context.prereqTalentsText = (sys.prerequisites.talents ?? []).join(", ");
 
+      /**
+       * The flags picker. This context key existed and NO TEMPLATE RENDERED IT
+       * (issue #32), so every mechanical flag was unreachable — a player with
+       * Weapon Finesse had no way to turn it on, and the damage pipeline's
+       * Agi-for-Str branch could never fire. Rendered as toggle buttons rather
+       * than checkboxes for the same reason the proficiency grid is: this sheet
+       * submits on change, and a checkbox can lose its click to the re-render
+       * between mousedown and click.
+       */
       context.flagOptions = LASTARC.technickFlags.map((f) => ({
         value: f,
         label: `LASTARC.TechnickFlag.${f}`,
+        hint: `LASTARC.TechnickFlagHint.${f}`,
         selected: sys.flags.includes(f)
       }));
 
@@ -219,6 +231,24 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         context.wieldChoice = D.lightWeaponAllowsChoice(actorSize, sys.size);
         context.strMultiplier = D.strDamageMultiplier(context.wieldCategory);
       }
+
+      /**
+       * Damage types, as a multi-select (issue #32).
+       *
+       * The field is an ArrayField because the book's weapon tables routinely
+       * print two — "Piercing or Slashing" appears on most polearms and several
+       * swords — and which one you are using matters against a resistance. It
+       * had NO INPUT at all, so every weapon in every world was stuck on the
+       * schema's initial value of slashing, and the resistance rules the field
+       * exists to serve could not be exercised.
+       */
+      const chosen = sys.damageType ?? [];
+      context.weaponDamageTypes = LASTARC.allDamageTypes.map((k) => ({
+        value: k,
+        label: `LASTARC.DamageType.${k}`,
+        selected: chosen.includes(k)
+      }));
+      context.noDamageType = chosen.length === 0;
     }
 
     return context;
@@ -338,5 +368,36 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     await this.document.update({
       "system.outcomes": outcomes.filter((_, i) => i !== index)
     });
+  }
+
+  /**
+   * Toggle one member of an ArrayField of choices.
+   *
+   * Shared by the weapon's damage types and the technick's flags, because they
+   * are the same operation and the interesting part — validating against the
+   * config list before writing — should not exist twice. An unrecognised key
+   * warns and writes NOTHING: the value is constrained by the schema's
+   * `choices`, so storing a typo would throw on the next prepare and leave the
+   * item unopenable.
+   */
+  async #toggleInArray(path, key, valid) {
+    if (!valid.includes(key)) {
+      console.warn(`Last Arc | "${key}" is not a valid ${path}; nothing toggled.`);
+      return;
+    }
+    const current = foundry.utils.getProperty(this.document.system.toObject(), path) ?? [];
+    const next = current.includes(key)
+      ? current.filter((k) => k !== key)
+      : [...current, key];
+
+    await this.document.update({ [`system.${path}`]: next });
+  }
+
+  static async #onToggleDamageType(event, target) {
+    await this.#toggleInArray("damageType", target.dataset.key, LASTARC.allDamageTypes);
+  }
+
+  static async #onToggleTechnickFlag(event, target) {
+    await this.#toggleInArray("flags", target.dataset.key, LASTARC.technickFlags);
   }
 }

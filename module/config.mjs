@@ -274,6 +274,28 @@ LASTARC.repeatableTechnicks = [
  * These are markers, NOT logic. Phase 2's damage pipeline and Phase 4's action
  * economy read them; the point is that ~80 technicks can be expressed as data
  * plus a hook rather than 80 branches in the combat code (§11).
+ *
+ * EVERY ENTRY HERE MUST HAVE A READER. This list is now rendered as a picker on
+ * the technick sheet (issue #32), so an entry with no `hasFlag` behind it is a
+ * switch the player can flip that does nothing — the decoy this project keeps
+ * shipping, only worse, because it looks deliberate. Three were removed when
+ * the picker was built rather than shown as tickable no-ops:
+ *
+ *   shieldProficiency — was never a technick flag. It lives on
+ *     `proficiencies.shields`, which has its own toggle on the character sheet,
+ *     and `LASTARC.blockPenaltyPerBlock` is what reads it. Listing it here as
+ *     well would have given players two switches for one rule, one of them
+ *     inert. Its lang string also described the rule backwards, capping the
+ *     penalty rather than halving the rate.
+ *   hardyAndHearty — removed the once-per-encounter Second Wind cap. That cap
+ *     was deleted in issue #10 because nothing ever enforced it, so this flag
+ *     now suppresses a rule that does not exist.
+ *   brawler — unarmed attacks no longer provoke. `provokes()` below says the
+ *     caller checks this; no caller ever did. Implementing it needs to know the
+ *     attacker stands in a threatened area, which needs token positions and
+ *     enemy reach the system does not track. Filed rather than faked.
+ *
+ * `test/reachable-choices.test.mjs` enforces the rule.
  */
 LASTARC.technickFlags = [
   "weaponFinesse",        // substitute Agi for Str on light/thrown/unarmed/natural
@@ -281,15 +303,25 @@ LASTARC.technickFlags = [
   "tripleCrit",           // ranged crit multiplier x3 instead of x2
   "doubledExplosions",    // each exploding die generates 2 rather than 1 (Backstab)
   "combatCasting",        // multi-threat casting reduced to a single -5
-  "brawler",              // unarmed attacks no longer provoke
-  // Held on `proficiencies.shields`, not as a technick flag — see
-  // LASTARC.blockPenaltyPerBlock. It HALVES the repeat-block rate and removes a
-  // flat -5; an earlier note here had it capping the penalty instead, which is
-  // the same words in the wrong direction.
-  "shieldProficiency",
-  "hardyAndHearty",       // removes the once-per-encounter Second Wind cap
   "debilitatingInjury"    // damage over Threshold worsens the gauge by 2, not 1
 ];
+
+/**
+ * Flags that are no longer offered but are still ACCEPTED.
+ *
+ * The schema validates against this superset rather than the picker list, so
+ * narrowing the picker cannot invalidate a document somebody already has.
+ * A `StringField` with `choices` rejects anything outside them, and a technick
+ * carrying a retired flag would fail validation on load — an item that will not
+ * open is a far worse outcome than an inert value sitting in an array nothing
+ * reads. Nothing could have set these through the UI, because until issue #32
+ * there was no UI; this guards the macro and hand-edited-JSON cases, and costs
+ * six lines to be certain.
+ */
+LASTARC.retiredTechnickFlags = ["brawler", "shieldProficiency", "hardyAndHearty"];
+
+/** What the schema accepts. `technickFlags` is what the sheet offers. */
+LASTARC.allTechnickFlags = [...LASTARC.technickFlags, ...LASTARC.retiredTechnickFlags];
 
 /** Acquisition cadence (§11). Enforced by the level-up UI, not the data model. */
 LASTARC.acquisition = {

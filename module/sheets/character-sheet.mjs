@@ -559,7 +559,15 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
         atkTotal: skillMod + (item.system.atkBonus ?? 0) + (proficient ? 0 : -5),
         damage: item.system.damage,
         damageFlat: damageTerms,
-        damageTypeLabel: `LASTARC.DamageType.${item.system.damageType?.[0] ?? "blunt"}`
+        /**
+         * ALL of them, not the first. A weapon may carry several and the row
+         * showed only `[0]`, so a "Piercing or Slashing" polearm advertised
+         * itself as one type while the player got to choose the other at roll
+         * time — the row and the dice disagreeing about the same weapon.
+         */
+        damageTypeLabels: (item.system.damageType?.length
+          ? item.system.damageType
+          : ["blunt"]).map((t) => `LASTARC.DamageType.${t}`)
       });
     }
 

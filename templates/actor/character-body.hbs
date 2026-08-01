@@ -514,7 +514,9 @@
           <span class="la-attack__damage">
             {{this.damage}}{{#if this.damageFlat}} {{lasignal this.damageFlat}}{{/if}}
           </span>
-          <span class="la-attack__type">{{localize this.damageTypeLabel}}</span>
+          <span class="la-attack__type">
+            {{~#each this.damageTypeLabels}}{{#unless @first}} / {{/unless}}{{localize this}}{{/each~}}
+          </span>
         </div>
       {{else}}
         <p class="la-note">{{localize "LASTARC.Note.NoWeapons"}}</p>

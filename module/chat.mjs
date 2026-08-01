@@ -343,6 +343,10 @@ async function onRollDamage(button, message) {
     isMelee: flags.isMelee ?? true
   });
 
+  // Null means the damage-type picker was dismissed. Posting a card anyway
+  // would announce a hit that the player just backed out of.
+  if (!result) return;
+
   await postDamageCard({ actor, name: weapon.name, img: weapon.img, result });
 }
 
