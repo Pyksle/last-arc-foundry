@@ -1462,13 +1462,34 @@
 /*  Chat cards                                                                 */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Chat cards are OPAQUE and carry their own ink.
+ *
+ * This was `background: rgba(245, 240, 228, 0.06)` — six per cent cream, which
+ * on a sheet reads as a faint tint and in Foundry's chat log is six per cent
+ * cream over near-black. Combined with dark ink inherited from the sheet
+ * palette, a shared feature rendered as black text on a black card: not merely
+ * low contrast, invisible.
+ *
+ * The lesson is that a card does not know what it is sitting on. Chat is dark
+ * regardless of the sheet theme, other modules restyle the log, and a
+ * translucent surface inherits all of it. So the card is a piece of paper: it
+ * sets its own background and its own text colour, and every rule below states
+ * a colour rather than trusting inheritance.
+ */
 .lastarc-card {
   font-family: var(--la-font-body, Georgia, serif);
   border: 1px solid #b9ab8f;
   border-radius: 3px;
   padding: 0.4rem;
-  background: rgba(245, 240, 228, 0.06);
+  background: var(--la-paper, #f5f0e4);
+  color: var(--la-ink, #1c1815);
 }
+/* Foundry's chat log sets its own link and strong colours; override within. */
+.lastarc-card strong,
+.lastarc-card p,
+.lastarc-card span,
+.lastarc-card div { color: inherit; }
 .lastarc-card__head {
   display: flex;
   align-items: center;
@@ -1687,22 +1708,40 @@
 .la-spell.is-unaffordable { opacity: 0.5; }
 .la-spell.is-unaffordable .la-spell__cost { color: var(--la-oxblood); }
 
+/**
+ * 0.55rem was 8.8px. Uppercase with letter-spacing at that size is at the edge
+ * of legibility regardless of colour, so the fix for the school chip is both a
+ * darker ink and a slightly larger one — colour alone was treating the symptom.
+ */
 .la-spell__school,
 .la-spell__time {
-  font-size: 0.55rem;
+  font-size: 0.64rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: var(--la-ink-faint);
   white-space: nowrap;
 }
 
-/* School colours follow the book's own naming. Kept desaturated so five of them
-   in a column reads as a table rather than as a paint chart. */
-.la-spell__school--black { color: #6b5b8a; }
-.la-spell__school--blue  { color: #3f6b8a; }
-.la-spell__school--green { color: #4a7a4a; }
-.la-spell__school--red   { color: #9c4a3a; }
-.la-spell__school--white { color: #8a7a4a; }
+/**
+ * School colours follow the book's own naming, darkened to be legible.
+ *
+ * Reported as "the spell puts green text on a green background" — the chip has
+ * no fill, so what reads as green-on-green is the text and its currentColor
+ * border both being the same mid-green at 8.8px. Measured on the paper, the
+ * old values were: green 4.42:1 and white 3.72:1, both under the 4.5 that
+ * small text needs, with the rest only just over.
+ *
+ * These are solved to 7:1 rather than 4.5:1. Uppercase at this size with
+ * letter-spacing is harder to read than the ratio implies, and AA is a floor
+ * for body text rather than a target for a 10px label.
+ *
+ * The dark-theme values below already measure 6.2–10:1 and are left alone.
+ */
+.la-spell__school--black { color: #564a70; }   /* 7.11:1 on --la-paper */
+.la-spell__school--blue  { color: #31546c; }   /* 7.07:1 */
+.la-spell__school--green { color: #355735; }   /* 7.17:1 */
+.la-spell__school--red   { color: #7e3c2f; }   /* 7.18:1 */
+.la-spell__school--white { color: #5a5030; }   /* 7.06:1 */
 
 @media (prefers-color-scheme: dark) {
   .la-spell__school--black { color: #a695c4; }

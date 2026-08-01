@@ -609,8 +609,11 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     for (const item of items) {
       const g = item.system?.grants;
       if (!g) continue;
-      const isKnowledge = item.type === "technick" || item.type === "talent";
-      if (isKnowledge || item.system.equipped) contributing.push(g);
+      // Knowledge and innate features contribute unconditionally; worn things
+      // only while worn. A racial feature is not something you take off.
+      const isInnate = item.type === "technick" || item.type === "talent"
+        || item.type === "feature";
+      if (isInnate || item.system.equipped) contributing.push(g);
     }
 
     return D.aggregateGrants(contributing);

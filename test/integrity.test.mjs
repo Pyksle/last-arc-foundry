@@ -293,7 +293,8 @@ describe("sheet wiring", () => {
     // numeric `bulk`; everything else needs an explicit branch in
     // #prepareItems. Creating something that then fails to appear is worse
     // than not offering to create it.
-    const branched = new Set(["spell", "performance", "technick", "talent", "race", "class"]);
+    const branched = new Set(["spell", "performance", "technick", "talent",
+                              "feature", "race", "class"]);
     const physical = new Set(LASTARC.physicalItemTypes);
 
     const homeless = Object.keys(systemJson.documentTypes.Item)

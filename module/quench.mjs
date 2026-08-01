@@ -633,6 +633,72 @@ function registerSheetBatch(quench) {
             }
           });
 
+        /**
+         * Issue #8: the Race & Class panel made whole-race and whole-class
+         * items, which duplicated the header's race field and class dropdown
+         * and contributed nothing to the character. A feature is one named
+         * benefit with a grants block, so its bonus reaches the sheet the same
+         * way a technick's does.
+         */
+        it("a race feature's bonus reaches the character", async function () {
+          await withActor({}, async (actor) => {
+            const skillBefore = actor.system.skills.acrobatics.total;
+            const refBefore = actor.system.defences.ref.value;
+
+            await actor.createEmbeddedDocuments("Item", [{
+              name: "Quench Fleet of Foot", type: "feature",
+              system: {
+                category: "race",
+                grants: { skills: [{ key: "acrobatics", bonus: 2 }], defences: { ref: 1 } }
+              }
+            }]);
+
+            assert.equal(actor.system.skills.acrobatics.total, skillBefore + 2);
+            assert.equal(actor.system.defences.ref.value, refBefore + 1);
+          });
+        });
+
+        /**
+         * A feature is innate: unlike an accessory it has no `equipped` flag,
+         * and must contribute without one. Getting this wrong would make every
+         * feature silently inert, which is the bug being fixed.
+         */
+        it("a feature contributes without needing to be equipped", async function () {
+          await withActor({}, async (actor) => {
+            const before = actor.system.defences.will.value;
+            const [feat] = await actor.createEmbeddedDocuments("Item", [{
+              name: "Quench Stubborn", type: "feature",
+              system: { category: "class", grants: { defences: { will: 3 } } }
+            }]);
+            assert.isUndefined(feat.system.equipped,
+              "a feature should carry no equipped flag at all");
+            assert.equal(actor.system.defences.will.value, before + 3);
+          });
+        });
+
+        it("whole-race and whole-class items stay inert and are labelled so",
+          async function () {
+            await withActor({}, async (actor) => {
+              const before = actor.system.defences.ref.value;
+              await actor.createEmbeddedDocuments("Item", [{
+                name: "Quench Legacy Race", type: "race",
+                system: { speed: 8, attributeMods: { str: 2 } }
+              }]);
+              assert.equal(actor.system.defences.ref.value, before,
+                "a race item must not quietly change anything");
+
+              await actor.sheet.render(true);
+              await new Promise((r) => setTimeout(r, 400));
+              const panel = actor.sheet.element.querySelector(".la-panel--features");
+              const text = panel?.textContent ?? "";
+              await actor.sheet.close({ animate: false });
+
+              assert.include(text, "Quench Legacy Race", "it should still be visible");
+              assert.include(text.toLowerCase(), "inert",
+                "and flagged, so nobody assumes it is doing something");
+            });
+          });
+
         it("offers an add button in every panel of the character sheet", async function () {
           await withActor({}, async (actor) => {
             await actor.sheet.render(true);

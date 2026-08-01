@@ -278,13 +278,21 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       // mechanically live while being invisible; and a player transcribing
       // their race's features from the book had nowhere to put them and no
       // sign the import had worked.
-      if (item.type === "race" || item.type === "class") {
+      if (item.type === "feature" || item.type === "race" || item.type === "class") {
         features.push({
           id: item.id,
           name: item.name,
           img: item.img,
-          typeLabel: game.i18n.localize(`TYPES.Item.${item.type}`),
-          summary: this.#grantSummary(item.system.grants)
+          // A feature says where it came from; a legacy race/class item just
+          // says what it is.
+          typeLabel: item.type === "feature"
+            ? game.i18n.localize(`LASTARC.FeatureCategory.${item.system.category}`)
+            : game.i18n.localize(`TYPES.Item.${item.type}`),
+          summary: this.#grantSummary(item.system.grants),
+          // Whole-race and whole-class items predate the feature subtype and
+          // contribute nothing, so say so rather than let them sit there
+          // looking mechanical (issue #8).
+          isLegacy: item.type !== "feature"
         });
         continue;
       }

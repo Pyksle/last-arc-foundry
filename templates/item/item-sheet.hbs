@@ -809,6 +809,26 @@
     </section>
   {{/if}}
 
+  {{!-- A single named benefit from a race or class. Deliberately thin: the
+        numbers live in the Grants panel below, which this shares with
+        technicks, so a feature needs no derivation code of its own. --}}
+  {{#if (laeq itemType "feature")}}
+    <section class="la-panel">
+      <h2 class="la-panel__title">{{localize "LASTARC.Section.Feature"}}</h2>
+      <div class="la-field-row">
+        <div class="la-field">
+          <select name="system.category">
+            {{#each featureCategoryOptions}}
+              <option value="{{this.value}}" {{#if (laeq this.value ../system.category)}}selected{{/if}}>{{localize this.label}}</option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.FeatureCategory"}}</label>
+        </div>
+      </div>
+      <p class="la-note">{{localize "LASTARC.Note.Feature"}}</p>
+    </section>
+  {{/if}}
+
   {{#if (laeq itemType "accessory")}}
     <section class="la-panel">
       <h2 class="la-panel__title">{{localize "LASTARC.Section.Accessory"}}</h2>

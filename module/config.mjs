@@ -757,7 +757,7 @@ LASTARC.itemCreationGroups = {
   spells: ["spell"],
   performances: ["performance"],
   technicks: ["technick", "talent"],
-  features: ["race", "class"],
+  features: ["feature", "race", "class"],
   // Scrolls and orchestral scores are objects you carry, not things you know,
   // so they belong here rather than in the Spells and Performances groups —
   // creating one from those panels would file it into Inventory and look like
@@ -771,7 +771,7 @@ LASTARC.itemCreationGroups = {
 /** Every subtype the system declares, in a stable order for pickers. */
 LASTARC.allItemTypes = [
   "weapon", "armour", "shield", "ammunition", "accessory", "consumable",
-  "technick", "talent", "spell", "performance", "race", "class",
+  "technick", "talent", "spell", "performance", "race", "class", "feature",
   "resourceItem", "mount", "spellScroll", "orchestralScore", "prostheticLimb"
 ];
 
@@ -786,6 +786,8 @@ LASTARC.itemCreationGroups.npc = LASTARC.allItemTypes;
  * whose valid values the UI cannot show is a field nobody can set correctly.
  */
 LASTARC.technickKinds = ["technick", "talent"];
+/** Where a race/class feature came from. Labelling only — no mechanical effect. */
+LASTARC.featureCategories = ["race", "class", "other"];
 LASTARC.consumableTypes = ["potion", "poison", "scroll", "score", "grenade", "other"];
 LASTARC.prostheticSites = ["arm", "leg"];
 /** Defences a spell outcome or performance may be opposed by. */

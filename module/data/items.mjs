@@ -505,6 +505,50 @@ export class LastArcClassData extends foundry.abstract.TypeDataModel {
   }
 }
 
+/**
+ * A single named benefit granted by a race or a class.
+ *
+ * Issue #8: the Race & Class panel used to create `race` and `class` items,
+ * which was the wrong shape twice over. Those carry a WHOLE species or class —
+ * attribute modifiers, size, speed, HP and MP progression, initiative die — and
+ * they duplicated the race field and class dropdown already in the sheet
+ * header. What a player actually writes down is one line from the book:
+ * "Fleet of Foot: +2 Acrobatics".
+ *
+ * So this is deliberately thin. A name, a description, where it came from, and
+ * the same `grants` block technicks use — which is what lets a feature give a
+ * skill or defence modifier without any new derivation code.
+ *
+ * Nothing here is inferred. The numbers are typed in from your own copy of the
+ * book, exactly like every other item in this system.
+ */
+export class LastArcFeatureData extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    return {
+      ...commonFields(),
+
+      /** Which side of the character sheet this came from. Labelling only. */
+      category: new fields.StringField({
+        initial: "race", choices: LASTARC.featureCategories
+      }),
+
+      grants: grantsSchema()
+    };
+  }
+
+  prepareDerivedData() {
+    const g = this.grants;
+    // Mirrors the technick flag: a feature with no numeric payload is purely
+    // descriptive, and the sheet says so rather than showing a row of zeroes.
+    this.hasNumericGrants = !!(
+      g.defences.ref || g.defences.fort || g.defences.will ||
+      g.breakThreshold || g.heroPoints || g.initiativeSteps || g.speed ||
+      g.secondWindUses || g.hp || g.mp || g.dr ||
+      g.recoveryMinorActions !== null || g.skills.length
+    );
+  }
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Consumables & sundry equipment                                             */
 /* -------------------------------------------------------------------------- */
@@ -634,6 +678,7 @@ export const ITEM_DATA_MODELS = {
   performance: LastArcPerformanceData,
   race: LastArcRaceData,
   class: LastArcClassData,
+  feature: LastArcFeatureData,
   resourceItem: LastArcResourceItemData,
   mount: LastArcMountData,
   spellScroll: LastArcConsumableData,

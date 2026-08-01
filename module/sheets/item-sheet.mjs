@@ -30,7 +30,7 @@ const PHYSICAL_TYPES = new Set(LASTARC.physicalItemTypes);
 const CONSUMABLE_TYPES = new Set(["consumable", "spellScroll", "orchestralScore"]);
 
 /** Subtypes carrying a `grants` block of passive numeric bonuses. */
-const GRANTING_TYPES = new Set(["technick", "talent", "accessory", "prostheticLimb"]);
+const GRANTING_TYPES = new Set(["technick", "talent", "accessory", "prostheticLimb", "feature"]);
 
 /**
  * Turn an attribute-keyed ObjectField into one row of inputs, in PRINTED order
@@ -115,6 +115,8 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       .map((k) => ({ value: k, label: LASTARC.sizes[k]?.label ?? k }));
     context.consumableTypeOptions = LASTARC.consumableTypes
       .map((k) => ({ value: k, label: `LASTARC.ConsumableType.${k}` }));
+    context.featureCategoryOptions = LASTARC.featureCategories
+      .map((k) => ({ value: k, label: `LASTARC.FeatureCategory.${k}` }));
     context.prostheticSiteOptions = LASTARC.prostheticSites
       .map((k) => ({ value: k, label: `LASTARC.Prosthetic.${k}` }));
     // The ladder, not LASTARC.initiativeDice — that maps non-player CATEGORIES

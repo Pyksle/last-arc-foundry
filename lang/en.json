@@ -434,7 +434,7 @@
   "LASTARC.Note.NoSpells": "No spells known. Add one below and type in what your book says.",
   "LASTARC.Note.NoPerformances": "No performances known. Add one below and type in what your book says.",
   "LASTARC.Section.Features": "Race & Class",
-  "LASTARC.Note.NoFeatures": "Nothing recorded. Add your race and class features here — class levels are set in the header above.",
+  "LASTARC.Note.NoFeatures": "Nothing recorded. Add each benefit your race or class grants as its own feature — a description plus the skill or defence bonus it gives.",
   "LASTARC.Action.AddWeapon": "+ Add weapon",
   "LASTARC.Action.AddSpell": "+ Add spell",
   "LASTARC.Action.AddPerformance": "+ Add performance",
@@ -654,5 +654,14 @@
   "LASTARC.Tooltip.RollNpcSkill": "Roll 1d20 plus the printed total and the Break Gauge penalty.",
   "LASTARC.Card.SkillCheck": "{skill} check",
   "LASTARC.Setting.breakGaugeAffectsThreshold.name": "Break Gauge lowers Break Threshold",
-  "LASTARC.Setting.breakGaugeAffectsThreshold.hint": "Off by default. The book's Break Gauge penalty is listed as applying to attack rolls, skill checks, attribute checks and defences — Break Threshold is not among them, so it stays constant as you move down the track. Turn this on to derive Threshold from the penalised Fortitude instead, which makes each break easier than the last."
+  "LASTARC.Setting.breakGaugeAffectsThreshold.hint": "Off by default. The book's Break Gauge penalty is listed as applying to attack rolls, skill checks, attribute checks and defences — Break Threshold is not among them, so it stays constant as you move down the track. Turn this on to derive Threshold from the penalised Fortitude instead, which makes each break easier than the last.",
+  "TYPES.Item.feature": "Feature",
+  "LASTARC.Section.Feature": "Feature",
+  "LASTARC.Field.FeatureCategory": "From",
+  "LASTARC.FeatureCategory.race": "Race",
+  "LASTARC.FeatureCategory.class": "Class",
+  "LASTARC.FeatureCategory.other": "Other",
+  "LASTARC.Note.Feature": "One named benefit your race or class grants — \"Fleet of Foot: +2 Acrobatics\". Put the numbers in Grants below and they apply to the character automatically. Everything is typed in by hand from your own book; nothing is looked up.",
+  "LASTARC.Item.Inert": "inert",
+  "LASTARC.Tooltip.LegacyRaceItem": "Whole-race and whole-class items do not affect the character. Make a Feature instead — one benefit at a time, with its bonus in the Grants panel."
 }

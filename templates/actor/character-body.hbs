@@ -569,6 +569,10 @@
                   data-item-id="{{this.id}}">{{this.name}}</button>
           <span class="la-item__type">{{this.typeLabel}}</span>
           {{#if this.summary}}<span class="la-item__summary">{{this.summary}}</span>{{/if}}
+          {{#if this.isLegacy}}
+            <span class="la-item__warn"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.LegacyRaceItem'}}">{{localize "LASTARC.Item.Inert"}}</span>
+          {{/if}}
           <button type="button" class="la-item__share" data-action="shareItem"
                   data-item-id="{{this.id}}"
                   data-tooltip="{{localize 'LASTARC.Tooltip.ShareItem'}}">💬</button>
