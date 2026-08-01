@@ -942,6 +942,33 @@
 }
 .la-npc-skill__roll:hover { opacity: 1; }
 
+/* Loot / steal rows: item, percentage, remove.
+   The two tables sit side by side and fall to one column when the sheet is
+   narrow — a GM stripping a body wants both lists in view at once. */
+.la-drops {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.4rem 1.2rem;
+}
+.la-drops__title {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--la-ink-faint);
+  margin: 0 0 0.2rem;
+}
+.la-drop {
+  display: grid;
+  grid-template-columns: minmax(6rem, 1fr) auto auto;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px solid var(--la-rule);
+}
+.la-drop__chance { display: flex; align-items: center; gap: 0.15rem; }
+.la-drop__chance input { width: 3.2rem; text-align: center; }
+.la-drop__pct { font-size: 0.7rem; color: var(--la-ink-faint); }
+
 /* An unmet prerequisite on a shared item card. */
 .lastarc-prereq { margin-right: 0.4rem; }
 .lastarc-prereq.is-unmet {

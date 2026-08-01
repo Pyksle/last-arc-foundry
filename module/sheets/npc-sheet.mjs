@@ -49,6 +49,17 @@ function grantSummary(grants) {
   return parts.join(" · ");
 }
 
+/**
+ * The two drop tables (§3.2). Loot and Steal hold the same row — item name plus
+ * a percentage — so one pair of handlers serves both, keyed by `data-drops`.
+ *
+ * Named here rather than interpolated straight from the dataset into an update
+ * path: a typo in the markup would otherwise write a new top-level field that
+ * the schema drops on the way out, which fails silently and looks like the
+ * button doing nothing.
+ */
+const DROP_TABLES = ["loot", "steal"];
+
 export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static DEFAULT_OPTIONS = {
     classes: ["last-arc", "sheet", "actor", "npc"],
@@ -63,6 +74,8 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       setBreakStep: LastArcNpcSheet.#onSetBreakStep,
       addSkill: LastArcNpcSheet.#onAddSkill,
       removeSkill: LastArcNpcSheet.#onRemoveSkill,
+      addDrop: LastArcNpcSheet.#onAddDrop,
+      deleteDrop: LastArcNpcSheet.#onDeleteDrop,
       rollNpcSkill: LastArcNpcSheet.#onRollNpcSkill,
       createItem: LastArcNpcSheet.#onCreateItem,
       shareItem: LastArcNpcSheet.#onShareItem,
@@ -172,6 +185,12 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       index,
       label: LASTARC.allSkills[s.key]?.label ?? s.key
     }));
+
+    // Drop tables. Both render through the same row markup, and the index is
+    // carried on each row because the inputs bind by position
+    // (`system.loot.0.name`) — the same convention as the attack rows above.
+    context.loot = sys.loot.map((row, index) => ({ ...row, index }));
+    context.steal = sys.steal.map((row, index) => ({ ...row, index }));
 
     // Technicks and talents get their own panel. They were mixed into an
     // undifferentiated item list with the creature's gear, so a monster's
@@ -312,6 +331,34 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const skills = this.document.system.toObject().skills ?? [];
     if (!skills[index]) return;
     await this.document.update({ "system.skills": skills.filter((_, i) => i !== index) });
+  }
+
+  static async #onAddDrop(event, target) {
+    const table = target.dataset.drops;
+    if (!DROP_TABLES.includes(table)) return;
+
+    const rows = this.document.system.toObject()[table] ?? [];
+    // 100% by default: a bestiary entry's guaranteed drop is the common case,
+    // and a row that appears at 0% would look like a broken new row.
+    await this.document.update({ [`system.${table}`]: [...rows, { name: "", chance: 100 }] });
+  }
+
+  /**
+   * No confirmation dialog, unlike deleteAttack: a drop row is a name and a
+   * percentage, and re-typing it costs less than the prompt does. Whole-array
+   * write, because `-=N` is object-key deletion and corrupts an ArrayField.
+   */
+  static async #onDeleteDrop(event, target) {
+    const table = target.dataset.drops;
+    if (!DROP_TABLES.includes(table)) return;
+
+    const index = Number(target.dataset.index);
+    const rows = this.document.system.toObject()[table] ?? [];
+    if (!rows[index]) return;
+
+    await this.document.update({
+      [`system.${table}`]: rows.filter((_, i) => i !== index)
+    });
   }
 
   /**

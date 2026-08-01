@@ -969,10 +969,9 @@ function registerSheetBatch(quench) {
          * name starts with the array's own, which is the `*Text` convention.
          */
         const ARRAY_EXEMPT = {
-          npc: {
-            loot: "no UI yet — the loot/steal tables are declared and unbuilt",
-            steal: "no UI yet — the loot/steal tables are declared and unbuilt"
-          }
+          // Empty, and it should stay that way. `npc.loot` and `npc.steal` sat
+          // here reading "no UI yet"; an exemption is a debt, not a licence, and
+          // they now have a row editor on the NPC sheet.
         };
 
         it("every array of plain values can be edited somehow", async function () {

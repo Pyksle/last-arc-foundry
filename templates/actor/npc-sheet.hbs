@@ -375,6 +375,67 @@
     </button>
   </section>
 
+  {{!-- ── Loot & Steal ────────────────────────────────────────────────────
+        Two tables of the same shape (§3.2): an item name and the percentage
+        chance of getting it. Both were declared in the data model from the
+        start with no input anywhere, so a GM could not record either. --}}
+  <section class="la-panel la-panel--drops">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Spoils"}}</h2>
+    <p class="la-note">{{localize "LASTARC.Note.SpoilsRecord"}}</p>
+
+    <div class="la-drops">
+      <div class="la-drops__table">
+        <h3 class="la-drops__title">{{localize "LASTARC.Section.Loot"}}</h3>
+        {{#each loot}}
+          <div class="la-drop">
+            <input type="text" name="system.loot.{{this.index}}.name" value="{{this.name}}"
+                   placeholder="{{localize 'LASTARC.Field.DropItem'}}">
+            <div class="la-drop__chance"
+                 data-tooltip="{{localize 'LASTARC.Tooltip.DropChance'}}">
+              <input type="number" name="system.loot.{{this.index}}.chance"
+                     value="{{this.chance}}" min="0" max="100">
+              <span class="la-drop__pct">%</span>
+            </div>
+            <button type="button" class="la-item__delete" data-action="deleteDrop"
+                    data-drops="loot" data-index="{{this.index}}"
+                    data-tooltip="{{localize 'LASTARC.Tooltip.DeleteDrop'}}">×</button>
+          </div>
+        {{else}}
+          <p class="la-note">{{localize "LASTARC.Note.NoLoot"}}</p>
+        {{/each}}
+
+        <button type="button" class="la-panel__add" data-action="addDrop" data-drops="loot">
+          {{localize "LASTARC.Action.AddLoot"}}
+        </button>
+      </div>
+
+      <div class="la-drops__table">
+        <h3 class="la-drops__title">{{localize "LASTARC.Section.Steal"}}</h3>
+        {{#each steal}}
+          <div class="la-drop">
+            <input type="text" name="system.steal.{{this.index}}.name" value="{{this.name}}"
+                   placeholder="{{localize 'LASTARC.Field.DropItem'}}">
+            <div class="la-drop__chance"
+                 data-tooltip="{{localize 'LASTARC.Tooltip.DropChance'}}">
+              <input type="number" name="system.steal.{{this.index}}.chance"
+                     value="{{this.chance}}" min="0" max="100">
+              <span class="la-drop__pct">%</span>
+            </div>
+            <button type="button" class="la-item__delete" data-action="deleteDrop"
+                    data-drops="steal" data-index="{{this.index}}"
+                    data-tooltip="{{localize 'LASTARC.Tooltip.DeleteDrop'}}">×</button>
+          </div>
+        {{else}}
+          <p class="la-note">{{localize "LASTARC.Note.NoSteal"}}</p>
+        {{/each}}
+
+        <button type="button" class="la-panel__add" data-action="addDrop" data-drops="steal">
+          {{localize "LASTARC.Action.AddSteal"}}
+        </button>
+      </div>
+    </div>
+  </section>
+
   {{!-- ── Skills ──────────────────────────────────────────────────────────
         Printed totals, not derived rows. A statblock gives "Stealth +12" and
         that is the whole story — there was nowhere to record it at all. --}}
