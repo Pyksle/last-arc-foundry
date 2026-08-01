@@ -637,12 +637,11 @@ describe("no orphaned exports", () => {
     ["initiativeDieFor", "die lookup superseded by the derived actor value"],
 
     /**
-     * Both of these surfaced the moment the guard stopped counting comments as
-     * uses (issue #34). Neither is here because it is fine — they are here
-     * because the fix is riskier than the gap, two days before a playtest.
+     * Surfaced the moment the guard stopped counting comments as uses (issue
+     * #34). `trainedSkillCount` was here too and has since been wired to the
+     * trained-skill readout, so it left the list — which is the staleness check
+     * below working as intended rather than a courtesy.
      */
-    ["trainedSkillCount", "issue #34: correct, and no sheet shows a trained-skill " +
-      "allowance for it to feed. Needs a readout, not a caller"],
     ["isFlatFooted", "issue #37: the combat lifecycle implements a NARROWER version " +
       "of this rule inline — round-1-and-not-yet-acted only — and never calls it, so " +
       "the `surprised` and `detectsAttacker` cases it handles are unenforced. Two " +

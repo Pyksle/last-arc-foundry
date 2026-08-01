@@ -281,6 +281,7 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     // Intelligence, and the count derives from the items actually on the actor.
     // Neither may be bound to an input — see the class docstring.
     this.study = this.#studyLimits();
+    this.trainedSkills = this.#trainedSkillLimits();
 
     // 4. Equipped armour ----------------------------------------------------
     const armour = this.#equippedArmour();
@@ -677,6 +678,44 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       spells: build(spells, arcane, D.knownSpellLimit),
       performances: build(performances, bardic, D.knownPerformanceLimit)
     };
+  }
+
+  /**
+   * How many skills this character may be trained in, against how many they are
+   * (issue #34).
+   *
+   * `trainedSkillCount` was implemented, correct, and consumed by nothing, so
+   * there was no allowance anywhere on the sheet and nothing said when a
+   * character had over-trained. It stayed invisible because the orphan guard
+   * counted a mention of it in a COMMENT as a use.
+   *
+   * The allowance comes from the BASE class — the first one taken. Multiclassing
+   * does not grant a second helping of trained skills, and the book gives the
+   * count in the class-creation table rather than per class level.
+   *
+   * Weapon skills are counted in the total on purpose: the class skill lists
+   * print Light Weapon and its siblings alongside Acrobatics and Lore, so they
+   * are choices from the same pool. If that reading is wrong the number is
+   * visibly wrong, which is the point of showing it.
+   */
+  #trainedSkillLimits() {
+    const known = Object.values(this.skills).filter((s) => s.trained).length;
+
+    const halfElf = (this.parent?.items ?? []).some(
+      (i) => i.type === "race" && i.system?.slug === "half-elf"
+    );
+
+    let max = null;
+    try {
+      max = D.trainedSkillCount(this.classes?.[0]?.name, this.attributes.int.mod, halfElf);
+    } catch {
+      // No class chosen yet, or one whose table entry is unset. Showing nothing
+      // is honest; showing a number derived from a guess is how a character
+      // sheet teaches somebody a wrong rule.
+      max = null;
+    }
+
+    return { known, max, halfElf, over: max !== null && known > max };
   }
 
   /** Total bulk carried, summed across the inventory (§4.6). */

@@ -62,6 +62,8 @@
   "LASTARC.TechnickFlag.debilitatingInjury": "Debilitating Injury",
   "LASTARC.TechnickFlag.arcaneStudy": "Arcane Study",
   "LASTARC.TechnickFlag.bardicStudy": "Bardic Study",
+  "LASTARC.Note.TrainedSkills": "Trained:",
+  "LASTARC.Note.HalfElfSkilled": "includes the Half-Elf Skilled bonus.",
   "LASTARC.Note.SpellsKnown": "Known:",
   "LASTARC.Note.PerformancesKnown": "Known:",
   "LASTARC.Note.NeedsArcaneStudy": "the Arcane Study technick is what lets you learn spells; tick it under Mechanical Effects on that technick.",

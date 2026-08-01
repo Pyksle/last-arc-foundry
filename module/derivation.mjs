@@ -464,18 +464,24 @@ export function knownPerformanceLimit(bardicStudyTakings = 0, intMod = 0) {
 /**
  * Number of trained skills = class base + Int modifier (+1 for half-elves).
  *
- * Throws rather than guessing when the class base is unknown — four of the six
- * are still null in config pending Phase 5 ingestion, and a silent default would
- * produce plausible-but-wrong character builds.
+ * The half-elf bonus is the "Skilled" trait: they select one additional trained
+ * skill at 1st level, from their class list.
+ *
+ * Throws rather than guessing when the class base is unknown, because a silent
+ * default produces a plausible-but-wrong character build. It no longer throws
+ * for a KNOWN class — this docstring and the message below both used to claim
+ * that four of the six were still null pending ingestion, which stopped being
+ * true once the class tables were read in. The stale claim outlived the
+ * limitation and read exactly like a live constraint (issue #34).
  */
 export function trainedSkillCount(className, intMod = 0, halfElf = false) {
   const cls = LASTARC.classes[className];
   if (!cls) throw new Error(`Unknown class: ${className}`);
   if (cls.trainedSkills === null) {
     throw new Error(
-      `Trained-skill count for "${className}" is not yet known — it must be read ` +
-      `from the class tables (book pp.34–55) during Phase 5 ingestion. ` +
-      `Only rogue (8) and warrior (6) are given in §4.5.`
+      `Trained-skill count for "${className}" is not set in LASTARC.classes. ` +
+      `It must be read from the class tables (book p.35) before this class can ` +
+      `report an allowance.`
     );
   }
   return Math.max(0, cls.trainedSkills + intMod + (halfElf ? 1 : 0));

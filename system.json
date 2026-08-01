@@ -2,7 +2,7 @@
   "id": "last-arc",
   "title": "Last Arc: Tactics Analogue",
   "description": "An unofficial Foundry VTT implementation of Last Arc: Tactics Analogue. Ships with empty compendia — populate them from your own licensed copy of the rulebook.",
-  "version": "0.18.1",
+  "version": "0.19.0",
   "compatibility": {
     "minimum": "13",
     "verified": "13"
@@ -65,5 +65,5 @@
   "url": "https://github.com/Pyksle/last-arc-foundry",
   "changelog": "https://github.com/Pyksle/last-arc-foundry/releases",
   "manifest": "https://raw.githubusercontent.com/Pyksle/last-arc-foundry/main/system.json",
-  "download": "https://github.com/Pyksle/last-arc-foundry/releases/download/v0.18.1/last-arc-0.18.1.zip"
+  "download": "https://github.com/Pyksle/last-arc-foundry/releases/download/v0.19.0/last-arc-0.19.0.zip"
 }

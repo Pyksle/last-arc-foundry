@@ -354,6 +354,17 @@
   {{!-- ── Skills · five printed columns ───────────────────────────────────── --}}
   <section class="la-panel la-panel--skills">
     <h2 class="la-panel__title">{{localize "LASTARC.Section.Skills"}}</h2>
+
+    {{!-- Trained allowance (issue #34). Hidden entirely when no class is chosen
+          yet, rather than showing a number derived from a guess. --}}
+    {{#if system.trainedSkills.max}}
+      <p class="la-note {{#if system.trainedSkills.over}}is-warning{{/if}}">
+        {{localize "LASTARC.Note.TrainedSkills"}}
+        {{system.trainedSkills.known}} / {{system.trainedSkills.max}}
+        {{#if system.trainedSkills.halfElf}}— {{localize "LASTARC.Note.HalfElfSkilled"}}{{/if}}
+      </p>
+    {{/if}}
+
     {{!-- Stated once, here, rather than left as a secret gesture. A modifier
           key nobody is told about is a feature nobody can reach. --}}
     <p class="la-note">{{localize "LASTARC.Situational.Hint"}}</p>

@@ -12,6 +12,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import { LASTARC } from "../module/config.mjs";
+import { trainedSkillCount } from "../module/derivation.mjs";
 import {
   knownSpellLimit,
   manaCost,
@@ -360,5 +361,41 @@ describe("§19 performances", () => {
   test("performing provokes, and performing defensively does not", () => {
     assert.equal(LASTARC.performSpecialisations.instrument.defensivePenalty, -5);
     assert.equal(LASTARC.performSpecialisations.dance.defensivePenalty, -2);
+  });
+});
+
+/**
+ * Issue #34. `trainedSkillCount` was correct and consumed by nothing, so no
+ * sheet ever showed an allowance and nothing said when a character had trained
+ * too many skills. These cover the parts that would go wrong quietly once it
+ * finally had a caller.
+ */
+describe("§4.5 trained skill allowance", () => {
+  test("class base plus Int modifier", () => {
+    assert.equal(trainedSkillCount("rogue", 0), 8);
+    assert.equal(trainedSkillCount("warrior", 2), 8);
+  });
+
+  test("the Half-Elf Skilled trait adds one", () => {
+    assert.equal(trainedSkillCount("mage", 0, true), 5);
+    assert.equal(trainedSkillCount("mage", 0, false), 4);
+  });
+
+  test("a punishing Int cannot drive the allowance below zero", () => {
+    assert.equal(trainedSkillCount("mage", -10), 0);
+  });
+
+  test("an unknown class throws rather than guessing a plausible number", () => {
+    // A silent default here produces a wrong character build that looks right.
+    assert.throws(() => trainedSkillCount("zzfake"), /Unknown class/);
+  });
+
+  test("every class in config can actually report an allowance", () => {
+    // The docstring claimed for months that four of six were unset. That
+    // stopped being true and the claim outlived it, reading like a live
+    // constraint — this asserts the state rather than describing it.
+    for (const name of Object.keys(LASTARC.classes)) {
+      assert.equal(typeof trainedSkillCount(name, 0), "number", name);
+    }
   });
 });
