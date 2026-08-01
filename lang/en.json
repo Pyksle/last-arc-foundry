@@ -743,5 +743,16 @@
   "LASTARC.Field.PrereqTalents": "Talents required",
   "LASTARC.Placeholder.PrereqSkills": "acrobatics, spellcraft",
   "LASTARC.Tooltip.PrereqTrainedSkills": "Skills the character must be trained in, comma separated. Use the skill's key as it appears on the character sheet, e.g. acrobatics.",
-  "LASTARC.Tooltip.PrereqSlugs": "Comma-separated slugs, matching the slug field of the technick or talent required."
+  "LASTARC.Tooltip.PrereqSlugs": "Comma-separated slugs, matching the slug field of the technick or talent required.",
+  "LASTARC.Section.Spoils": "Loot & Steal",
+  "LASTARC.Section.Loot": "Loot",
+  "LASTARC.Section.Steal": "Steal",
+  "LASTARC.Note.SpoilsRecord": "Recorded for reference. Nothing here rolls yet — the tables are a place to keep what your book prints.",
+  "LASTARC.Note.NoLoot": "Nothing recorded. Add each thing this creature leaves behind and how often it does.",
+  "LASTARC.Note.NoSteal": "Nothing recorded. Add each thing that can be taken from it and how often the attempt finds it.",
+  "LASTARC.Action.AddLoot": "+ Add loot",
+  "LASTARC.Action.AddSteal": "+ Add steal",
+  "LASTARC.Field.DropItem": "Item",
+  "LASTARC.Tooltip.DropChance": "Percentage chance, 0–100.",
+  "LASTARC.Tooltip.DeleteDrop": "Remove this row"
 }
