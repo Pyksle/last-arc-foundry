@@ -404,20 +404,56 @@ async function onApplyDamage(button) {
   });
 }
 
+/**
+ * The arithmetic between the rolled number and the hit points lost (issue #26).
+ *
+ * Reported as: attacking a drenched target with electric, "I think the extra
+ * damage is occurring, but I can't see what that damage information is". It
+ * was occurring. `applyDamage` has returned the bonus roll since 0.11.0 and
+ * NOTHING RENDERED IT — the same orphan pattern as the payload it was added to
+ * fix, one layer up. A number that arrives with no working is indistinguishable
+ * from a wrong number, so the whole chain is stated: what was rolled, what the
+ * target's statuses added, what its weakness or resistance did, what DR took
+ * off, and what temporary hit points absorbed.
+ */
+function describeArithmetic(result) {
+  const steps = [];
+
+  if (result.bonus?.results?.length) {
+    const dice = result.bonus.results.map((r) => r.result).join(", ");
+    steps.push(game.i18n.format("LASTARC.Card.StatusDice", {
+      n: result.bonus.results.length, dice, total: result.bonus.total
+    }));
+  }
+  // preDR is after weakness/resistance and before reduction, so the gap on
+  // either side names the two steps without either needing to be passed out.
+  if (result.preDR !== undefined && result.postDR !== undefined
+      && result.preDR !== result.postDR) {
+    steps.push(game.i18n.format("LASTARC.Card.AfterDR", {
+      before: result.preDR, after: result.postDR
+    }));
+  }
+  if (result.absorbed) {
+    steps.push(game.i18n.format("LASTARC.Card.TempAbsorbed", { amount: result.absorbed }));
+  }
+
+  return steps.length
+    ? `<p class="lastarc-calc"><span class="lastarc-calc__sum">${steps.join(" → ")}</span></p>`
+    : "";
+}
+
 function describeApplication(target, result) {
   const bits = [];
   if (result.immune) {
     bits.push(game.i18n.localize("LASTARC.Card.Immune"));
   } else {
     bits.push(game.i18n.format("LASTARC.Card.Took", { amount: result.final }));
-    if (result.absorbed) {
-      bits.push(game.i18n.format("LASTARC.Card.TempAbsorbed", { amount: result.absorbed }));
-    }
   }
   if (result.breaks) bits.push(game.i18n.localize("LASTARC.Card.BreakStep"));
   if (result.droppedToZero) bits.push(game.i18n.localize("LASTARC.Card.Downed"));
 
   let line = `<p class="lastarc-applied"><strong>${target.name}</strong> — ${bits.join(" · ")}</p>`;
+  line += describeArithmetic(result);
 
   // Prevent Death is only legal at the moment of dropping, and this is that
   // moment. Offering it here rather than on the sheet means a player does not

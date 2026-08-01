@@ -101,6 +101,8 @@
   "LASTARC.Card.ComboAttack": "Combo Attack",
   "LASTARC.Card.ApplyToTargets": "Apply to Targets",
   "LASTARC.Card.ApplyHalfToTargets": "Apply Half",
+  "LASTARC.Card.StatusDice": "+{n} dice from statuses ({dice}) = +{total}",
+  "LASTARC.Card.AfterDR": "{before} after resistances, {after} after DR",
   "LASTARC.Card.WeaponDie": "Weapon die",
   "LASTARC.Card.ExplosionDie": "Explosion",
   "LASTARC.Card.DiceCapped": "Explosion cascade hit the dice cap and was truncated.",

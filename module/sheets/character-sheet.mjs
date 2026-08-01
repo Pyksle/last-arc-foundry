@@ -65,7 +65,8 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       bankAim: LastArcCharacterSheet.#onBankAim,
       holdTurn: LastArcCharacterSheet.#onHoldTurn,
       resetActions: LastArcCharacterSheet.#onResetActions,
-      toggleStatus: LastArcCharacterSheet.#onToggleStatus
+      toggleStatus: LastArcCharacterSheet.#onToggleStatus,
+      toggleProficiency: LastArcCharacterSheet.#onToggleProficiency
     }
   };
 
@@ -276,29 +277,10 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     }
 
     /**
-     * Collapse the proficiency checkbox grids back into their ArrayFields.
-     *
-     * One checkbox per category, named `...weaponsChoice.<key>`, is gathered
-     * into `proficiencies.weapons`. The stand-in prefix matters: it has to
-     * begin with the array's own path so the field-coverage guard counts the
-     * array as reachable, which is the same `*Text` convention the comma boxes
-     * use — and the guard that should have caught this being missing.
-     *
-     * Rebuilt from the boxes rather than merged into the stored array, so
-     * UNCHECKING one removes it. A merge would make proficiency additive and
-     * impossible to take away.
+     * Proficiencies used to be repacked here from a grid of checkboxes named
+     * `...weaponsChoice.<key>`. They are toggle buttons now and write their own
+     * arrays, so there is nothing left to repack — see #onToggleProficiency.
      */
-    for (const [field, stand] of [["weapons", "weaponsChoice"], ["armour", "armourChoice"]]) {
-      const prefix = `system.proficiencies.${stand}.`;
-      const keys = Object.keys(submit).filter((k) => k.startsWith(prefix));
-      if (!keys.length) continue;
-
-      submit[`system.proficiencies.${field}`] = keys
-        .filter((k) => submit[k])
-        .map((k) => k.slice(prefix.length));
-      for (const k of keys) delete submit[k];
-    }
-
     return submit;
   }
 
@@ -732,6 +714,51 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
   static async #onToggleStatus(event, target) {
     await toggleStatus(this, target);
+  }
+
+  /**
+   * Toggle one weapon category, armour type, or shield proficiency (#28).
+   *
+   * Writes the document directly rather than going through the form. The grid
+   * shipped in 0.12.0 as bound checkboxes repacked in `_prepareSubmitData`, and
+   * that had two failure modes at once: `submitOnChange` re-renders the sheet
+   * on every change, so a tick could be lost to the re-render — reported as
+   * "not staying selected", and intermittent exactly as a race is — and the
+   * repack itself assumed a shape for the submit data that could not be
+   * verified without a live Foundry. Neither risk survives writing the array
+   * here.
+   *
+   * Rebuilt by adding or removing the one key, so unticking genuinely removes
+   * it; a merge would make proficiency additive and impossible to take away.
+   */
+  static async #onToggleProficiency(event, target) {
+    const { prof, key } = target.dataset;
+
+    if (prof === "shields") {
+      await this.document.update({
+        "system.proficiencies.shields": !this.document.system.proficiencies.shields
+      });
+      return;
+    }
+
+    const valid = prof === "weapons"
+      ? LASTARC.weaponCategories
+      : prof === "armour" ? Object.keys(LASTARC.armourTypes) : null;
+
+    // Checked against the config rather than trusted from the markup: an
+    // unrecognised key would otherwise be stored and then silently fail to
+    // match any weapon, which looks exactly like the button doing nothing.
+    if (!valid || !valid.includes(key)) {
+      console.warn(`Last Arc | "${prof}/${key}" is not a proficiency; nothing toggled.`);
+      return;
+    }
+
+    const current = this.document.system.proficiencies[prof] ?? [];
+    const next = current.includes(key)
+      ? current.filter((k) => k !== key)
+      : [...current, key];
+
+    await this.document.update({ [`system.proficiencies.${prof}`]: next });
   }
 
   static async #onHeroBoost(event, target) {

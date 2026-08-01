@@ -182,11 +182,15 @@
         non-proficient with everything, permanently, with no way to say
         otherwise.
 
-        Checkboxes, not a comma box. Both are closed sets, and making someone
-        type `bludgeons` correctly to stop losing 5 from their attacks is a
-        trap. The names carry a `...Choice.` stand-in and are repacked into the
-        arrays in _prepareSubmitData — binding straight at the array path would
-        store a bare boolean and lose the lot.
+        Toggle BUTTONS, not form checkboxes, and not a comma box. Both lists
+        are closed sets, so typing `bludgeons` correctly to stop losing 5 from
+        every attack would be a trap — but a bound checkbox is its own trap on
+        this sheet: `submitOnChange` re-renders on every change, and a tick can
+        be lost to the re-render between mousedown and click. Second Wind hit
+        exactly this and was moved to buttons for exactly this reason (#28).
+
+        Each button writes the array itself, so there is no form round-trip and
+        no repacking step to get wrong.
 
         Shield proficiency moved here from the Movement panel, where it had
         been sitting next to the swim speed. --}}
@@ -197,29 +201,34 @@
     <h3 class="la-prof__title">{{localize "LASTARC.Field.WeaponProficiency"}}</h3>
     <div class="la-prof">
       {{#each weaponProficiencies}}
-        <label class="la-checkfield">
-          <input type="checkbox" name="system.proficiencies.weaponsChoice.{{this.key}}"
-                 {{#if this.active}}checked{{/if}}>
+        <button type="button" class="la-prof__box {{#if this.active}}is-active{{/if}}"
+                role="checkbox" aria-checked="{{#if this.active}}true{{else}}false{{/if}}"
+                data-action="toggleProficiency" data-prof="weapons" data-key="{{this.key}}">
+          <span class="la-prof__tick">{{#if this.active}}✓{{else}}·{{/if}}</span>
           {{localize this.label}}
-        </label>
+        </button>
       {{/each}}
     </div>
 
     <h3 class="la-prof__title">{{localize "LASTARC.Field.ArmourProficiency"}}</h3>
     <div class="la-prof">
       {{#each armourProficiencies}}
-        <label class="la-checkfield">
-          <input type="checkbox" name="system.proficiencies.armourChoice.{{this.key}}"
-                 {{#if this.active}}checked{{/if}}>
+        <button type="button" class="la-prof__box {{#if this.active}}is-active{{/if}}"
+                role="checkbox" aria-checked="{{#if this.active}}true{{else}}false{{/if}}"
+                data-action="toggleProficiency" data-prof="armour" data-key="{{this.key}}">
+          <span class="la-prof__tick">{{#if this.active}}✓{{else}}·{{/if}}</span>
           {{localize this.label}}
-        </label>
+        </button>
       {{/each}}
-      <label class="la-checkfield"
-             data-tooltip="{{localize 'LASTARC.Tooltip.ShieldProficiency'}}">
-        <input type="checkbox" name="system.proficiencies.shields"
-               {{#if system.proficiencies.shields}}checked{{/if}}>
+      <button type="button"
+              class="la-prof__box {{#if system.proficiencies.shields}}is-active{{/if}}"
+              role="checkbox"
+              aria-checked="{{#if system.proficiencies.shields}}true{{else}}false{{/if}}"
+              data-action="toggleProficiency" data-prof="shields"
+              data-tooltip="{{localize 'LASTARC.Tooltip.ShieldProficiency'}}">
+        <span class="la-prof__tick">{{#if system.proficiencies.shields}}✓{{else}}·{{/if}}</span>
         {{localize "LASTARC.Field.ShieldProficiency"}}
-      </label>
+      </button>
     </div>
   </section>
 

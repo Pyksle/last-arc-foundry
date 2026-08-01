@@ -781,43 +781,62 @@ describe("issue #21 — every proficiency is reachable", () => {
     .filter((n) => n.startsWith("system."))
     .map((n) => n.slice("system.".length));
 
-  const covers = (path) => bound.some((b) => b === path || b.startsWith(path));
+  const body = templates.find((t) => t.name.endsWith("character-body.hbs")).source;
+
+  /**
+   * A path is reachable if a form control binds it OR an action button writes
+   * it. The first version of this guard only understood bindings, which is why
+   * it went red the moment the proficiency grid became buttons (#28) even
+   * though the grid had just become MORE reliable. Same narrowness as the
+   * ArrayField gap: a coverage test that knows one mechanism will confidently
+   * report a hole in the other.
+   */
+  const boundOrWritten = (path) =>
+    bound.some((b) => b === path || b.startsWith(path)) ||
+    // A toggle for that group. The handler writes the path through a template
+    // literal (`system.proficiencies.${prof}`), so searching the sheet source
+    // for the literal string finds only `shields` and would wrongly report the
+    // two array groups as unreachable. The write itself is pinned below.
+    body.includes(`data-prof="${path.split(".").pop()}"`);
 
   for (const path of ["proficiencies.weapons", "proficiencies.armour", "proficiencies.shields"]) {
     test(`${path} has a control`, () => {
-      assert.ok(covers(path),
+      assert.ok(boundOrWritten(path),
         `${path} is read by the maths and nothing on any sheet can set it`);
     });
   }
 
-  /**
-   * The boxes are generated from a loop, so their names are interpolated and a
-   * literal `...weaponsChoice.axes` never appears in the template to be found.
-   * The invariant that actually matters is one row per configured category, so
-   * that is what is checked: the context is built from the config list rather
-   * than from a hand-written subset that would silently omit one.
-   */
-  test("a box is generated for every configured category", () => {
+  test("a control is generated for every configured category", () => {
     assert.match(sheetSource, /LASTARC\.weaponCategories\.map\(/,
       "weapon proficiency rows must come from the config list, not a hand-typed one");
     assert.match(sheetSource, /Object\.keys\(LASTARC\.armourTypes\)\.map\(/,
       "armour proficiency rows must come from the config list");
 
-    const body = templates.find((t) => t.name.endsWith("character-body.hbs")).source;
-    assert.match(body, /name="system\.proficiencies\.weaponsChoice\.\{\{this\.key\}\}"/);
-    assert.match(body, /name="system\.proficiencies\.armourChoice\.\{\{this\.key\}\}"/);
+    for (const prof of ["weapons", "armour", "shields"]) {
+      assert.match(body, new RegExp(`data-prof="${prof}"`),
+        `no toggle for ${prof} proficiency`);
+    }
   });
 
   /**
-   * The stand-in names only count as coverage because they begin with the
-   * array's own path, which is the `*Text` convention the comma boxes rely on.
-   * Rename the prefix and the boxes keep working while the guard above goes
-   * blind, so the repacking is pinned to it here.
+   * ISSUE #28 REGRESSION GUARD. The grid shipped in 0.12.0 as bound checkboxes
+   * repacked in `_prepareSubmitData`, and was reported as not staying selected
+   * — intermittently, which is what a race looks like. This sheet submits on
+   * every change, so a tick can be lost to the re-render between mousedown and
+   * click; Second Wind hit the identical bug and was moved to buttons for the
+   * identical reason. Nothing here may go back to a bound checkbox.
    */
-  test("the sheet repacks the stand-in boxes into the arrays", () => {
-    assert.match(sheetSource, /proficiencies\.\$\{field\}|proficiencies\.weapons/,
-      "the checkbox grid must be collapsed back into the ArrayField on submit");
-    assert.match(sheetSource, /weaponsChoice/);
-    assert.match(sheetSource, /armourChoice/);
+  test("proficiencies are toggle buttons, not form checkboxes", () => {
+    assert.doesNotMatch(body, /name="system\.proficiencies\./,
+      "a bound checkbox on this sheet races submitOnChange; use data-action=\"toggleProficiency\"");
+    assert.match(body, /data-action="toggleProficiency"/);
+    assert.match(sheetSource, /toggleProficiency: LastArcCharacterSheet\.#onToggleProficiency/,
+      "the action must be registered or the buttons do nothing");
+  });
+
+  test("the toggle writes the arrays directly", () => {
+    assert.match(sheetSource, /system\.proficiencies\.\$\{prof\}/,
+      "the handler must write the proficiency array itself, with no form round-trip");
   });
 });
+
