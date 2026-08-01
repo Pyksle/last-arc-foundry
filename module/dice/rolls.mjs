@@ -12,6 +12,7 @@
 
 import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
+import { situationalSuffix } from "./situational.mjs";
 
 /**
  * @typedef {object} LastArcRollResult
@@ -35,7 +36,7 @@ import * as D from "../derivation.mjs";
  * @param {string|null} [options.subskill]  Name of a Lore/Perform specialisation.
  */
 export async function rollSkill(actor, skillKey, options = {}) {
-  const { dc = null, situational = 0, subskill = null } = options;
+  const { dc = null, situational = 0, situationalNote = null, subskill = null } = options;
 
   const cfg = LASTARC.allSkills[skillKey];
   if (!cfg) throw new Error(`Unknown skill: ${skillKey}`);
@@ -63,9 +64,11 @@ export async function rollSkill(actor, skillKey, options = {}) {
     return null;
   }
 
+  // A skill check has no itemised parts list, so the reason rides on the label:
+  // "Acrobatics — footing is bad -2" rather than an unexplained total.
   return evaluateCheck({
     actor,
-    label,
+    label: label + situationalSuffix(situationalNote, situational),
     mod: mod + situational,
     dc,
     isWeaponSkill: !!cfg.weapon,
@@ -79,7 +82,7 @@ export async function rollSkill(actor, skillKey, options = {}) {
  * but never the trained bonus or armour check penalty.
  */
 export async function rollAttribute(actor, attrKey, options = {}) {
-  const { dc = null, situational = 0 } = options;
+  const { dc = null, situational = 0, situationalNote = null } = options;
 
   const attr = actor.system.attributes?.[attrKey];
   if (!attr) throw new Error(`Unknown attribute: ${attrKey}`);
@@ -88,7 +91,8 @@ export async function rollAttribute(actor, attrKey, options = {}) {
 
   return evaluateCheck({
     actor,
-    label: game.i18n.localize(LASTARC.attributes[attrKey].label),
+    label: game.i18n.localize(LASTARC.attributes[attrKey].label)
+      + situationalSuffix(situationalNote, situational),
     mod: attr.mod + bp + situational,
     dc,
     isWeaponSkill: false,

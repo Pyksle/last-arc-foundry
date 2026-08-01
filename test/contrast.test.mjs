@@ -216,3 +216,89 @@ describe("chat card readability", () => {
     }
   });
 });
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * SHEET INK TOKENS — the measurable part of the gap named at the top of this
+ * file (issue: statuses unreadable).
+ *
+ * The header says this suite does not cover the sheets, because sheet surfaces
+ * are painted with gradients and cannot be resolved by parsing CSS. That is
+ * still true of the SURFACES. It was never true of the TOKENS: every palette
+ * declares its paper and its three inks as literal hex, four times over —
+ * default, dark, and the two explicit `data-theme` blocks — so the ink-on-paper
+ * pairing can be measured exactly, and it is the pairing that actually failed.
+ *
+ * `--la-ink-faint` shipped at 3.45:1 light and 4.12:1 dark. Every one of its
+ * ~forty uses is small text, so both were short of AA, and the status palette
+ * then halved the opacity on top of it and reached 1.73:1.
+ *
+ * This does NOT prove any given element is legible — an element can still be
+ * dimmed, or placed on a gradient stop darker than `--la-paper`. It proves the
+ * palette is not unreadable BY CONSTRUCTION, which is the failure that shipped.
+ */
+describe("sheet palette: ink on paper", () => {
+  /** Each palette block declares `--la-paper` first; read to the block's end. */
+  function palettes() {
+    const out = [];
+    const re = /--la-paper:\s*(#[0-9a-f]{6})/gi;
+    for (const m of css.matchAll(re)) {
+      const body = css.slice(m.index, css.indexOf("}", m.index));
+      const vars = {};
+      for (const v of body.matchAll(/(--la-[\w-]+):\s*(#[0-9a-f]{6})/gi)) vars[v[1]] = v[2];
+      out.push(vars);
+    }
+    return out;
+  }
+
+  const found = palettes();
+
+  test("all four palette blocks are found", () => {
+    assert.equal(found.length, 4,
+      "expected default, dark, and both data-theme palettes; the parser above " +
+      "relies on --la-paper being declared first in each");
+  });
+
+  for (const token of ["--la-ink", "--la-ink-soft", "--la-ink-faint"]) {
+    test(`${token} is readable on paper in every theme`, () => {
+      found.forEach((vars, i) => {
+        const fg = vars[token];
+        const bg = vars["--la-paper"];
+        if (!fg || !bg) return;
+        const r = contrast(hex(fg), hex(bg));
+        assert.ok(r >= 4.5,
+          `palette ${i}: ${token} ${fg} on ${bg} is ${r.toFixed(2)}:1, ` +
+          `under the 4.5:1 that small text needs`);
+      });
+    });
+  }
+
+  /**
+   * The status palette dims its ICON and not its label, which is why the label
+   * is checked at full strength above. Pinned here so a future tidy-up cannot
+   * reinstate a blanket opacity on the tile without this going red.
+   */
+  test("the status tile does not dim its label", () => {
+    // The tile's OWN rule body only. Slicing further would swallow
+    // `.la-status__icon`, whose opacity is the whole point.
+    const start = css.indexOf(".la-status {");
+    const tile = css.slice(start, css.indexOf("}", start));
+    assert.doesNotMatch(tile, /^\s*opacity:/m,
+      "a blanket opacity on .la-status takes the label down with the icon; " +
+      "dim .la-status__icon instead");
+  });
+
+  /**
+   * The icons draw with `stroke="currentColor"`, which an <img> resolves
+   * against the SVG's own root — always black, whatever the sheet's ink is.
+   * That is what made them invisible in the dark theme.
+   */
+  test("status icons are masked rather than embedded as images", () => {
+    const tpl = readFileSync(join(root, "templates/actor/status-palette.hbs"), "utf8");
+    assert.doesNotMatch(tpl, /<img[^>]*la-status__icon/,
+      "an <img> cannot inherit currentColor; use the mask on .la-status__icon");
+    assert.match(css, /\.la-status__icon[\s\S]*?mask:/,
+      "the icon must be masked so currentColor applies");
+  });
+});

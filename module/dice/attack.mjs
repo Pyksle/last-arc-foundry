@@ -10,6 +10,7 @@ import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollDamageDice, rollExplodingDice } from "./explode.mjs";
 import { describeCheck } from "./breakdown.mjs";
+import { situationalLabel } from "./situational.mjs";
 
 /* -------------------------------------------------------------------------- */
 /*  Attack resolution — pure                                                   */
@@ -39,7 +40,8 @@ export function situationalModifiers({
   targetHelpless = false,
   concealment = "none",
   improvised = false,
-  situational = 0
+  situational = 0,
+  situationalNote = null
 } = {}) {
   const parts = [];
   const add = (label, value) => { if (value) parts.push({ label, value }); };
@@ -59,7 +61,9 @@ export function situationalModifiers({
 
   if (improvised) add("LASTARC.Mod.improvised", -5);
 
-  add("LASTARC.Mod.situational", situational);
+  // The note replaces the generic label when one was typed, so the card
+  // records WHY the number was applied and the table can check it later.
+  add(situationalLabel(situationalNote), situational);
 
   return parts;
 }

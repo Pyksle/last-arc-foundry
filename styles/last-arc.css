@@ -23,7 +23,15 @@
   --la-paper-3: #e0d5bd;
   --la-ink: #1c1815;
   --la-ink-soft: #4a423a;
-  --la-ink-faint: #8a7f70;
+  /**
+   * Was #8a7f70 here and #857a6b in dark, measuring 3.45:1 and 4.12:1 on
+   * paper. EVERY use of this token is small text — panel sub-headings, hints,
+   * unit labels, some forty of them — so AA wants 4.5:1 and neither reached
+   * it. The status palette made it obvious by halving the opacity on top of
+   * an already-short colour, but the token was the real fault.
+   * `test/contrast.test.mjs` now measures the ink tokens against paper.
+   */
+  --la-ink-faint: #6f6455;
   --la-rule: #b9ab8f;
   --la-bronze: #8b6f3f;
   --la-bronze-bright: #b08d4f;
@@ -63,7 +71,8 @@
     --la-paper-3: #322c28;
     --la-ink: #ece3d2;
     --la-ink-soft: #bdb2a0;
-    --la-ink-faint: #857a6b;
+    /* Was #857a6b — 4.12:1, likewise short of AA. */
+    --la-ink-faint: #9c9081;
     --la-rule: #4d443a;
     --la-bronze: #b08d4f;
     --la-bronze-bright: #d4ac66;
@@ -78,7 +87,7 @@
   --la-paper-3: #322c28;
   --la-ink: #ece3d2;
   --la-ink-soft: #bdb2a0;
-  --la-ink-faint: #857a6b;
+  --la-ink-faint: #9c9081;
   --la-rule: #4d443a;
   --la-bronze: #b08d4f;
   --la-bronze-bright: #d4ac66;
@@ -92,7 +101,7 @@
   --la-paper-3: #e0d5bd;
   --la-ink: #1c1815;
   --la-ink-soft: #4a423a;
-  --la-ink-faint: #8a7f70;
+  --la-ink-faint: #6f6455;
   --la-rule: #b9ab8f;
   --la-bronze: #8b6f3f;
   --la-bronze-bright: #b08d4f;
@@ -981,23 +990,48 @@
   border: 1px solid transparent;
   border-radius: 3px;
   cursor: pointer;
-  /* Inactive statuses are legible but recede; the active ones are the message. */
-  opacity: 0.5;
+  /* NO blanket opacity. Dimming the whole tile took the label down with it —
+     0.5 over an already-short faint ink measured 1.73:1. The name stays fully
+     legible whether the status is on or off; only the icon recedes. */
+  color: var(--la-ink-soft);
 }
-.la-status:hover { opacity: 0.85; border-color: var(--la-rule); }
+.la-status:hover { border-color: var(--la-rule); }
 .la-status.is-active {
-  opacity: 1;
   border-color: var(--la-bronze);
   background: color-mix(in srgb, var(--la-bronze) 10%, transparent);
+  color: var(--la-ink);
 }
-.la-status__icon { width: 1.6rem; height: 1.6rem; }
+
+/**
+ * The icon is MASKED, not an <img>.
+ *
+ * All 33 status SVGs draw with `stroke="currentColor"`, which is right — but an
+ * <img> renders the file as a standalone document, where `currentColor`
+ * resolves against the SVG's own root and that defaults to BLACK. It can never
+ * inherit the sheet's ink no matter what is set around it, so in the dark theme
+ * the palette was black on near-black: 1.12:1, the same number as the chat-card
+ * bug in issue #11.
+ *
+ * A mask uses only the alpha channel, so the artwork's own colour stops
+ * mattering and `background-color: currentColor` genuinely inherits.
+ */
+.la-status__icon {
+  width: 1.6rem;
+  height: 1.6rem;
+  background-color: currentColor;
+  -webkit-mask: var(--la-status-icon) center / contain no-repeat;
+  mask: var(--la-status-icon) center / contain no-repeat;
+  /* 3.48:1 light, 4.26:1 dark — over the 3:1 that non-text needs, and the
+     name beside it carries the meaning regardless. */
+  opacity: 0.65;
+}
+.la-status.is-active .la-status__icon { opacity: 1; }
 .la-status__name {
   font-size: 0.58rem;
   line-height: 1.15;
   text-align: center;
-  color: var(--la-ink-faint);
+  color: inherit;
 }
-.la-status.is-active .la-status__name { color: var(--la-ink); }
 
 /* Loot / steal rows: item, percentage, remove.
    The two tables sit side by side and fall to one column when the sheet is
