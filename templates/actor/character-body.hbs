@@ -171,6 +171,49 @@
         <input type="text" name="system.movement.special" value="{{system.movement.special}}">
         <label>{{localize "LASTARC.Movement.special"}}</label>
       </div>
+    </div>
+  </section>
+
+  {{!-- ── Proficiencies ───────────────────────────────────────────────────
+        Both lists were read from the first release and had no input at all
+        (issue #21): a weapon whose category is missing here costs −5 on every
+        attack, and armour whose type is missing applies the armour check
+        penalty to every Str- and Agi-based skill. So every character was
+        non-proficient with everything, permanently, with no way to say
+        otherwise.
+
+        Checkboxes, not a comma box. Both are closed sets, and making someone
+        type `bludgeons` correctly to stop losing 5 from their attacks is a
+        trap. The names carry a `...Choice.` stand-in and are repacked into the
+        arrays in _prepareSubmitData — binding straight at the array path would
+        store a bare boolean and lose the lot.
+
+        Shield proficiency moved here from the Movement panel, where it had
+        been sitting next to the swim speed. --}}
+  <section class="la-panel la-panel--proficiencies">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Proficiencies"}}</h2>
+    <p class="la-note">{{localize "LASTARC.Note.ProficiencyPenalty"}}</p>
+
+    <h3 class="la-prof__title">{{localize "LASTARC.Field.WeaponProficiency"}}</h3>
+    <div class="la-prof">
+      {{#each weaponProficiencies}}
+        <label class="la-checkfield">
+          <input type="checkbox" name="system.proficiencies.weaponsChoice.{{this.key}}"
+                 {{#if this.active}}checked{{/if}}>
+          {{localize this.label}}
+        </label>
+      {{/each}}
+    </div>
+
+    <h3 class="la-prof__title">{{localize "LASTARC.Field.ArmourProficiency"}}</h3>
+    <div class="la-prof">
+      {{#each armourProficiencies}}
+        <label class="la-checkfield">
+          <input type="checkbox" name="system.proficiencies.armourChoice.{{this.key}}"
+                 {{#if this.active}}checked{{/if}}>
+          {{localize this.label}}
+        </label>
+      {{/each}}
       <label class="la-checkfield"
              data-tooltip="{{localize 'LASTARC.Tooltip.ShieldProficiency'}}">
         <input type="checkbox" name="system.proficiencies.shields"

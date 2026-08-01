@@ -942,6 +942,21 @@
 }
 .la-npc-skill__roll:hover { opacity: 1; }
 
+/* Proficiency checkbox grids. Two closed sets, so they wrap into columns
+   rather than scrolling. */
+.la-prof {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  gap: 0.1rem 0.6rem;
+}
+.la-prof__title {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--la-ink-faint);
+  margin: 0.55rem 0 0.2rem;
+}
+
 /* Status palette. A dense grid of togglable icons — 33 of them, so the tile is
    small and the name sits under the icon rather than beside it. */
 .la-statuses {

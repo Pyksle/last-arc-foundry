@@ -758,3 +758,66 @@ describe("declared options are all implemented", () => {
     }
   });
 });
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * ISSUE #21. `proficiencies.weapons` and `proficiencies.armour` were read from
+ * the first release and had no input anywhere, so every character was
+ * non-proficient with every weapon — a permanent −5 on every attack — and with
+ * every armour, applying the check penalty to every Str- and Agi-based skill.
+ * Only `shields` had a checkbox.
+ *
+ * The Quench field-coverage guard is the test that catches this class of bug,
+ * and it needs a live Foundry to render a sheet, so it had never been run
+ * against these. This is the CI-runnable half: it cannot prove the controls
+ * work, only that something claims to bind each path. That is exactly the
+ * distance between a green suite and a working sheet, and it is enough to stop
+ * a field being read by the maths while no player can set it.
+ */
+describe("issue #21 — every proficiency is reachable", () => {
+  const bound = templates
+    .flatMap(({ source }) => [...source.matchAll(/name="([^"]+)"/g)].map((m) => m[1]))
+    .filter((n) => n.startsWith("system."))
+    .map((n) => n.slice("system.".length));
+
+  const covers = (path) => bound.some((b) => b === path || b.startsWith(path));
+
+  for (const path of ["proficiencies.weapons", "proficiencies.armour", "proficiencies.shields"]) {
+    test(`${path} has a control`, () => {
+      assert.ok(covers(path),
+        `${path} is read by the maths and nothing on any sheet can set it`);
+    });
+  }
+
+  /**
+   * The boxes are generated from a loop, so their names are interpolated and a
+   * literal `...weaponsChoice.axes` never appears in the template to be found.
+   * The invariant that actually matters is one row per configured category, so
+   * that is what is checked: the context is built from the config list rather
+   * than from a hand-written subset that would silently omit one.
+   */
+  test("a box is generated for every configured category", () => {
+    assert.match(sheetSource, /LASTARC\.weaponCategories\.map\(/,
+      "weapon proficiency rows must come from the config list, not a hand-typed one");
+    assert.match(sheetSource, /Object\.keys\(LASTARC\.armourTypes\)\.map\(/,
+      "armour proficiency rows must come from the config list");
+
+    const body = templates.find((t) => t.name.endsWith("character-body.hbs")).source;
+    assert.match(body, /name="system\.proficiencies\.weaponsChoice\.\{\{this\.key\}\}"/);
+    assert.match(body, /name="system\.proficiencies\.armourChoice\.\{\{this\.key\}\}"/);
+  });
+
+  /**
+   * The stand-in names only count as coverage because they begin with the
+   * array's own path, which is the `*Text` convention the comma boxes rely on.
+   * Rename the prefix and the boxes keep working while the guard above goes
+   * blind, so the repacking is pinned to it here.
+   */
+  test("the sheet repacks the stand-in boxes into the arrays", () => {
+    assert.match(sheetSource, /proficiencies\.\$\{field\}|proficiencies\.weapons/,
+      "the checkbox grid must be collapsed back into the ArrayField on submit");
+    assert.match(sheetSource, /weaponsChoice/);
+    assert.match(sheetSource, /armourChoice/);
+  });
+});
