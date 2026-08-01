@@ -951,13 +951,38 @@
 }
 .la-npc-skill__roll:hover { opacity: 1; }
 
-/* Proficiency checkbox grids. Two closed sets, so they wrap into columns
-   rather than scrolling. */
+/* Proficiency toggles. Two closed sets, so they wrap into columns rather than
+   scrolling. Buttons rather than checkboxes — see the note on the panel. */
 .la-prof {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
   gap: 0.1rem 0.6rem;
 }
+.la-prof__box {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.25rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--la-radius);
+  font-size: 0.7rem;
+  text-align: left;
+  cursor: pointer;
+  color: var(--la-ink-soft);
+}
+.la-prof__box:hover { border-color: var(--la-rule); }
+.la-prof__box.is-active {
+  color: var(--la-ink);
+  border-color: var(--la-bronze);
+  background: color-mix(in srgb, var(--la-bronze) 10%, transparent);
+}
+.la-prof__tick {
+  width: 0.9rem;
+  text-align: center;
+  color: var(--la-ink-faint);
+}
+.la-prof__box.is-active .la-prof__tick { color: var(--la-bronze); }
 .la-prof__title {
   font-size: 0.65rem;
   text-transform: uppercase;

@@ -65,7 +65,8 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       bankAim: LastArcCharacterSheet.#onBankAim,
       holdTurn: LastArcCharacterSheet.#onHoldTurn,
       resetActions: LastArcCharacterSheet.#onResetActions,
-      toggleStatus: LastArcCharacterSheet.#onToggleStatus
+      toggleStatus: LastArcCharacterSheet.#onToggleStatus,
+      toggleProficiency: LastArcCharacterSheet.#onToggleProficiency
     }
   };
 
@@ -82,6 +83,35 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     const sys = this.document.system;
+
+    /**
+     * STORED values, before Active Effects and before derivation (issue #28).
+     *
+     * Anything rendered into an <input> must come from here, never from the
+     * prepared model. CLAUDE.md already says a derived value must not have an
+     * input; the same is true of any path an ACTIVE EFFECT feeds, and effects
+     * are fed deliberately into `misc` and attribute values by design.
+     *
+     * The failure is a ratchet, not a wrong number: the box shows the value
+     * WITH the effect applied, `submitOnChange` writes that back on the next
+     * change to anything on the sheet, and the effect then applies again on top
+     * of its own result. Reported as a permanent, creeping Will bonus that
+     * appeared while clicking the proficiency toggles — the toggles were
+     * innocent, they were just submitting the form repeatedly.
+     */
+    const src = this.document.system._source;
+
+    /**
+     * Flight and hover are ZEROED by derivation when the character is
+     * overencumbered or speed-locked (§4.6). Rendering the prepared value into
+     * the input meant that, while encumbered, any submit wrote those zeros to
+     * storage — so dropping the load did not give the flight speed back. It was
+     * gone. Same defect as the Will ratchet, running the other way.
+     */
+    context.movementInput = {
+      fly: src.movement?.fly ?? 0,
+      hover: !!src.movement?.hover
+    };
 
     context.system = sys;
     context.config = LASTARC;
@@ -129,7 +159,11 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       key,
       label: LASTARC.attributes[key].label,
       abbr: LASTARC.attributes[key].abbr,
-      ...sys.attributes[key]
+      ...sys.attributes[key],
+      // Attributes are the commonest Active Effect target of all.
+      valueInput: src.attributes[key]?.value ?? 0,
+      racialModInput: src.attributes[key]?.racialMod ?? 0,
+      capInput: src.attributes[key]?.cap ?? null
     }));
 
     // Skills, standard then weapon, each carrying the five printed columns.
@@ -147,6 +181,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const halfLevel = D.rd(sys.details.level / 2);
     const breakPenalty = sys.breakGauge.penalty;
 
+
     const toRow = (key, cfg) => {
       const s = sys.skills[key];
       const parts = D.skillAdjustmentParts(s, breakPenalty);
@@ -162,6 +197,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
         trained: s.trained,
         focus: s.focus,
         misc: s.misc,
+        miscInput: src.skills[key]?.misc ?? 0,
         total: s.total,
         appliesArmourPenalty: s.appliesArmourPenalty,
         halfLevel,
@@ -227,7 +263,8 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.defenceRows = ["ref", "fort", "will"].map((key) => ({
       key,
       label: `LASTARC.Defence.${key}`,
-      ...sys.defences[key]
+      ...sys.defences[key],
+      miscInput: src.defences[key]?.misc ?? 0
     }));
 
     context.classOptions = Object.entries(LASTARC.classes)
@@ -276,29 +313,10 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     }
 
     /**
-     * Collapse the proficiency checkbox grids back into their ArrayFields.
-     *
-     * One checkbox per category, named `...weaponsChoice.<key>`, is gathered
-     * into `proficiencies.weapons`. The stand-in prefix matters: it has to
-     * begin with the array's own path so the field-coverage guard counts the
-     * array as reachable, which is the same `*Text` convention the comma boxes
-     * use — and the guard that should have caught this being missing.
-     *
-     * Rebuilt from the boxes rather than merged into the stored array, so
-     * UNCHECKING one removes it. A merge would make proficiency additive and
-     * impossible to take away.
+     * Proficiencies used to be repacked here from a grid of checkboxes named
+     * `...weaponsChoice.<key>`. They are toggle buttons now and write their own
+     * arrays, so there is nothing left to repack — see #onToggleProficiency.
      */
-    for (const [field, stand] of [["weapons", "weaponsChoice"], ["armour", "armourChoice"]]) {
-      const prefix = `system.proficiencies.${stand}.`;
-      const keys = Object.keys(submit).filter((k) => k.startsWith(prefix));
-      if (!keys.length) continue;
-
-      submit[`system.proficiencies.${field}`] = keys
-        .filter((k) => submit[k])
-        .map((k) => k.slice(prefix.length));
-      for (const k of keys) delete submit[k];
-    }
-
     return submit;
   }
 
@@ -732,6 +750,51 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
   static async #onToggleStatus(event, target) {
     await toggleStatus(this, target);
+  }
+
+  /**
+   * Toggle one weapon category, armour type, or shield proficiency (#28).
+   *
+   * Writes the document directly rather than going through the form. The grid
+   * shipped in 0.12.0 as bound checkboxes repacked in `_prepareSubmitData`, and
+   * that had two failure modes at once: `submitOnChange` re-renders the sheet
+   * on every change, so a tick could be lost to the re-render — reported as
+   * "not staying selected", and intermittent exactly as a race is — and the
+   * repack itself assumed a shape for the submit data that could not be
+   * verified without a live Foundry. Neither risk survives writing the array
+   * here.
+   *
+   * Rebuilt by adding or removing the one key, so unticking genuinely removes
+   * it; a merge would make proficiency additive and impossible to take away.
+   */
+  static async #onToggleProficiency(event, target) {
+    const { prof, key } = target.dataset;
+
+    if (prof === "shields") {
+      await this.document.update({
+        "system.proficiencies.shields": !this.document.system.proficiencies.shields
+      });
+      return;
+    }
+
+    const valid = prof === "weapons"
+      ? LASTARC.weaponCategories
+      : prof === "armour" ? Object.keys(LASTARC.armourTypes) : null;
+
+    // Checked against the config rather than trusted from the markup: an
+    // unrecognised key would otherwise be stored and then silently fail to
+    // match any weapon, which looks exactly like the button doing nothing.
+    if (!valid || !valid.includes(key)) {
+      console.warn(`Last Arc | "${prof}/${key}" is not a proficiency; nothing toggled.`);
+      return;
+    }
+
+    const current = this.document.system.proficiencies[prof] ?? [];
+    const next = current.includes(key)
+      ? current.filter((k) => k !== key)
+      : [...current, key];
+
+    await this.document.update({ [`system.proficiencies.${prof}`]: next });
   }
 
   static async #onHeroBoost(event, target) {
