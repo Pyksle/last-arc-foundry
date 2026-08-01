@@ -322,3 +322,97 @@ describe("no decoy technick flags", () => {
     assert.deepEqual(missing, [], `flags would render a raw key: ${missing.join(", ")}`);
   });
 });
+
+/* -------------------------------------------------------------------------- */
+/*  Row fields nobody can fill in                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Every subfield of an array-of-rows needs an indexed input somewhere.
+ *
+ * The Quench suite has a check like this. It has NEVER RUN — it needs a
+ * licensed Foundry and a live world, so it cannot run in CI, and a guard that
+ * has never executed is a guard nobody should be trusting. Four fields on
+ * `npc.attacks` proved it: `reach`, `range`, `count` and `notes` were declared
+ * on the schema with no input and no reader, dead at both ends since the NPC
+ * sheet was written. `count` is a creature's MULTIATTACK — the number of times
+ * an ogre swings — and it could not be recorded at all.
+ *
+ * This is the same rule in plain node, so it runs on every commit.
+ */
+function rowFields() {
+  const out = [];
+  for (const file of readdirSync(join(root, "module/data"))) {
+    if (!file.endsWith(".mjs")) continue;
+    const lines = read(`module/data/${file}`).split("\n");
+
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/^\s*(\w+):\s*new fields\.ArrayField\(\s*$/);
+      if (!m) continue;
+      if (!/new fields\.SchemaField\(\{/.test(lines[i + 1] ?? "")) continue;
+
+      // Walk the row's own schema, stopping at its closing brace.
+      const indent = (lines[i + 1].match(/^\s*/) || [""])[0].length;
+      for (let j = i + 2; j < lines.length; j++) {
+        const line = lines[j];
+        if (new RegExp(`^\\s{${indent}}\\}`).test(line)) break;
+        const f = line.match(/^\s*(\w+):\s*new fields\.\w+Field\(/);
+        if (f) out.push({ file, array: m[1], field: f[1] });
+      }
+    }
+  }
+  return out;
+}
+
+describe("every row field has an input", () => {
+  const EXCUSED = {
+    sort: "ACTION — set by the reorder controls, not an input",
+    // The Break Gauge persistent-source rows are built and cleared by a dialog
+    // (`#onAddPersistent` / `#onClearPersistent`), never typed into a grid.
+    id: "ACTION — assigned when a persistent source is added by dialog",
+    label: "ACTION — chosen in the persistent-source dialog",
+    clearedBy: "ACTION — chosen in the persistent-source dialog",
+    fromInjury: "ACTION — set by the persistent-source dialog",
+    // A nested SchemaField. Its own leaves are bound one level deeper, e.g.
+    // `system.outcomes.N.onFail.damageMultiplier`, which this extractor reads
+    // as the parent being unbound.
+    onFail: "nested schema — its leaves are bound at their own paths",
+
+    /**
+     * REAL GAPS, recorded rather than hidden. Each is a field a hand-authoring
+     * GM can store and cannot enter, found by this guard on its first run and
+     * filed as #39. They predate today's work and none is a regression, so they
+     * are excused with a reason rather than fixed blind two days before a
+     * playtest — but an excuse is a claim about the code, and this one comes
+     * with an issue number attached so it cannot quietly become permanent.
+     */
+    bonus: "issue #39 — grants.skills[].bonus has no input; a technick cannot set the size of a skill bonus it grants",
+    damageMultiplier: "issue #39 — the outcome's own multiplier has no input, though its onFail counterpart does",
+    name: "issue #39 — race traits[].name has no input",
+    description: "issue #39 — race traits[].description has no input"
+  };
+
+  test("the extractor finds the row schemas", () => {
+    const found = rowFields();
+    assert.ok(found.length >= 10, `only found ${found.length}`);
+    assert.ok(found.some((f) => f.array === "attacks" && f.field === "count"),
+      "npc.attacks.count is the field this guard exists for");
+  });
+
+  test("no row field is unfillable", () => {
+    const missing = rowFields()
+      .filter(({ array, field }) => {
+        if (EXCUSED[field]) return false;
+        // The array may be nested (`grants.skills`), so allow any prefix before
+        // its name rather than assuming it sits at the root of `system`.
+        return !new RegExp(`name="system\\.(?:[\\w.]+\\.)?${array}\\.\\{\\{[^}]*\\}\\}\\.${field}"`)
+          .test(allTemplates);
+      })
+      .map(({ file, array, field }) => `${file}: ${array}[].${field}`);
+
+    assert.deepEqual(missing, [],
+      "these are declared on a row schema and no template offers a way to type " +
+      "into them, so the data can be stored and never entered:\n  " +
+      missing.join("\n  "));
+  });
+});

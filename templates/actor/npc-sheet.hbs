@@ -342,6 +342,36 @@
             </label>
           </div>
 
+          {{!-- Four fields that were declared on the schema with NO input and
+                NO reader — dead at both ends. `count` is the one that matters
+                at the table: a statblock's multiattack was unrecordable. --}}
+          <div class="la-attack__row">
+            <label>
+              <span>{{localize "LASTARC.Field.AttackCount"}}</span>
+              <input type="number" name="system.attacks.{{this.index}}.count"
+                     value="{{this.count}}" min="1"
+                     data-tooltip="{{localize 'LASTARC.Tooltip.AttackCount'}}">
+            </label>
+            {{#if this.isMelee}}
+              <label>
+                <span>{{localize "LASTARC.Field.Reach"}}</span>
+                <input type="number" name="system.attacks.{{this.index}}.reach"
+                       value="{{this.reach}}" min="0">
+              </label>
+            {{else}}
+              <label>
+                <span>{{localize "LASTARC.Field.Range"}}</span>
+                <input type="text" name="system.attacks.{{this.index}}.range"
+                       value="{{this.range}}">
+              </label>
+            {{/if}}
+            <label class="la-attack__notes">
+              <span>{{localize "LASTARC.Field.Notes"}}</span>
+              <input type="text" name="system.attacks.{{this.index}}.notes"
+                     value="{{this.notes}}">
+            </label>
+          </div>
+
         </div>
       {{else}}
         <p class="la-note">{{localize "LASTARC.Note.NoAttacks"}}</p>

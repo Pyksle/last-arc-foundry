@@ -69,6 +69,20 @@
     </p>
   {{/if}}
 
+  {{!-- Statblock details. Multiattack is stated, not automated: each attack
+        resolves against its own defence and can be blocked separately. --}}
+  {{#if attackCount}}
+    <p class="lastarc-rider">
+      {{localize "LASTARC.Card.Multiattack"}} <strong>×{{attackCount}}</strong>
+    </p>
+  {{/if}}
+  {{#if reachOrRange}}
+    <p class="lastarc-note">{{localize reachLabel}} {{reachOrRange}}</p>
+  {{/if}}
+  {{#if attackNotes}}
+    <p class="lastarc-note">{{attackNotes}}</p>
+  {{/if}}
+
   {{#if outcome.hit}}
     {{!-- `hasAttackIndex` is a precomputed boolean, not an inline comparison:
           attack index 0 is legitimate and would test as falsy on its own. --}}

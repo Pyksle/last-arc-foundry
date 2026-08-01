@@ -701,7 +701,25 @@ async function postAttackCard({
       targetName: options.target?.name ?? null,
       statusLabel: isNpc && attack.appliesStatus
         ? game.i18n.localize(`LASTARC.Status.${attack.appliesStatus}`)
-        : null
+        : null,
+
+      /**
+       * Statblock details that had no input and no reader — declared on the
+       * schema and dead at both ends. `count` is the one that costs a GM
+       * something: a creature's multiattack could not be recorded at all, so
+       * "the ogre attacks twice" lived in the GM's head or not at all.
+       *
+       * Stated on the card rather than automated into N rolls. Each attack
+       * resolves against its own defence and can be blocked separately, so
+       * firing them as a batch would collapse decisions the table should get
+       * to make one at a time.
+       */
+      attackCount: isNpc && attack.count > 1 ? attack.count : null,
+      reachOrRange: isNpc
+        ? (attack.isMelee ? (attack.reach || null) : (attack.range || null))
+        : null,
+      reachLabel: isNpc && attack.isMelee ? "LASTARC.Field.Reach" : "LASTARC.Field.Range",
+      attackNotes: isNpc ? (attack.notes || null) : null
     }
   );
 
