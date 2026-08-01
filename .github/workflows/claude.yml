@@ -73,6 +73,12 @@ jobs:
           # derivation change. The Quench suite is deliberately absent: it
           # needs a licensed Foundry server and a live world, so offering it
           # would produce confident failures rather than useful ones.
+          # 40 was not enough either, and the reason was not the ceiling: with
+          # no CLAUDE.md, roughly half the turns went on rediscovering that a
+          # new schema field also needs a template input, a localisation key
+          # and an EXEMPT entry — each learned by running the suite and reading
+          # a failure. CLAUDE.md front-loads that; 60 is the headroom for the
+          # work that remains.
           claude_args: |
-            --max-turns 40
+            --max-turns 60
             --allowedTools "Edit,Write,MultiEdit,Read,Glob,Grep,LS,Bash(npm test),Bash(npm install),Bash(node tools/build-release.mjs),Bash(git add:*),Bash(git commit:*),Bash(git rm:*),Bash(git status:*),Bash(git diff:*)"
