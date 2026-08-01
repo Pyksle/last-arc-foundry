@@ -634,8 +634,42 @@ describe("no orphaned exports", () => {
     ["sequenceComplete", "banked Recovery/Aim completion is not consumed anywhere yet"],
     ["surpriseActions", "surprise-round action limits are not enforced yet"],
     ["holderPriority", "Hold Turn ordering helper, not yet needed by the tracker"],
-    ["initiativeDieFor", "die lookup superseded by the derived actor value"]
+    ["initiativeDieFor", "die lookup superseded by the derived actor value"],
+
+    /**
+     * Both of these surfaced the moment the guard stopped counting comments as
+     * uses (issue #34). Neither is here because it is fine — they are here
+     * because the fix is riskier than the gap, two days before a playtest.
+     */
+    ["trainedSkillCount", "issue #34: correct, and no sheet shows a trained-skill " +
+      "allowance for it to feed. Needs a readout, not a caller"],
+    ["isFlatFooted", "issue #37: the combat lifecycle implements a NARROWER version " +
+      "of this rule inline — round-1-and-not-yet-acted only — and never calls it, so " +
+      "the `surprised` and `detectsAttacker` cases it handles are unenforced. Two " +
+      "implementations of one rule; do not rewire initiative on the eve of a playtest"]
   ]);
+
+  /**
+   * Strip comments and string literals before counting uses.
+   *
+   * WITHOUT THIS THE GUARD IS VOUCHED FOR BY PROSE. It counted every occurrence
+   * of the name anywhere in `module/`, so a function was protected from the
+   * check by any comment that happened to mention it — including a comment
+   * explaining why it was not wired, which is precisely what somebody writes
+   * immediately before leaving it unwired.
+   *
+   * `trainedSkillCount` survived exactly that way (issue #34): defined in
+   * derivation.mjs, called by nothing, and kept quiet by one line of prose in
+   * config.mjs describing the state it was left in. This is the guard the
+   * project leans on hardest, and the hole opened whenever anyone documented
+   * an omission honestly.
+   */
+  const codeOnly = (src) => src
+    .replace(/\/\*[\s\S]*?\*\//g, " ")     // block comments, including JSDoc
+    .replace(/(^|[^:])\/\/.*$/gm, "$1 ")   // line comments, sparing "https://"
+    .replace(/`(?:[^`\\]|\\.)*`/g, " ")    // template literals
+    .replace(/"(?:[^"\\]|\\.)*"/g, " ")
+    .replace(/'(?:[^'\\]|\\.)*'/g, " ");
 
   test("every exported function is called somewhere, or explained", () => {
     const files = readdirSync(join(root, "module"), { recursive: true })
@@ -645,7 +679,7 @@ describe("no orphaned exports", () => {
         source: readFileSync(join(root, "module", f), "utf8")
       }));
 
-    const corpus = files.map((f) => f.source).join("\n");
+    const corpus = files.map((f) => codeOnly(f.source)).join("\n");
 
     const orphans = [];
     for (const { name, source } of files) {
@@ -662,12 +696,32 @@ describe("no orphaned exports", () => {
       orphans.join("\n  "));
   });
 
+  test("a comment mentioning a function does not vouch for it", () => {
+    // The regression itself. If this passes vacuously the guard is back to
+    // trusting prose, and the next unwired export goes quiet again.
+    const stripped = codeOnly(`
+      /** talks about zzWidget in a block comment */
+      // and zzWidget again in a line comment
+      const msg = "zzWidget in a string";
+      export function zzWidget() {}
+    `);
+    assert.equal([...stripped.matchAll(/\bzzWidget\b/g)].length, 1,
+      "comments or strings are still being counted as uses");
+
+    // ...and a real call still counts.
+    assert.equal([...codeOnly("zzWidget();").matchAll(/\bzzWidget\b/g)].length, 1);
+  });
+
   test("the allowlist has no stale entries", () => {
     // An allowlisted function that HAS been wired should leave the list, or the
     // list slowly becomes a place bugs hide.
+    // Same comment-stripping as the guard above, and for the same reason: this
+    // check counted prose too, so a comment naming an allowlisted function
+    // reported it as "now wired" and demanded its removal from the list. The
+    // two halves have to agree on what a use is, or they contradict each other.
     const files = readdirSync(join(root, "module"), { recursive: true })
       .filter((f) => typeof f === "string" && f.endsWith(".mjs"))
-      .map((f) => readFileSync(join(root, "module", f), "utf8"))
+      .map((f) => codeOnly(readFileSync(join(root, "module", f), "utf8")))
       .join("\n");
 
     const stale = [];
