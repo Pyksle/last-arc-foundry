@@ -584,7 +584,13 @@ export async function applyDamage(target, { total, type = "blunt", faces = null 
 
 function hasFlag(actor, flag) {
   return actor?.items?.some(
-    (i) => (i.type === "technick" || i.type === "talent") && i.system?.flags?.includes(flag)
+    (i) => (i.type === "technick" || i.type === "talent")
+      // Switched-off technicks do not contribute. Most of the book's flags are
+      // conditional — Backstab doubles explosions when you backstab, not on
+      // every attack forever — and the system cannot evaluate the condition,
+      // so the player switches the technick off when it does not apply.
+      && i.system?.active !== false
+      && i.system?.flags?.includes(flag)
   ) ?? false;
 }
 

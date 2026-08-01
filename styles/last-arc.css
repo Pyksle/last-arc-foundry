@@ -931,6 +931,27 @@
 }
 .la-item__share:hover { opacity: 1; }
 
+/* Suspend switch on a technick row. Deliberately the leftmost control and
+   always the same width, so the eye can scan a column of them and see at a
+   glance which technicks are live. */
+.la-item__switch {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  width: 1.1rem;
+  padding: 0;
+  color: var(--la-bronze);
+}
+.la-item__switch[aria-checked="false"] { color: var(--la-ink-faint); }
+
+/* A suspended technick still shows its name and payload — it is switched off,
+   not gone — but reads as inert. Text stays at full contrast; only the icon
+   and the rule dim, because greying the row would fail the contrast suite. */
+.la-item.is-suspended .la-item__img { opacity: 0.4; }
+.la-item.is-suspended .la-item__name { font-style: italic; }
+
 /* Statblock skill rows: skill, printed total, roll, remove. */
 .la-npc-skill {
   display: grid;

@@ -66,7 +66,8 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       holdTurn: LastArcCharacterSheet.#onHoldTurn,
       resetActions: LastArcCharacterSheet.#onResetActions,
       toggleStatus: LastArcCharacterSheet.#onToggleStatus,
-      toggleProficiency: LastArcCharacterSheet.#onToggleProficiency
+      toggleProficiency: LastArcCharacterSheet.#onToggleProficiency,
+      toggleTechnickActive: LastArcCharacterSheet.#onToggleTechnickActive
     }
   };
 
@@ -449,7 +450,17 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
           kindLabel: game.i18n.localize(`TYPES.Item.${item.type}`),
           summary: this.#grantSummary(item.system.grants),
           prereqsMet: check.met,
-          unmetText: check.unmet.join(", ")
+          unmetText: check.unmet.join(", "),
+          /**
+           * Whether this technick is in effect right now. Surfaced on the ROW
+           * rather than only on the item sheet because the technicks that need
+           * switching are the conditional ones, and their condition changes
+           * mid-turn — opening an item sheet to toggle Backstab between two
+           * attacks is not something anybody will do twice.
+           */
+          active: item.system.active !== false,
+          /** Only worth switching if the technick actually does something. */
+          hasFlags: (item.system.flags?.length ?? 0) > 0
         });
         continue;
       }
@@ -803,6 +814,21 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       : [...current, key];
 
     await this.document.update({ [`system.proficiencies.${prof}`]: next });
+  }
+
+  /**
+   * Suspend or resume a technick's mechanical effects.
+   *
+   * Backstab doubles exploding dice, and the flag is unconditional once set —
+   * so a rogue who takes it has every javelin throw exploding twice for the
+   * rest of the session. The condition is one the system cannot evaluate, so
+   * the player states it: switch off, throw the javelin, switch back on.
+   */
+  static async #onToggleTechnickActive(event, target) {
+    const item = this.document.items.get(target.dataset.itemId);
+    if (!item) return;
+
+    await item.update({ "system.active": item.system.active === false });
   }
 
   static async #onHeroBoost(event, target) {

@@ -637,6 +637,10 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       // only while worn. A racial feature is not something you take off.
       const isInnate = item.type === "technick" || item.type === "talent"
         || item.type === "feature";
+      // A technick switched off contributes nothing — see `active` on the
+      // technick schema. Features have no such switch, hence `!== false`
+      // rather than a truthiness test.
+      if (item.system.active === false) continue;
       if (isInnate || item.system.equipped) contributing.push(g);
     }
 

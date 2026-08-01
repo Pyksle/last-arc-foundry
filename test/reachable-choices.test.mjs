@@ -272,6 +272,43 @@ describe("no decoy technick flags", () => {
     }
   });
 
+  /**
+   * A flag is unconditional once ticked, and most of the book's are not:
+   * Backstab doubles exploding dice when you backstab, not on every javelin
+   * throw for the rest of the session. The system cannot evaluate the
+   * condition, so the player switches the technick off — and every consumer
+   * has to honour that, or the switch is decoration.
+   *
+   * Source-level assertions because `hasFlag` is module-private and
+   * `#aggregateGrants` needs a live Foundry document to call.
+   */
+  test("a switched-off technick contributes neither flags nor grants", () => {
+    for (const file of ["module/dice/attack.mjs", "module/dice/magic.mjs"]) {
+      const body = read(file).match(/function hasFlag\([\s\S]*?\n\}/)[0];
+      assert.match(body, /active\s*!==\s*false/,
+        `${file}: hasFlag ignores the suspend switch, so switching a technick ` +
+        "off on the sheet would not stop its flag applying");
+    }
+
+    // Anchored on the DEFINITION: `#aggregateGrants()` also appears as a call
+    // inside prepareDerivedData, and matching that swallowed the rest of the
+    // method and tested the wrong 200 lines.
+    const grants = read("module/data/character.mjs")
+      .match(/\n {2}#aggregateGrants\(\)\s*\{[\s\S]*?\n {2}\}/)[0];
+    assert.match(grants, /active === false/,
+      "a suspended technick still contributes its grants, so the switch would " +
+      "suspend half its payload and leave the rest running");
+  });
+
+  test("the switch is reachable from the technick row and the item sheet", () => {
+    assert.match(allTemplates, /data-action="toggleTechnickActive"/,
+      "no switch on the character sheet row — an item sheet round trip between " +
+      "two attacks is not something anybody will do twice");
+    assert.match(allSheets, /toggleTechnickActive: LastArcCharacterSheet\.#onToggleTechnickActive/);
+    assert.ok(allTemplates.includes('name="system.active"'),
+      "the field needs a real input on the item sheet too");
+  });
+
   test("every flag has both a label and a hint for its tooltip", () => {
     const lang = JSON.parse(read("lang/en.json"));
     const missing = LASTARC.technickFlags.flatMap((f) => [

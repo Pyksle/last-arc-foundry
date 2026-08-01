@@ -634,7 +634,11 @@ function doubleDiceCount(formula) {
 
 function hasFlag(actor, flag) {
   return actor?.items?.some(
-    (i) => (i.type === "technick" || i.type === "talent") && i.system?.flags?.includes(flag)
+    (i) => (i.type === "technick" || i.type === "talent")
+      // See the copy in attack.mjs: a technick switched off on the sheet
+      // contributes no flags.
+      && i.system?.active !== false
+      && i.system?.flags?.includes(flag)
   ) ?? false;
 }
 

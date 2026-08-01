@@ -264,6 +264,22 @@ export class LastArcTechnickData extends foundry.abstract.TypeDataModel {
         trainedSkills: new fields.ArrayField(new fields.StringField(), { initial: [] })
       }),
 
+      /**
+       * Whether this technick is currently in effect.
+       *
+       * Flags are unconditional once set, and most of the book's are not:
+       * Backstab doubles explosions only when you are actually backstabbing,
+       * not on every javelin throw for the rest of the session. The system
+       * cannot tell — that is the whole of issue #16 — so rather than guess it
+       * gives the player a switch and gets out of the way.
+       *
+       * Gates the technick's GRANTS as well as its flags, because a switch
+       * labelled "active" that leaves half the payload running would be a
+       * worse lie than no switch. Defaults true so nothing changes for the
+       * unconditional ones.
+       */
+      active: new fields.BooleanField({ initial: true }),
+
       repeatable: new fields.BooleanField({ initial: false }),
       /** Talents only: the class tree this belongs to. */
       tree: new fields.StringField({ initial: "", blank: true, nullable: true }),

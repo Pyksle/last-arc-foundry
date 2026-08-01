@@ -614,9 +614,19 @@
 
     <div class="la-items">
       {{#each technicks}}
-        <div class="la-item {{#unless this.prereqsMet}}is-invalid{{/unless}}">
+        <div class="la-item {{#unless this.prereqsMet}}is-invalid{{/unless}}
+                    {{#unless this.active}}is-suspended{{/unless}}">
           {{> laItemOrder}}
           <img class="la-item__img" src="{{this.img}}" alt="">
+          {{!-- Only technicks with a mechanical flag get a switch: the rest
+                have nothing to suspend, and a row of dead toggles is noise. --}}
+          {{#if this.hasFlags}}
+            <button type="button" class="la-item__switch" data-action="toggleTechnickActive"
+                    role="switch" aria-checked="{{#if this.active}}true{{else}}false{{/if}}"
+                    data-item-id="{{this.id}}"
+                    data-tooltip="{{localize 'LASTARC.Tooltip.TechnickActive'}}"
+            >{{#if this.active}}◉{{else}}○{{/if}}</button>
+          {{/if}}
           <button type="button" class="la-item__name" data-action="editItem"
                   data-item-id="{{this.id}}">{{this.name}}</button>
           <span class="la-item__type">{{this.kindLabel}}</span>

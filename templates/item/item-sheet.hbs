@@ -469,6 +469,11 @@
     <section class="la-panel">
       <h2 class="la-panel__title">{{localize "LASTARC.Section.TechnickFlags"}}</h2>
       <p class="la-note">{{localize "LASTARC.Note.TechnickFlags"}}</p>
+      <label data-tooltip="{{localize 'LASTARC.Tooltip.TechnickActive'}}">
+        <input type="checkbox" name="system.active" {{#if system.active}}checked{{/if}}>
+        {{localize "LASTARC.Field.TechnickActive"}}
+      </label>
+      <p class="la-note">{{localize "LASTARC.Note.TechnickActive"}}</p>
       <div class="la-prof">
         {{#each flagOptions}}
           <button type="button" class="la-prof__box {{#if this.selected}}is-active{{/if}}"
