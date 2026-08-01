@@ -119,7 +119,6 @@ function buildContext() {
         race: "Half-Elf", gender: "Non-binary", size: "medium",
         level, xp: 6500, xpNext: 10000,
         ethosPurity: "neutral", ethosMorality: "good",
-        levelMismatch: false
       },
       classes,
       resources: {
@@ -247,7 +246,6 @@ function buildContext() {
     sizeOptions: LASTARC.sizeOrder.map((k) => ({ value: k, label: LASTARC.sizes[k].label })),
     ethosPurityOptions: LASTARC.ethosPurity.map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` })),
     ethosMoralityOptions: LASTARC.ethosMorality.map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` })),
-    levelMismatch: false
   };
 }
 

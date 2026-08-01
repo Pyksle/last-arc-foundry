@@ -447,6 +447,51 @@ function registerSheetBatch(quench) {
        * These tests therefore assert the AFFORDANCE, not just the function.
        */
       describe("creating items by hand", function () {
+        /**
+         * Issue #5: "defences are not increased by character level at all".
+         *
+         * They were, and the maths was right. The trap was two levers —
+         * `details.level` drove every derived number while a player levelling
+         * up naturally edited `classes[].levels`, which drove nothing. Level is
+         * now the sum of the class levels, so raising a class raises everything
+         * downstream of it.
+         */
+        it("levelling a class raises character level and the defences with it",
+          async function () {
+            const actor = await Actor.create({ name: "Quench level chain", type: "character" });
+            try {
+              const before = {
+                level: actor.system.details.level,
+                ref: actor.system.defences.ref.value,
+                fort: actor.system.defences.fort.value,
+                will: actor.system.defences.will.value
+              };
+              assert.equal(before.level, 1, "a fresh character should start at level 1");
+
+              await actor.update({ "system.classes": [{ name: "warrior", levels: 6 }] });
+
+              assert.equal(actor.system.details.level, 6,
+                "character level must follow the class levels");
+              for (const key of ["ref", "fort", "will"]) {
+                assert.equal(actor.system.defences[key].value - before[key], 5,
+                  `${key} should rise by 5 across five levels, not stay put`);
+              }
+
+              // Multiclass sums rather than takes a maximum.
+              await actor.update({ "system.classes": [
+                { name: "warrior", levels: 6 }, { name: "mage", levels: 2 }
+              ] });
+              assert.equal(actor.system.details.level, 8);
+
+              // No classes at all must floor at 1, not 0 — a level-0 character
+              // derives negative half-level bonuses.
+              await actor.update({ "system.classes": [] });
+              assert.equal(actor.system.details.level, 1);
+            } finally {
+              await actor.delete();
+            }
+          });
+
         it("offers an add button in every panel of the character sheet", async function () {
           await withActor({}, async (actor) => {
             await actor.sheet.render(true);
@@ -559,6 +604,10 @@ function registerSheetBatch(quench) {
          */
         const EXEMPT = {
           character: {
+            "details.level": "DERIVED — the sum of the class levels. It was an " +
+              "editable field, and defences, HP, MP and half-level bonuses all read " +
+              "it, so levelling a class moved nothing.",
+            "details.classLevelTotal": "DERIVED — the same sum, kept for display",
             "resources.hp.max": "DERIVED from class, level and Vitality",
             "resources.mp.max": "DERIVED from class, level and Mind",
             "resources.heroPoints.max": "DERIVED from level and technick grants",

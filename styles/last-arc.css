@@ -860,6 +860,23 @@
   cursor: help;
 }
 
+/**
+ * A derived value shown where a field would sit.
+ *
+ * Matches the input's box so the row does not jump, but reads as a readout
+ * rather than something you can type in — character level is now the sum of
+ * the class levels above it.
+ */
+.la-field__derived {
+  padding: 0.25rem 0.4rem;
+  border-bottom: 1px solid transparent;
+  font-family: var(--la-font-head);
+  font-size: 0.95rem;
+  text-align: center;
+  color: var(--la-ink);
+  cursor: help;
+}
+
 /* Racial modifier and cap, tucked under the attribute score. */
 .la-attribute__race {
   display: flex;

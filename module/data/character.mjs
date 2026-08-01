@@ -231,9 +231,24 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     }
 
     // 2. Level --------------------------------------------------------------
+    //
+    // Character level is DERIVED from the class list, never entered directly.
+    //
+    // It used to be its own editable field, with a warning when the two
+    // disagreed. That was a trap: defences, HP, MP, skills and half-level
+    // bonuses all read `details.level`, while a player levelling up naturally
+    // edits their CLASS level — so the character gained a class level and
+    // nothing else moved. Reported as "defences are not increased by character
+    // level at all", which was true and was not a maths bug.
+    //
+    // The spec calls this "total character level", and there is no legitimate
+    // state where a character's level differs from the sum of their class
+    // levels, so the second lever is removed rather than made louder.
     const classLevelTotal = this.classes.reduce((sum, c) => sum + c.levels, 0);
     this.details.classLevelTotal = classLevelTotal;
-    this.details.levelMismatch = classLevelTotal !== this.details.level;
+    // A character with no class entries at all would otherwise be level 0 and
+    // derive negative half-level bonuses.
+    this.details.level = Math.max(1, classLevelTotal);
     const level = this.details.level;
 
     // 3. Technick / talent / accessory grants -------------------------------

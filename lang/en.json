@@ -335,7 +335,6 @@
   "LASTARC.Warning.PersistentFloor": "Recovery cannot clear persistent steps. This character is held at step {steps} until the underlying condition is cured.",
   "LASTARC.Warning.RecoveryBlocked": "Already at the persistent floor — recovery cannot improve the gauge further.",
   "LASTARC.Warning.SecondWind": "Second Wind is unavailable: either already used, or HP is above half maximum.",
-  "LASTARC.Warning.LevelMismatch": "Class levels do not sum to the character's total level.",
   "LASTARC.Status.blind": "Blind",
   "LASTARC.Status.confusion": "Confusion",
   "LASTARC.Status.disease": "Disease",
@@ -644,5 +643,6 @@
   "LASTARC.Field.ThresholdBonus": "Item bonus",
   "LASTARC.Tooltip.ThresholdBonus": "Break Threshold bonus from equipment or an effect. Technick grants are added automatically and are not counted here.",
   "LASTARC.Tooltip.RacialMod": "Racial attribute modifier, applied after generation. Added to the score to the left.",
-  "LASTARC.Tooltip.AttributeCap": "Maximum this attribute can reach for this species, 18–22. Recorded for reference; no rule enforces it yet."
+  "LASTARC.Tooltip.AttributeCap": "Maximum this attribute can reach for this species, 18–22. Recorded for reference; no rule enforces it yet.",
+  "LASTARC.Tooltip.LevelDerived": "Total character level — the sum of your class levels. Add or raise a class above to level up."
 }

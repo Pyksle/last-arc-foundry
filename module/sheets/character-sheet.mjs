@@ -200,8 +200,6 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.ethosMoralityOptions = LASTARC.ethosMorality
       .map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` }));
 
-    // Surfaced as a visible warning rather than a silent inconsistency.
-    context.levelMismatch = sys.details.levelMismatch;
 
     this.#prepareItems(context, sys);
     context.actionEconomy = this.#prepareActionEconomy();

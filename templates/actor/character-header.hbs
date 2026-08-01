@@ -69,8 +69,15 @@
     </button>
 
     <div class="la-field-row">
+      {{!-- Read-only: character level is the sum of the class levels above.
+            It was an input, and defences, HP, MP and every half-level bonus
+            read it — so a player who levelled up by editing their class
+            gained nothing. There is now one lever, and it is the class list. --}}
       <div class="la-field la-field--narrow">
-        <input type="number" name="system.details.level" value="{{system.details.level}}" min="1">
+        <div class="la-field__derived"
+             data-tooltip="{{localize 'LASTARC.Tooltip.LevelDerived'}}">
+          {{system.details.level}}
+        </div>
         <label>{{localize "LASTARC.Field.Level"}}</label>
       </div>
       <div class="la-field">
@@ -99,8 +106,5 @@
       </div>
     </div>
 
-    {{#if levelMismatch}}
-      <p class="la-warning">{{localize "LASTARC.Warning.LevelMismatch"}}</p>
-    {{/if}}
   </div>
 </header>
