@@ -29,12 +29,34 @@
  *   must cancel the roll rather than roll at +0 — a dismissed dialog is "I did
  *   not mean to do that", and rolling anyway spends the moment.
  */
-export async function promptSituational({ title } = {}) {
+export async function promptSituational({ title, rangeBands = null } = {}) {
+  /**
+   * The range band rides in this dialog rather than getting one of its own
+   * (issue #36). Every shot is at SOME range, so a dedicated prompt would tax
+   * every ranged attack ever made — where the damage-type picker only appears
+   * when the weapon is genuinely ambiguous. Behind the same ALT gesture that
+   * already means "this roll is not the default", it costs nothing.
+   *
+   * The distances are shown rather than just the band names, because the whole
+   * point is that the player is reading a map and the system is not.
+   */
+  const bandRow = rangeBands ? `
+      <label>
+        <span>${game.i18n.localize("LASTARC.Range.Band")}</span>
+        <select name="rangeBand">
+          ${rangeBands.map((b) => {
+            const span = b.from === 0 ? `0–${b.to}` : `${b.from}–${b.to}`;
+            const pen = b.penalty ? ` ${b.penalty}` : "";
+            return `<option value="${b.key}">${game.i18n.localize(b.label)} (${span})${pen}</option>`;
+          }).join("")}
+        </select>
+      </label>` : "";
+
   const content = `
-    <div class="la-situational">
+    <div class="la-situational">${bandRow}
       <label>
         <span>${game.i18n.localize("LASTARC.Situational.Value")}</span>
-        <input type="number" name="value" value="0" autofocus>
+        <input type="number" name="value" value="0"${rangeBands ? "" : " autofocus"}>
       </label>
       <label>
         <span>${game.i18n.localize("LASTARC.Situational.Note")}</span>
@@ -50,7 +72,8 @@ export async function promptSituational({ title } = {}) {
       label: game.i18n.localize("LASTARC.Situational.Roll"),
       callback: (event, button) => ({
         value: Number(button.form.elements.value.value) || 0,
-        note: button.form.elements.note.value.trim()
+        note: button.form.elements.note.value.trim(),
+        rangeBand: button.form.elements.rangeBand?.value ?? null
       })
     },
     rejectClose: false
@@ -74,17 +97,18 @@ export async function promptSituational({ title } = {}) {
  * Returns null when the prompt was dismissed, which callers must treat as
  * "do not roll".
  */
-export async function situationalOptions(event, { title } = {}) {
+export async function situationalOptions(event, { title, rangeBands = null } = {}) {
   if (!event?.altKey) return {};
 
-  const picked = await promptSituational({ title });
+  const picked = await promptSituational({ title, rangeBands });
   if (!picked) return null;
 
   return {
     situational: picked.value,
     // Shown in place of the generic "Situational" label when given, so the card
     // records WHY the number was there and the table can check it later.
-    situationalNote: picked.note || null
+    situationalNote: picked.note || null,
+    rangeBand: picked.rangeBand
   };
 }
 

@@ -68,8 +68,8 @@ LASTARC.recoveryMinorActionsShakeItOff = 2;
  * armour. Per §4.5 that is all Str- and Agi-based skills, PLUS Alchemy,
  * Smithing, Spellcraft and Perform.
  *
- * `subskilled` = "taken individually" (§7): the parent is a container and each
- * user-defined specialisation is trained separately.
+ * Lore and Perform are each several DISCRETE skills rather than a container
+ * with user-named children — see the note beside them below (issue #35).
  */
 LASTARC.skills = {
   acrobatics: { label: "LASTARC.Skill.acrobatics", attr: "agi", acp: true },
@@ -77,10 +77,27 @@ LASTARC.skills = {
   athletics:  { label: "LASTARC.Skill.athletics",  attr: "str", acp: true },
   deception:  { label: "LASTARC.Skill.deception",  attr: "chr", acp: false },
   disable:    { label: "LASTARC.Skill.disable",    attr: "agi", acp: true },
-  lore:       { label: "LASTARC.Skill.lore",       attr: "int", acp: false, subskilled: true },
+  /**
+   * Lore and Perform are FIVE and THREE skills, not one each with children
+   * (issue #35).
+   *
+   * The class lists print "Lore (taken individually)", and there is no such
+   * thing as a base Lore check — every check is against one field of study. The
+   * old model made the parent a container with user-named subskills, which put
+   * a row on the sheet nobody could ever roll and let a player type "Arcaen"
+   * and quietly train nothing. Fixed keys also mean an NPC statblock and a
+   * character finally name the same skill.
+   */
+  loreArcane:      { label: "LASTARC.Skill.loreArcane",      attr: "int", acp: false },
+  loreMystic:      { label: "LASTARC.Skill.loreMystic",      attr: "int", acp: false },
+  loreOccult:      { label: "LASTARC.Skill.loreOccult",      attr: "int", acp: false },
+  loreSocial:      { label: "LASTARC.Skill.loreSocial",      attr: "int", acp: false },
+  loreTerrestrial: { label: "LASTARC.Skill.loreTerrestrial", attr: "int", acp: false },
   medicine:   { label: "LASTARC.Skill.medicine",   attr: "mnd", acp: false },
   perception: { label: "LASTARC.Skill.perception", attr: "mnd", acp: false },
-  perform:    { label: "LASTARC.Skill.perform",    attr: "chr", acp: true,  subskilled: true },
+  performDance:      { label: "LASTARC.Skill.performDance",      attr: "chr", acp: true },
+  performInstrument: { label: "LASTARC.Skill.performInstrument", attr: "chr", acp: true },
+  performOratory:    { label: "LASTARC.Skill.performOratory",    attr: "chr", acp: true },
   persuasion: { label: "LASTARC.Skill.persuasion", attr: "chr", acp: false },
   pilot:      { label: "LASTARC.Skill.pilot",      attr: "agi", acp: true },
   ride:       { label: "LASTARC.Skill.ride",       attr: "agi", acp: true },
@@ -235,7 +252,52 @@ LASTARC.weaponCategories = [
 ];
 
 /** Categories that always use the Ranged skill regardless of relative size (§5.4 rev2). */
-LASTARC.rangedWeaponCategories = new Set(["bows", "crossbows"]);
+LASTARC.rangedWeaponCategories = new Set(["bows", "crossbows", "staves"]);
+
+/**
+ * Ranged groups that add the wielder's Strength to damage (issue #36).
+ *
+ * Bows "rely on the wielder's strength"; crossbows are defined in the same list
+ * as ranged weapons "that do not utilize strength". They are NOT one behaviour
+ * with an exception — they are two groups that differ, and treating "ranged" as
+ * a single rule got both wrong at once: no ranged weapon added an attribute at
+ * all, so crossbows looked right by accident and bows were quietly short.
+ *
+ * The two-handed doubling is deliberately NOT extended here. The book grants it
+ * for wielding a weapon a size category above you, in the melee sizing rules;
+ * nothing says a longbow doubles.
+ */
+LASTARC.strengthRangedCategories = new Set(["bows"]);
+
+/**
+ * Groups whose attacks are resolved with Spellcraft rather than a weapon skill.
+ *
+ * Staves "use the same range increments as ranged weapons, but the attacks are
+ * resolved with the Spellcraft skill", with no attribute-based damage modifier.
+ * They are ranged, so they take the ranged critical rather than the melee combo.
+ */
+LASTARC.spellcraftWeaponCategories = new Set(["staves"]);
+
+/**
+ * Range increments (§ ranged combat, book p.103).
+ *
+ * The bands are a property of the weapon's SIZE, not numbers typed per weapon —
+ * which is why the penalty table is here rather than on the schema. Distances
+ * are the upper bound of each band in squares; `null` means "no further band".
+ */
+LASTARC.rangeBands = Object.freeze({
+  pointBlank: { label: "LASTARC.Range.pointBlank", penalty: 0 },
+  short:      { label: "LASTARC.Range.short",      penalty: -2 },
+  mid:        { label: "LASTARC.Range.mid",        penalty: -5 },
+  long:       { label: "LASTARC.Range.long",       penalty: -10 }
+});
+
+LASTARC.rangeIncrements = Object.freeze({
+  thrown: { pointBlank: 6,  short: 8,  mid: 10,  long: 12 },
+  small:  { pointBlank: 10, short: 20, mid: 30,  long: 40 },
+  medium: { pointBlank: 20, short: 40, mid: 60,  long: 80 },
+  large:  { pointBlank: 30, short: 60, mid: 120, long: 240 }
+});
 
 /** Labels for the derived wield categories returned by `wieldCategory()`. */
 LASTARC.wieldLabels = {
@@ -724,6 +786,19 @@ LASTARC.performSpecialisations = Object.freeze({
   instrument: { label: "LASTARC.Perform.instrument", defensivePenalty: -5 },
   dance: { label: "LASTARC.Perform.dance", defensivePenalty: -2 },
   oratory: { label: "LASTARC.Perform.oratory", defensivePenalty: -2 }
+});
+
+/**
+ * Which Perform SKILL each specialisation rolls (issue #35).
+ *
+ * The two vocabularies are separate on purpose — a performance item stores a
+ * specialisation, and the actor has skills — so the mapping is stated once here
+ * rather than assembled from a string at three call sites.
+ */
+LASTARC.performSkillFor = Object.freeze({
+  instrument: "performInstrument",
+  dance: "performDance",
+  oratory: "performOratory"
 });
 
 /** Whether a performance helps allies or hinders enemies (§19). */

@@ -28,17 +28,14 @@ function skillsSchema() {
       /** Skill Focus technick — a distinct column on the printed sheet (§4.5 rev2). */
       focus: new fields.NumberField({ initial: 0, integer: true }),
       technicks: new fields.NumberField({ initial: 0, integer: true }),
-      misc: new fields.NumberField({ initial: 0, integer: true }),
-      /** Populated for `subskilled` parents (Lore, Perform); each trains separately. */
-      subskills: new fields.ArrayField(
-        new fields.SchemaField({
-          name: new fields.StringField({ initial: "" }),
-          trained: new fields.BooleanField({ initial: false }),
-          focus: new fields.NumberField({ initial: 0, integer: true }),
-          misc: new fields.NumberField({ initial: 0, integer: true })
-        }),
-        { initial: [] }
-      )
+      misc: new fields.NumberField({ initial: 0, integer: true })
+      /**
+       * `subskills` used to live here — a free-text array standing in for the
+       * Lore and Perform specialisations (issue #35). It is gone because those
+       * are eight real skills now. The container it hung from could never be
+       * rolled, and a typo in a specialisation's name trained nothing while
+       * silently falling back to the untrained parent.
+       */
     });
   }
   return schema;
@@ -588,21 +585,6 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
         breakStep: step
       });
 
-      // Sub-skilled parents (Lore, Perform): each specialisation trains separately.
-      if (cfg.subskilled) {
-        for (const sub of skill.subskills) {
-          sub.total = D.skillModifier({
-            level,
-            attrMod,
-            trained: sub.trained,
-            focus: sub.focus,
-            misc: sub.misc,
-            armourCheckPenalty: acp,
-            appliesArmourPenalty,
-            breakStep: step
-          });
-        }
-      }
     }
 
     this.skills.perception.passive = D.passivePerception(this.skills.perception.total);

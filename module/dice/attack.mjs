@@ -42,7 +42,8 @@ export function situationalModifiers({
   concealment = "none",
   improvised = false,
   situational = 0,
-  situationalNote = null
+  situationalNote = null,
+  rangeBand = null
 } = {}) {
   const parts = [];
   const add = (label, value) => { if (value) parts.push({ label, value }); };
@@ -61,6 +62,11 @@ export function situationalModifiers({
   else if (concealment === "total") add("LASTARC.Mod.totalConcealment", -5);
 
   if (improvised) add("LASTARC.Mod.improvised", -5);
+
+  // Range increment (issue #36). The band is stated by the player rather than
+  // measured — the system has no reliable notion of the distance between two
+  // tokens on an arbitrary scene, and guessing it would be worse than asking.
+  if (rangeBand) add(LASTARC.rangeBands[rangeBand]?.label ?? "", D.rangeBandPenalty(rangeBand));
 
   // The note replaces the generic label when one was typed, so the card
   // records WHY the number was applied and the table can check it later.
@@ -197,6 +203,7 @@ export function buildDamageTerms({
   isRanged = false,
   isThrown = false,
   weaponFinesse = false,
+  rangedUsesStrength = false,
   damageBonus = 0,
   breakPenalty = 0
 } = {}) {
@@ -214,6 +221,22 @@ export function buildDamageTerms({
     const mod = attribute === "agi" ? agiMod : strMod;
     const multiplier = D.strDamageMultiplier(wieldCategory);
     add(multiplier === 2 ? "LASTARC.Mod.attributeDoubled" : "LASTARC.Mod.attribute", mod * multiplier);
+  } else if (rangedUsesStrength) {
+    /**
+     * Bows, and only bows (issue #36). The weapon groups define bows as ranged
+     * weapons that "rely on the wielder's strength" and crossbows as ranged
+     * weapons "that do not utilize strength" — two groups that differ, not one
+     * rule with an exception.
+     *
+     * Treating "ranged" as a single behaviour got BOTH wrong simultaneously:
+     * no ranged weapon added an attribute, so crossbows were right by accident
+     * and every bow in play was quietly short its Strength modifier.
+     *
+     * Never doubled. The ×2 belongs to the melee sizing rule for wielding a
+     * weapon a category above you; nothing extends it to a longbow.
+     */
+    attribute = "str";
+    add("LASTARC.Mod.attribute", strMod);
   }
 
   add("LASTARC.Mod.weaponBonus", damageBonus);
@@ -258,9 +281,17 @@ export async function rollAttack(actor, weapon, options = {}) {
   // A light weapon one size down may use 1-Handed instead, at the wielder's
   // choice (§5.4). Everything else maps straight through — via weaponSkillFor,
   // because the wield vocabulary and the skill vocabulary differ.
-  const skillKey = wield === "light" && options.useOneHanded
-    ? "oneHanded"
-    : D.weaponSkillFor(wield);
+  /**
+   * Staves are resolved with Spellcraft, not a weapon skill (issue #36). The
+   * check is on the CATEGORY and comes first, because the wield category is
+   * derived from size and would otherwise route a staff to One-Handed or
+   * Two-Handed — the sizing question the book explicitly does not ask of them.
+   */
+  const skillKey = LASTARC.spellcraftWeaponCategories.has(weapon.system.category)
+    ? "spellcraft"
+    : wield === "light" && options.useOneHanded
+      ? "oneHanded"
+      : D.weaponSkillFor(wield);
 
   const skill = sys.skills[skillKey];
   if (!skill) throw new Error(`Actor has no "${skillKey}" skill for a ${wield} attack.`);
@@ -330,6 +361,8 @@ export async function rollDamage(
     isRanged: !isMelee,
     isThrown,
     weaponFinesse: hasFlag(actor, "weaponFinesse"),
+    // Bows only — crossbows and staves add no attribute at all (issue #36).
+    rangedUsesStrength: LASTARC.strengthRangedCategories.has(weapon.system.category),
     damageBonus: weapon.system.damageBonus ?? 0,
     breakPenalty: weapon.system.breakGauge?.penalty ?? 0
   });

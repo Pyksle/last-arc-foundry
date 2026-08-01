@@ -306,6 +306,33 @@ export function studyLimit(takings = 0, intMod = 0) {
   return Math.max(0, takings) * Math.max(1, 1 + intMod);
 }
 
+/**
+ * The four range bands for a weapon, in squares (book p.103, issue #36).
+ *
+ * Derived from the weapon's SIZE rather than typed per weapon, because that is
+ * how the book states it — one table, four rows. A thrown weapon uses the
+ * `thrown` row whatever its own size.
+ *
+ * @returns {Array<{key:string, label:string, penalty:number, from:number, to:number}>}
+ */
+export function rangeBandsFor(size = "medium", { isThrown = false } = {}) {
+  const row = LASTARC.rangeIncrements[isThrown ? "thrown" : size]
+    ?? LASTARC.rangeIncrements.medium;
+
+  let from = 0;
+  return Object.entries(LASTARC.rangeBands).map(([key, band]) => {
+    const to = row[key];
+    const entry = { key, label: band.label, penalty: band.penalty, from, to };
+    from = to + 1;
+    return entry;
+  });
+}
+
+/** The attack penalty for firing at a given band. Unknown bands cost nothing. */
+export function rangeBandPenalty(bandKey) {
+  return LASTARC.rangeBands[bandKey]?.penalty ?? 0;
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Skills (§4.5)                                                              */
 /* -------------------------------------------------------------------------- */

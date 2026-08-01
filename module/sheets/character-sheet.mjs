@@ -45,8 +45,6 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       secondWind: LastArcCharacterSheet.#onSecondWind,
       setSecondWind: LastArcCharacterSheet.#onSetSecondWind,
       takeRest: LastArcCharacterSheet.#onTakeRest,
-      addSubskill: LastArcCharacterSheet.#onAddSubskill,
-      removeSubskill: LastArcCharacterSheet.#onRemoveSubskill,
       addClass: LastArcCharacterSheet.#onAddClass,
       removeClass: LastArcCharacterSheet.#onRemoveClass,
       createItem: LastArcCharacterSheet.#onCreateItem,
@@ -193,7 +191,6 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
         label: cfg.label,
         attr: cfg.attr,
         attrAbbr: LASTARC.attributes[cfg.attr].abbr,
-        subskilled: !!cfg.subskilled,
         isWeaponSkill: !!cfg.weapon,
         trained: s.trained,
         focus: s.focus,
@@ -208,7 +205,6 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
         adjustmentTooltip: parts.length
           ? parts.map((p) => `${game.i18n.localize(p.label)} ${D.signed(p.value)}`).join(" · ")
           : game.i18n.localize("LASTARC.Tooltip.NoAdjustments"),
-        subskills: (s.subskills ?? []).map((sub, index) => ({ ...sub, index }))
       };
     };
 
@@ -618,13 +614,13 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
   /* ------------------------------------------------------------------------ */
 
   static async #onRollSkill(event, target) {
-    const { skill, subskill } = target.dataset;
+    const { skill } = target.dataset;
     // Alt-click asks for a situational modifier first; a dismissed prompt
     // cancels the roll rather than rolling at +0 (issue #16).
     const extra = await situationalOptions(event);
     if (extra === null) return;
 
-    await rollSkill(this.document, skill, { subskill: subskill || null, ...extra });
+    await rollSkill(this.document, skill, extra);
   }
 
   static async #onRollAttribute(event, target) {
@@ -944,24 +940,6 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     await this.document.update({ "system.resources.secondWind.used": next });
   }
 
-  static async #onAddSubskill(event, target) {
-    const key = target.dataset.skill;
-    const current = this.document.system.skills[key].subskills ?? [];
-    await this.document.update({
-      [`system.skills.${key}.subskills`]: [
-        ...current,
-        { name: game.i18n.localize("LASTARC.Skill.NewSpecialisation"), trained: false, focus: 0, misc: 0 }
-      ]
-    });
-  }
-
-  static async #onRemoveSubskill(event, target) {
-    const { skill, index } = target.dataset;
-    const current = [...(this.document.system.skills[skill].subskills ?? [])];
-    current.splice(Number(index), 1);
-    await this.document.update({ [`system.skills.${skill}.subskills`]: current });
-  }
-
   /**
    * Roll an attack with an equipped weapon.
    *
@@ -974,7 +952,17 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const weapon = this.document.items.get(target.dataset.itemId);
     if (!weapon) return;
 
-    const extra = await situationalOptions(event);
+    /**
+     * Ranged weapons get a range-band selector in the Alt-click dialog (issue
+     * #36). Offered only when the weapon is actually ranged, so a swordsman is
+     * never asked which increment they are swinging at.
+     */
+    const isRanged = LASTARC.rangedWeaponCategories.has(weapon.system.category);
+    const extra = await situationalOptions(event, {
+      rangeBands: isRanged
+        ? D.rangeBandsFor(weapon.system.size, { isThrown: false })
+        : null
+    });
     if (extra === null) return;
 
     const targeted = [...(game.user.targets ?? [])][0]?.actor;

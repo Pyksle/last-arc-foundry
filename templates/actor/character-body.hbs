@@ -386,28 +386,6 @@
                 data-tooltip="{{this.adjustmentTooltip}}">{{lasignal this.adjustment}}</span>
         </div>
 
-        {{#if this.subskilled}}
-          {{#each this.subskills}}
-            <div class="la-skill la-skill--sub">
-              <button type="button" class="la-skill__name" data-action="rollSkill"
-                      data-skill="{{../this.key}}" data-subskill="{{this.name}}">
-                <input type="text" class="la-skill__subname"
-                       name="system.skills.{{../this.key}}.subskills.{{this.index}}.name"
-                       value="{{this.name}}">
-              </button>
-              <span class="la-skill__total">{{lasignal this.total}}</span>
-              <span class="la-skill__cell"></span>
-              <span class="la-skill__cell"></span>
-              <input type="checkbox" name="system.skills.{{../this.key}}.subskills.{{this.index}}.trained" {{#if this.trained}}checked{{/if}}>
-              <input type="number" name="system.skills.{{../this.key}}.subskills.{{this.index}}.focus" value="{{this.focus}}">
-              <button type="button" class="la-skill__remove" data-action="removeSubskill"
-                      data-skill="{{../this.key}}" data-index="{{this.index}}">×</button>
-            </div>
-          {{/each}}
-          <button type="button" class="la-skill__add" data-action="addSubskill" data-skill="{{this.key}}">
-            + {{localize "LASTARC.Skill.AddSpecialisation"}}
-          </button>
-        {{/if}}
       {{/each}}
 
       <div class="la-skill la-skill--passive">

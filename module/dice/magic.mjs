@@ -275,10 +275,14 @@ export async function performItem(actor, performance, options = {}) {
   const parts = [];
   const add = (label, value) => { if (value) parts.push({ label, value }); };
 
-  // Perform is sub-skilled: the specialisation has its own trained/focus values.
-  const sub = sys.skills?.perform?.subskills
-    ?.find((x) => x.name?.toLowerCase() === perf.specialisation);
-  add("LASTARC.Mod.perform", sub?.total ?? sys.skills?.perform?.total ?? 0);
+  /**
+   * Each Perform specialisation is its own skill (issue #35). This used to hunt
+   * a free-text subskill by lowercased name and fall back to the parent Perform
+   * total when it missed — so a player who typed "Instruments" or "Lute" got the
+   * untrained parent silently, and there was no way to tell from the card.
+   */
+  const skillKey = LASTARC.performSkillFor[perf.specialisation];
+  add("LASTARC.Mod.perform", sys.skills?.[skillKey]?.total ?? 0);
 
   const defensive = options.performDefensively
     ? defensivePerformPenalty(options.threatCount ?? 0, perf.specialisation)

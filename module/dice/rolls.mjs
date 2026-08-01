@@ -33,10 +33,9 @@ import { situationalSuffix } from "./situational.mjs";
  * @param {object} [options]
  * @param {number|null} [options.dc]
  * @param {number} [options.situational]
- * @param {string|null} [options.subskill]  Name of a Lore/Perform specialisation.
  */
 export async function rollSkill(actor, skillKey, options = {}) {
-  const { dc = null, situational = 0, situationalNote = null, subskill = null } = options;
+  const { dc = null, situational = 0, situationalNote = null } = options;
 
   const cfg = LASTARC.allSkills[skillKey];
   if (!cfg) throw new Error(`Unknown skill: ${skillKey}`);
@@ -44,16 +43,10 @@ export async function rollSkill(actor, skillKey, options = {}) {
   const skill = actor.system.skills?.[skillKey];
   if (!skill) throw new Error(`Actor ${actor.name} has no skill "${skillKey}"`);
 
-  // A sub-skilled parent (Lore, Perform) is a container — roll the named
-  // specialisation, which is trained separately from its siblings.
-  let mod = skill.total;
-  let label = game.i18n.localize(cfg.label);
-  if (subskill && cfg.subskilled) {
-    const sub = skill.subskills?.find((s) => s.name === subskill);
-    if (!sub) throw new Error(`Unknown ${skillKey} specialisation: ${subskill}`);
-    mod = sub.total;
-    label = `${label} (${subskill})`;
-  }
+  // Lore and Perform are eight ordinary skills now (issue #35), so there is no
+  // container to unwrap and no free-text specialisation name to resolve.
+  const mod = skill.total;
+  const label = game.i18n.localize(cfg.label);
 
   // Refuse to roll for an incapacitated actor rather than producing a number
   // that implies they acted.
