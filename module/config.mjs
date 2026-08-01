@@ -777,6 +777,20 @@ LASTARC.allItemTypes = [
 
 LASTARC.itemCreationGroups.npc = LASTARC.allItemTypes;
 
+/**
+ * Enumerations the item schemas constrain on and the item sheet builds
+ * dropdowns from.
+ *
+ * Previously written inline in `defineSchema()` as bare arrays, which meant the
+ * sheet had no way to offer the choices a field would accept — and a field
+ * whose valid values the UI cannot show is a field nobody can set correctly.
+ */
+LASTARC.technickKinds = ["technick", "talent"];
+LASTARC.consumableTypes = ["potion", "poison", "scroll", "score", "grenade", "other"];
+LASTARC.prostheticSites = ["arm", "leg"];
+/** Defences a spell outcome or performance may be opposed by. */
+LASTARC.opposableDefences = ["ref", "fort", "will"];
+
 /* -------------------------------------------------------------------------- */
 /*  Hook surface (§11)                                                         */
 /* -------------------------------------------------------------------------- */

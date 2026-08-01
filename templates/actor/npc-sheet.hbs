@@ -114,6 +114,70 @@
         <input type="number" name="system.passivePerception" value="{{system.passivePerception}}">
       </div>
     </div>
+    <div class="la-vital">
+      <h3>{{localize "LASTARC.Resource.TempHP"}}</h3>
+      <div class="la-vital__pair">
+        <input type="number" name="system.resources.hp.temp" value="{{system.resources.hp.temp}}" min="0">
+      </div>
+    </div>
+  </section>
+
+  {{!-- ── Ethos · senses · other movement ─────────────────────────────────── --}}
+  {{!-- None of this had an input, so a statblock's alignment, its darkvision
+        and anything that flies or swims were all unrecordable. --}}
+  <section class="la-panel">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Bearing"}}</h2>
+    <div class="la-field-row">
+      <div class="la-field">
+        <select name="system.details.ethosPurity">
+          {{#each ethosPurityOptions}}
+            <option value="{{this.value}}" {{#if (laeq this.value ../system.details.ethosPurity)}}selected{{/if}}>{{localize this.label}}</option>
+          {{/each}}
+        </select>
+        <label>{{localize "LASTARC.Field.EthosPurity"}}</label>
+      </div>
+      <div class="la-field">
+        <select name="system.details.ethosMorality">
+          {{#each ethosMoralityOptions}}
+            <option value="{{this.value}}" {{#if (laeq this.value ../system.details.ethosMorality)}}selected{{/if}}>{{localize this.label}}</option>
+          {{/each}}
+        </select>
+        <label>{{localize "LASTARC.Field.EthosMorality"}}</label>
+      </div>
+      <div class="la-field">
+        <input type="text" name="system.details.senses" value="{{system.details.senses}}"
+               placeholder="{{localize 'LASTARC.Field.SensesPlaceholder'}}">
+        <label>{{localize "LASTARC.Field.Senses"}}</label>
+      </div>
+    </div>
+    <div class="la-field-row">
+      <div class="la-field la-field--narrow">
+        <input type="number" name="system.movement.fly" value="{{system.movement.fly}}" min="0">
+        <label>{{localize "LASTARC.Movement.fly"}}</label>
+      </div>
+      <div class="la-field la-field--narrow">
+        <input type="number" name="system.movement.swim" value="{{system.movement.swim}}" min="0">
+        <label>{{localize "LASTARC.Movement.swim"}}</label>
+      </div>
+      <div class="la-field la-field--narrow">
+        <input type="number" name="system.movement.climb" value="{{system.movement.climb}}" min="0">
+        <label>{{localize "LASTARC.Movement.climb"}}</label>
+      </div>
+      <label class="la-checkfield">
+        <input type="checkbox" name="system.movement.hover" {{#if system.movement.hover}}checked{{/if}}>
+        {{localize "LASTARC.Movement.hover"}}
+      </label>
+      <div class="la-field">
+        <input type="text" name="system.movement.special" value="{{system.movement.special}}">
+        <label>{{localize "LASTARC.Movement.special"}}</label>
+      </div>
+      <div class="la-field la-field--narrow"
+           data-tooltip="{{localize 'LASTARC.Tooltip.InitiativeSteps'}}">
+        <input type="number" name="system.initiative.bonusSteps"
+               value="{{system.initiative.bonusSteps}}" min="0">
+        <label>{{localize "LASTARC.Field.InitSteps"}}</label>
+      </div>
+    </div>
   </section>
 
   {{!-- Printed (base) values on the left, live values after the gauge on the right. --}}
@@ -308,6 +372,15 @@
             data-tooltip="{{localize 'LASTARC.Tooltip.CreateItem'}}">
       {{localize "LASTARC.Action.AddItem"}}
     </button>
+  </section>
+
+  {{!-- ── Biography ───────────────────────────────────────────────────────
+        HTMLField, so {{formInput}} gives a <prose-mirror> editor. There was
+        no input for this anywhere. --}}
+  <section class="la-panel la-panel--biography">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Biography"}}</h2>
+    {{formInput fields.details.fields.biography value=system.details.biography
+                enriched=enrichedBiography toggled=true}}
   </section>
 
 </div>

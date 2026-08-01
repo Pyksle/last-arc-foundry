@@ -77,6 +77,12 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.config = LASTARC;
     context.editable = this.isEditable;
 
+    // The schema, so {{formInput}} can build a <prose-mirror> for biography.
+    // An HTMLField has no sensible hand-written equivalent.
+    context.fields = sys.schema.fields;
+    context.enrichedBiography = await foundry.applications.ux.TextEditor
+      .implementation.enrichHTML(sys.details.biography ?? "", { relativeTo: this.document });
+
     // Attributes in PRINTED order, not object-key order (§2 rev2).
     context.attributes = LASTARC.attributeOrder.map((key) => ({
       key,

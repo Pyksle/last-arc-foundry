@@ -512,6 +512,185 @@ function registerSheetBatch(quench) {
             });
           });
       });
+
+      /**
+       * Field coverage — the guard for "I can't edit the description".
+       *
+       * Reported by a user who had just hand-authored a spell and found the
+       * description read-only. It was, on all seventeen subtypes, and so were
+       * most of every subtype's other fields: only weapon, armour, spell and
+       * technick ever got a bespoke section, so a shield's block bonus, a
+       * potion's healing, a race's attribute modifiers and a class's HP
+       * progression had no input anywhere.
+       *
+       * Nothing static could catch it. A schema field with no input is not a
+       * syntax error, a dangling key or an unwired button — it is an absence,
+       * and only walking the real DataModel against the real rendered DOM
+       * finds an absence. Hence Quench rather than the node suite.
+       */
+      describe("every schema field is reachable", function () {
+        /** Flatten a schema to dotted leaf paths, keeping the field class. */
+        function leafPaths(schema, prefix = "") {
+          const out = [];
+          for (const [key, field] of Object.entries(schema?.fields ?? {})) {
+            const path = prefix ? `${prefix}.${key}` : key;
+            const cls = field.constructor.name;
+            if (cls === "SchemaField") out.push(...leafPaths(field, path));
+            // ArrayFields are edited by add/remove widgets, never a bound input.
+            else if (cls !== "ArrayField") out.push({ path, cls });
+          }
+          return out;
+        }
+
+        /**
+         * Paths with no input, each with the reason it does not need one.
+         *
+         * Every entry is a claim that can be wrong, so keep them specific. The
+         * two categories that matter:
+         *
+         *   DERIVED — prepareDerivedData assigns it, so an input would be
+         *   overwritten in memory on the next prepare. `defences.*.technicks`
+         *   USED to have an input for exactly this reason: it stored 7 and read
+         *   back 0, which is worse than no box at all.
+         *
+         *   ACTION — edited through a data-action rather than a form control:
+         *   the Break Gauge is a clickable track, persistent conditions have a
+         *   dialog, Second Wind has a button.
+         */
+        const EXEMPT = {
+          character: {
+            "resources.hp.max": "DERIVED from class, level and Vitality",
+            "resources.mp.max": "DERIVED from class, level and Mind",
+            "resources.heroPoints.max": "DERIVED from level and technick grants",
+            "resources.secondWind.max": "DERIVED from technick grants",
+            "resources.secondWind.used": "ACTION — the Second Wind button spends it",
+            "resources.secondWind.usedThisEncounter": "ACTION — reset by combat lifecycle",
+            "defences.ref.value": "DERIVED total",
+            "defences.fort.value": "DERIVED total",
+            "defences.will.value": "DERIVED total",
+            "defences.ref.classBonus": "DERIVED from the class list",
+            "defences.fort.classBonus": "DERIVED from the class list",
+            "defences.will.classBonus": "DERIVED from the class list",
+            "defences.ref.technicks": "DERIVED — aggregate of technick grants",
+            "defences.fort.technicks": "DERIVED — aggregate of technick grants",
+            "defences.will.technicks": "DERIVED — aggregate of technick grants",
+            "breakGauge.step": "ACTION — the Break Gauge track is clickable",
+            "breakGauge.persistentSteps": "ACTION — added and cleared by dialog",
+            "breakGauge.recoveryProgress": "ACTION — banked by the Recovery button",
+            "initiative.die": "DERIVED from the first class",
+            "bulk.value": "DERIVED — sum of carried item bulk",
+            "damageMods.dr": "DERIVED from equipped armour"
+          },
+          npc: {
+            "breakGauge.step": "ACTION — the Break Gauge track is clickable",
+            "breakGauge.persistentSteps": "ACTION — added and cleared by dialog",
+            "breakGauge.recoveryProgress": "ACTION — banked by the Recovery button"
+          },
+          item: {
+            // Nothing. Every item field has an input, and it must stay that way.
+          }
+        };
+
+        // Skill sub-objects repeat the same derived field across ~19 skills.
+        const EXEMPT_PATTERNS = [
+          { re: /^skills\.\w+\.technicks$/, why: "DERIVED — aggregate of technick grants" },
+          { re: /^skills\.\w+\.(total|passive|appliesArmourPenalty)$/, why: "DERIVED" }
+        ];
+
+        /** Collect every bound control name from a rendered sheet. */
+        async function boundPaths(doc) {
+          await doc.sheet.render(true);
+          await new Promise((r) => setTimeout(r, 350));
+          const names = [...doc.sheet.element.querySelectorAll(
+            "input[name], select[name], textarea[name], prose-mirror[name]"
+          )].map((n) => n.getAttribute("name"));
+          await doc.sheet.close({ animate: false });
+
+          return new Set(names
+            .filter((n) => n?.startsWith("system."))
+            .map((n) => n.slice("system.".length)));
+        }
+
+        /** A path counts as covered if bound exactly, or as an object prefix. */
+        const covers = (bound, path) =>
+          bound.has(path) || [...bound].some((b) => b.startsWith(`${path}.`));
+
+        it("every item subtype exposes all of its fields", async function () {
+          this.timeout(60_000);
+          const failures = [];
+
+          for (const type of Object.keys(game.system.documentTypes.Item)) {
+            const item = await Item.create({ name: `Quench fields ${type}`, type });
+            try {
+              const bound = await boundPaths(item);
+              for (const { path, cls } of leafPaths(item.system.schema)) {
+                if (EXEMPT.item[path]) continue;
+                if (!covers(bound, path)) failures.push(`${type}.${path} (${cls})`);
+              }
+            } finally {
+              await item.delete();
+            }
+          }
+
+          assert.deepEqual(failures, [],
+            `item fields with no input — nobody can set these:\n  ${failures.join("\n  ")}`);
+        });
+
+        it("every actor subtype exposes all of its fields, or exempts them", async function () {
+          this.timeout(60_000);
+          const failures = [];
+
+          for (const type of Object.keys(game.system.documentTypes.Actor)) {
+            const actor = await Actor.create({ name: `Quench fields ${type}`, type });
+            try {
+              const bound = await boundPaths(actor);
+              for (const { path, cls } of leafPaths(actor.system.schema)) {
+                if (EXEMPT[type]?.[path]) continue;
+                if (EXEMPT_PATTERNS.some((p) => p.re.test(path))) continue;
+                if (!covers(bound, path)) failures.push(`${type}.${path} (${cls})`);
+              }
+            } finally {
+              await actor.delete();
+            }
+          }
+
+          assert.deepEqual(failures, [],
+            `actor fields with no input and no exemption:\n  ${failures.join("\n  ")}\n` +
+            `Add an input, or an EXEMPT entry saying why it does not need one.`);
+        });
+
+        /**
+         * The other half. An input whose value derivation overwrites is worse
+         * than a missing one: it accepts typing and shows the old number back.
+         */
+        it("values typed into a bound field survive a round trip", async function () {
+          this.timeout(30_000);
+          const lost = [];
+
+          const roundTrip = async (doc, path, value) => {
+            await doc.update({ [path]: value });
+            if (foundry.utils.getProperty(doc, path) !== value) {
+              lost.push(`${path} — wrote ${value}, reads back ` +
+                `${foundry.utils.getProperty(doc, path)}`);
+            }
+          };
+
+          await withActor({}, async (actor) => {
+            const bound = await boundPaths(actor);
+            // Numeric leaves only: a representative sample is enough to catch a
+            // derivation that clobbers, and writing to every field would take
+            // longer than the whole rest of the suite.
+            for (const { path, cls } of leafPaths(actor.system.schema)) {
+              if (cls !== "NumberField" || !bound.has(path)) continue;
+              await roundTrip(actor, `system.${path}`, 7);
+            }
+          });
+
+          assert.deepEqual(lost, [],
+            `these have an input but derivation overwrites it, so typing in them ` +
+            `does nothing:\n  ${lost.join("\n  ")}`);
+        });
+      });
     },
     { displayName: "Last Arc — Sheets" }
   );

@@ -164,7 +164,8 @@ describe("sheet wiring", () => {
   test("every data-action in a SHEET template is declared in DEFAULT_OPTIONS.actions", () => {
     const declared = new Set([
       ...[...sheetSource.matchAll(/(\w+):\s*LastArcCharacterSheet\.#on/g)].map((m) => m[1]),
-      ...[...npcSheetSource.matchAll(/(\w+):\s*LastArcNpcSheet\.#on/g)].map((m) => m[1])
+      ...[...npcSheetSource.matchAll(/(\w+):\s*LastArcNpcSheet\.#on/g)].map((m) => m[1]),
+      ...[...itemSheetSource.matchAll(/(\w+):\s*LastArcItemSheet\.#on/g)].map((m) => m[1])
     ]);
     assert.ok(declared.size > 0, "failed to parse any declared actions — check the regex");
 
@@ -214,7 +215,8 @@ describe("sheet wiring", () => {
     const unreachable = [];
     for (const [src, cls] of [
       [sheetSource, "LastArcCharacterSheet"],
-      [npcSheetSource, "LastArcNpcSheet"]
+      [npcSheetSource, "LastArcNpcSheet"],
+      [itemSheetSource, "LastArcItemSheet"]
     ]) {
       for (const [, action] of src.matchAll(new RegExp(`(\\w+):\\s*${cls}\\.#on`, "g"))) {
         if (!used.has(action)) unreachable.push(`${cls}.${action}`);
@@ -227,7 +229,8 @@ describe("sheet wiring", () => {
   test("every declared action has a matching private handler", () => {
     for (const [src, cls] of [
       [sheetSource, "LastArcCharacterSheet"],
-      [npcSheetSource, "LastArcNpcSheet"]
+      [npcSheetSource, "LastArcNpcSheet"],
+      [itemSheetSource, "LastArcItemSheet"]
     ]) {
       for (const [, action, handler] of src.matchAll(new RegExp(`(\\w+):\\s*${cls}\\.#on(\\w+)`, "g"))) {
         assert.ok(
@@ -333,8 +336,12 @@ describe("sheet wiring", () => {
       [...entrySource.matchAll(/Handlebars\.registerHelper\("(\w+)"/g)].map((m) => m[1])
     );
     // Handlebars/Foundry builtins; we must not assume anything beyond these.
+    // `formInput` and `formGroup` are Foundry's, registered by the core
+    // handlebars module — they are how a schema field becomes the right
+    // control, and the only practical way to get a <prose-mirror> editor.
     const builtin = new Set([
-      "localize", "if", "else", "unless", "each", "with", "log", "lookup"
+      "localize", "if", "else", "unless", "each", "with", "log", "lookup",
+      "formInput", "formGroup", "formField"
     ]);
 
     const missing = [];

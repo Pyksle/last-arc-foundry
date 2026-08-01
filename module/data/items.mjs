@@ -242,7 +242,7 @@ export class LastArcTechnickData extends foundry.abstract.TypeDataModel {
     return {
       ...commonFields(),
 
-      kind: new fields.StringField({ initial: "technick", choices: ["technick", "talent"] }),
+      kind: new fields.StringField({ initial: "technick", choices: LASTARC.technickKinds }),
 
       prerequisites: new fields.SchemaField({
         attributes: new fields.ObjectField({ initial: {} }),   // { str: 13, agi: 15 }
@@ -340,7 +340,7 @@ export class LastArcSpellData extends foundry.abstract.TypeDataModel {
           dc: new fields.NumberField({ initial: null, integer: true, nullable: true }),
           /** Defence the check is compared against, if this row is opposed. */
           opposedDefence: new fields.StringField({
-            initial: "", blank: true, choices: ["", "ref", "fort", "will"]
+            initial: "", blank: true, choices: ["", ...LASTARC.opposableDefences]
           }),
           damage: new fields.StringField({ initial: "", blank: true }),
           status: new fields.StringField({ initial: "", blank: true }),
@@ -419,7 +419,7 @@ export class LastArcPerformanceData extends foundry.abstract.TypeDataModel {
        * nothing else in the system has.
        */
       substitutesDefence: new fields.StringField({
-        initial: "", blank: true, choices: ["", "ref", "fort", "will"]
+        initial: "", blank: true, choices: ["", ...LASTARC.opposableDefences]
       }),
 
       duration: new fields.StringField({ initial: "", blank: true }),
@@ -509,7 +509,7 @@ export class LastArcConsumableData extends PhysicalItemData {
        */
       consumableType: new fields.StringField({
         initial: "potion",
-        choices: ["potion", "poison", "scroll", "score", "grenade", "other"]
+        choices: LASTARC.consumableTypes
       }),
       uses: new fields.SchemaField({
         value: new fields.NumberField({ initial: 1, integer: true, min: 0 }),
@@ -575,7 +575,7 @@ export class LastArcProstheticLimbData extends PhysicalItemData {
       ...commonFields(),
       ...physicalFields({ bulk: 0 }),
       /** Which Injury & Dismemberment result this compensates for (§5.6). */
-      replaces: new fields.StringField({ initial: "arm", choices: ["arm", "leg"] }),
+      replaces: new fields.StringField({ initial: "arm", choices: LASTARC.prostheticSites }),
       /** Prosthetics restore some, not necessarily all, of what was lost. */
       restoresFully: new fields.BooleanField({ initial: false }),
       grants: grantsSchema()

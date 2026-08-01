@@ -844,6 +844,102 @@
   border-style: solid;
 }
 
+/**
+ * A derived number sitting in a row of editable ones.
+ *
+ * Styled to read as NOT a field: no border, no background, dimmed. The defence
+ * technick total used to be an <input> here, which promised an edit it could
+ * not keep — derivation overwrote it on the next prepare. Looking different
+ * from its neighbours is the whole point.
+ */
+.la-defence__derived {
+  align-self: center;
+  color: var(--la-ink-faint);
+  font-size: 0.72rem;
+  text-align: center;
+  cursor: help;
+}
+
+/* Racial modifier and cap, tucked under the attribute score. */
+.la-attribute__race {
+  display: flex;
+  gap: 0.2rem;
+  justify-content: center;
+  margin-top: 0.15rem;
+}
+.la-attribute__race input {
+  width: 2.1rem;
+  padding: 0.05rem 0.15rem;
+  font-size: 0.6rem;
+  text-align: center;
+  color: var(--la-ink-faint);
+}
+
+.la-defence__bonus {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--la-ink-faint);
+}
+.la-defence__bonus input { width: 2.6rem; text-align: center; }
+
+/**
+ * One outcome row on a spell.
+ *
+ * Boxed and separated because the rows are independent tiers, not a continuous
+ * table — reading them as a block is how you check "DC 20 does what?".
+ */
+.la-outcome {
+  border: 1px solid var(--la-rule);
+  border-radius: var(--la-radius);
+  padding: 0.5rem 0.6rem 0.35rem;
+  margin-bottom: 0.5rem;
+  background: color-mix(in srgb, var(--la-paper) 60%, transparent);
+}
+.la-outcome + .la-outcome { margin-top: 0; }
+
+/**
+ * Placeholders must not read as values.
+ *
+ * The example text in an empty Healing box inherited the same weight and
+ * colour as a real entry, so a spell with no healing looked like it healed 1d8.
+ */
+.la-body ::placeholder {
+  color: var(--la-ink-faint);
+  opacity: 0.45;
+  font-style: italic;
+}
+
+/* ProseMirror editors need a floor, or they collapse to a single line. */
+.la-body prose-mirror {
+  display: block;
+  min-height: 8rem;
+  border: 1px solid var(--la-rule);
+  border-radius: var(--la-radius);
+  padding: 0.4rem 0.6rem;
+}
+.la-body prose-mirror .editor-content { min-height: 6rem; }
+
+/**
+ * Keep the edit pencil visible instead of revealing it on hover.
+ *
+ * Foundry's default is `prose-mirror button.toggle { display: none }` with a
+ * `:hover` rule to show it. That is the house style, and it is also invisible
+ * on a touch device and to anyone who does not think to hover — which is
+ * exactly how a description reads as uneditable. The description field is the
+ * first thing anyone touches when copying an entry out of the book, so it gets
+ * a permanent affordance. `:enabled` matches Foundry's own guard, so a
+ * read-only sheet still hides it.
+ */
+.la-body prose-mirror button.toggle:enabled {
+  display: block;
+  opacity: 0.45;
+}
+.la-body prose-mirror:hover button.toggle:enabled { opacity: 1; }
+
 /* Armour check penalty is currently biting this skill. */
 .la-skill.has-acp .la-skill__total { color: var(--la-oxblood); }
 .la-skill.has-acp .la-skill__name::after {

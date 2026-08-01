@@ -14,6 +14,18 @@
           <input class="la-attribute__score" type="number"
                  name="system.attributes.{{this.key}}.value" value="{{this.value}}" min="1">
           <div class="la-attribute__mod">{{lasignal this.mod}}</div>
+          {{!-- Racial modifier and cap. Both are stored inputs that derivation
+                READS (total = value + racialMod), and neither had a box, so a
+                species' attribute line could not be recorded on the character
+                it applied to. --}}
+          <div class="la-attribute__race">
+            <input type="number" name="system.attributes.{{this.key}}.racialMod"
+                   value="{{this.racialMod}}"
+                   data-tooltip="{{localize 'LASTARC.Tooltip.RacialMod'}}">
+            <input type="number" name="system.attributes.{{this.key}}.cap"
+                   value="{{this.cap}}" min="1"
+                   data-tooltip="{{localize 'LASTARC.Tooltip.AttributeCap'}}">
+          </div>
           <label class="la-attribute__label">{{localize this.label}}</label>
         </div>
       {{/each}}
@@ -80,6 +92,12 @@
         {{system.initiative.effectiveDie}}
       </div>
       <label class="la-vital__sub">{{localize "LASTARC.Resource.LowestFirst"}}</label>
+      <label class="la-vital__sub"
+             data-tooltip="{{localize 'LASTARC.Tooltip.InitiativeSteps'}}">
+        {{localize "LASTARC.Field.InitSteps"}}
+        <input type="number" name="system.initiative.bonusSteps"
+               value="{{system.initiative.bonusSteps}}" min="0">
+      </label>
     </div>
 
     <div class="la-vital la-vital--dr">
@@ -106,6 +124,41 @@
     </div>
   </section>
 
+  {{!-- ── Movement modes ──────────────────────────────────────────────────── --}}
+  {{!-- Fly, swim and climb had no inputs anywhere, so a winged character or
+        anything underwater could not be represented at all. --}}
+  <section class="la-panel la-panel--movement">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Movement"}}</h2>
+    <div class="la-field-row">
+      <div class="la-field la-field--narrow">
+        <input type="number" name="system.movement.fly" value="{{system.movement.fly}}" min="0">
+        <label>{{localize "LASTARC.Movement.fly"}}</label>
+      </div>
+      <div class="la-field la-field--narrow">
+        <input type="number" name="system.movement.swim" value="{{system.movement.swim}}" min="0">
+        <label>{{localize "LASTARC.Movement.swim"}}</label>
+      </div>
+      <div class="la-field la-field--narrow">
+        <input type="number" name="system.movement.climb" value="{{system.movement.climb}}" min="0">
+        <label>{{localize "LASTARC.Movement.climb"}}</label>
+      </div>
+      <label class="la-checkfield">
+        <input type="checkbox" name="system.movement.hover" {{#if system.movement.hover}}checked{{/if}}>
+        {{localize "LASTARC.Movement.hover"}}
+      </label>
+      <div class="la-field">
+        <input type="text" name="system.movement.special" value="{{system.movement.special}}">
+        <label>{{localize "LASTARC.Movement.special"}}</label>
+      </div>
+      <label class="la-checkfield"
+             data-tooltip="{{localize 'LASTARC.Tooltip.ShieldProficiency'}}">
+        <input type="checkbox" name="system.proficiencies.shields"
+               {{#if system.proficiencies.shields}}checked{{/if}}>
+        {{localize "LASTARC.Field.ShieldProficiency"}}
+      </label>
+    </div>
+  </section>
+
   {{!-- ── Defences · Threshold ────────────────────────────────────────────── --}}
   <section class="la-panel la-panel--defences">
     <h2 class="la-panel__title">{{localize "LASTARC.Section.Defences"}}</h2>
@@ -119,8 +172,15 @@
           </span>
           <div class="la-defence__parts">
             <span data-tooltip="{{localize 'LASTARC.Tooltip.ClassBonus'}}">{{lasignal this.classBonus}}</span>
-            <input type="number" name="system.defences.{{this.key}}.technicks" value="{{this.technicks}}"
-                   data-tooltip="{{localize 'LASTARC.Tooltip.Technicks'}}">
+            {{!-- Read-only. This was an <input>, but prepareDerivedData assigns
+                  the technick total unconditionally, so a number typed here was
+                  written to the database and then overwritten in memory on the
+                  next prepare — it stored 7 and showed 0 back. Adjust it by
+                  editing the technick that grants it, or use Misc. --}}
+            <span class="la-defence__derived"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.Technicks'}}">
+              {{lasignal this.technicks}}
+            </span>
             <input type="number" name="system.defences.{{this.key}}.misc" value="{{this.misc}}"
                    data-tooltip="{{localize 'LASTARC.Tooltip.Misc'}}">
           </div>
@@ -136,6 +196,12 @@
            data-tooltip="{{localize 'LASTARC.Tooltip.Threshold'}}">
         <span class="la-defence__label">{{localize "LASTARC.Section.BreakThreshold"}}</span>
         <span class="la-defence__value la-defence__value--accent">{{system.breakGauge.threshold}}</span>
+        <label class="la-defence__bonus">
+          {{localize "LASTARC.Field.ThresholdBonus"}}
+          <input type="number" name="system.breakGauge.thresholdBonus"
+                 value="{{system.breakGauge.thresholdBonus}}"
+                 data-tooltip="{{localize 'LASTARC.Tooltip.ThresholdBonus'}}">
+        </label>
       </div>
     </div>
   </section>
@@ -578,6 +644,15 @@
         </div>
       {{/each}}
     </div>
+  </section>
+
+  {{!-- ── Biography ───────────────────────────────────────────────────────
+        HTMLField, so {{formInput}} gives a <prose-mirror> editor. There was
+        no input for this anywhere. --}}
+  <section class="la-panel la-panel--biography">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Biography"}}</h2>
+    {{formInput fields.details.fields.biography value=system.details.biography
+                enriched=enrichedBiography toggled=true}}
   </section>
 
 </div>

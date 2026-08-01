@@ -52,6 +52,15 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.system = sys;
     context.config = LASTARC;
 
+    context.fields = sys.schema.fields;
+    context.enrichedBiography = await foundry.applications.ux.TextEditor
+      .implementation.enrichHTML(sys.details.biography ?? "", { relativeTo: this.document });
+
+    context.ethosPurityOptions = LASTARC.ethosPurity
+      .map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` }));
+    context.ethosMoralityOptions = LASTARC.ethosMorality
+      .map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` }));
+
     // Same guard as the character sheet: a statblock with 0 max MP is common
     // and must not render NaN%.
     const pct = (value, max) =>
