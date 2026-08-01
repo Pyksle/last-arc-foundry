@@ -1187,6 +1187,28 @@
 }
 .la-bulk strong { font-family: var(--la-font-num); font-size: 1rem; }
 .la-bulk__limits { color: var(--la-ink-faint); font-size: 0.62rem; }
+
+/* Gold (issue #14). `margin-left: auto` pushes it to the far end of the bulk
+   row — but the encumbrance state claims that spot when it appears, so this
+   sits before it and both stay put rather than fighting for the corner. */
+.la-bulk__gold {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.6rem;
+  color: var(--la-bronze);
+}
+.la-bulk__gold input {
+  width: 5rem;
+  font-family: var(--la-font-num);
+  font-size: 0.9rem;
+  text-align: right;
+}
+.la-bulk__state + .la-bulk__gold,
+.la-bulk__gold + .la-bulk__state { margin-left: 0.5rem; }
 .la-bulk__state {
   margin-left: auto;
   text-transform: uppercase;

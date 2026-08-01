@@ -387,7 +387,9 @@
       </div>
 
       {{!-- Attribute prerequisites are an ObjectField keyed by attribute, so
-            each gets a box; blank means no requirement. --}}
+            each gets a box; blank means no requirement. A 0 is discarded on
+            save rather than stored, because a requirement of zero is not a
+            requirement and used to show up as a phantom line (issue #15). --}}
       <p class="la-note">{{localize "LASTARC.Note.PrereqAttributes"}}</p>
       <div class="la-field-row">
         {{#each prereqAttributes}}
@@ -397,6 +399,34 @@
             <label>{{localize this.abbr}}</label>
           </div>
         {{/each}}
+      </div>
+
+      {{!-- The other three prerequisite kinds (issue #15). All ArrayFields of
+            plain strings, all declared from the start, all checked by
+            checkPrerequisites, and none of them had an input anywhere — so
+            "Trained in Acrobatics", which the book uses constantly, could not
+            be recorded at all. Comma boxes, like every other string array on
+            this sheet. --}}
+      <div class="la-field-row">
+        <div class="la-field"
+             data-tooltip="{{localize 'LASTARC.Tooltip.PrereqTrainedSkills'}}">
+          <input type="text" name="system.prerequisites.trainedSkillsText"
+                 value="{{prereqTrainedSkillsText}}"
+                 placeholder="{{localize 'LASTARC.Placeholder.PrereqSkills'}}">
+          <label>{{localize "LASTARC.Field.PrereqTrainedSkills"}}</label>
+        </div>
+        <div class="la-field"
+             data-tooltip="{{localize 'LASTARC.Tooltip.PrereqSlugs'}}">
+          <input type="text" name="system.prerequisites.technicksText"
+                 value="{{prereqTechnicksText}}">
+          <label>{{localize "LASTARC.Field.PrereqTechnicks"}}</label>
+        </div>
+        <div class="la-field"
+             data-tooltip="{{localize 'LASTARC.Tooltip.PrereqSlugs'}}">
+          <input type="text" name="system.prerequisites.talentsText"
+                 value="{{prereqTalentsText}}">
+          <label>{{localize "LASTARC.Field.PrereqTalents"}}</label>
+        </div>
       </div>
 
       {{#if prereqCheck}}

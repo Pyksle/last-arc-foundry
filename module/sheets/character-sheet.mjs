@@ -90,6 +90,11 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.enrichedBiography = await foundry.applications.ux.TextEditor
       .implementation.enrichHTML(sys.details.biography ?? "", { relativeTo: this.document });
 
+    // An ArrayField of strings, shown as one comma box (issue #14). Unpacked
+    // here and repacked in _prepareSubmitData — a `name` pointing straight at
+    // the array would store the raw string and quietly lose it.
+    context.languagesText = (sys.details.languages ?? []).join(", ");
+
     // Attributes in PRINTED order, not object-key order (§2 rev2).
     context.attributes = LASTARC.attributeOrder.map((key) => ({
       key,
@@ -222,6 +227,26 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.actionEconomy = this.#prepareActionEconomy();
 
     return context;
+  }
+
+  /**
+   * Repack the comma box back into the ArrayField it stands for.
+   *
+   * Without this the extra key is simply dropped on update, so the box accepts
+   * typing and forgets it the moment the sheet re-renders — the same silent
+   * failure the item sheet's `*Text` fields exist to avoid.
+   */
+  _prepareSubmitData(event, form, formData, updateData) {
+    const submit = super._prepareSubmitData(event, form, formData, updateData);
+
+    const raw = submit["system.details.languagesText"];
+    if (typeof raw === "string") {
+      submit["system.details.languages"] =
+        raw.split(",").map((s) => s.trim()).filter(Boolean);
+      delete submit["system.details.languagesText"];
+    }
+
+    return submit;
   }
 
   /**

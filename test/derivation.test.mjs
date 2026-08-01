@@ -741,6 +741,25 @@ describe("§11 prerequisites", () => {
     assert.ok(checkPrerequisites(undefined, actor).met);
   });
 
+  /**
+   * Blank number boxes on the item sheet stored 0 rather than nothing, so a
+   * technick with no prerequisites at all carried six of them. A requirement of
+   * zero is the ABSENCE of a requirement and must not appear anywhere — not in
+   * the unmet list, and not as a line on the chat card (issue #15).
+   */
+  test("an attribute minimum of 0 is not a requirement", () => {
+    const allZero = { str: 0, vit: 0, agi: 0, int: 0, mnd: 0, chr: 0 };
+    const r = checkPrerequisites({ attributes: allZero }, actor);
+    assert.ok(r.met);
+    assert.deepEqual(r.unmet, []);
+  });
+
+  test("a zero sitting beside a real minimum does not dilute it", () => {
+    const r = checkPrerequisites({ attributes: { str: 0, chr: 13 } }, actor);
+    assert.ok(!r.met);
+    assert.equal(r.unmet.length, 1, `got: ${r.unmet.join(" | ")}`);
+  });
+
   test("a missing attribute counts as 0, not as satisfied", () => {
     const r = checkPrerequisites({ attributes: { chr: 13 } }, actor);
     assert.ok(!r.met);

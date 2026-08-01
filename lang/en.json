@@ -735,5 +735,13 @@
   "LASTARC.Content.Later": "Not now",
   "LASTARC.Content.Never": "Never ask again",
   "LASTARC.Setting.CreateCompendiums.name": "Create the Last Arc compendium set",
-  "LASTARC.Setting.CreateCompendiums.hint": "Tick and save to create the standard world compendiums (Races, Spells, Bestiary and so on) if you do not have them. World compendiums survive system updates. Safe to use more than once — existing ones are left alone."
+  "LASTARC.Setting.CreateCompendiums.hint": "Tick and save to create the standard world compendiums (Races, Spells, Bestiary and so on) if you do not have them. World compendiums survive system updates. Safe to use more than once — existing ones are left alone.",
+  "LASTARC.Field.Gold": "Gold",
+  "LASTARC.Placeholder.Languages": "Common, Elvish, …",
+  "LASTARC.Field.PrereqTrainedSkills": "Trained in",
+  "LASTARC.Field.PrereqTechnicks": "Technicks required",
+  "LASTARC.Field.PrereqTalents": "Talents required",
+  "LASTARC.Placeholder.PrereqSkills": "acrobatics, spellcraft",
+  "LASTARC.Tooltip.PrereqTrainedSkills": "Skills the character must be trained in, comma separated. Use the skill's key as it appears on the character sheet, e.g. acrobatics.",
+  "LASTARC.Tooltip.PrereqSlugs": "Comma-separated slugs, matching the slug field of the technick or talent required."
 }

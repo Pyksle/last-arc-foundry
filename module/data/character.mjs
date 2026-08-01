@@ -85,7 +85,18 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
         size: new fields.StringField({
           initial: "medium", choices: Object.keys(LASTARC.sizes)
         }),
+        /**
+         * Languages spoken. Declared from the start and editable nowhere until
+         * issue #14 — an ArrayField of strings, which the field-coverage guard
+         * skipped wholesale, so nothing noticed for nine releases.
+         */
         languages: new fields.ArrayField(new fields.StringField(), { initial: [] }),
+        /**
+         * Coin. The book budgets purchases in gold and gives no subdivisions
+         * or alternative denominations, so this is one number rather than the
+         * pouch of copper/silver/electrum other systems carry (p.84).
+         */
+        gold: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
         biography: new fields.HTMLField({ initial: "" })
       }),
 

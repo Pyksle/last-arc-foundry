@@ -27,7 +27,13 @@ function prerequisiteLines(item, actor) {
   const lines = [];
   const add = (text) => lines.push({ text, met: !unmetSet.has(text) });
 
+  // A zero minimum is not a requirement (issue #15). Blank number boxes on the
+  // item sheet used to store 0 rather than nothing, so a technick nobody had
+  // set a prerequisite on shared to chat carrying six of them — "Str 0, Vit 0,
+  // Agi 0…". Filtered here as well as at the source, because worlds already
+  // hold the zeros and a display fix needs no migration.
   for (const [attr, min] of Object.entries(p.attributes ?? {})) {
+    if (!min) continue;
     add(`${game.i18n.localize(LASTARC.attributes[attr]?.abbr ?? attr)} ${min}`);
   }
   if (p.characterLevel) add(`${game.i18n.localize("LASTARC.Field.Level")} ${p.characterLevel}`);

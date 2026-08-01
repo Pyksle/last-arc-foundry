@@ -521,6 +521,10 @@ export function checkPrerequisites(prereqs = {}, actor = {}) {
   const trained = toSet(actor.trainedSkills);
 
   for (const [key, required] of Object.entries(prereqs.attributes ?? {})) {
+    // A zero minimum is the absence of a requirement, not a requirement of
+    // zero. Skipped rather than compared, so an entry left at 0 by a blank
+    // form box cannot become a line in the unmet list (issue #15).
+    if (!required) continue;
     const have = attributes[key] ?? 0;
     if (have < required) unmet.push(`${key} ${required} (have ${have})`);
   }

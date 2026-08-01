@@ -186,6 +186,13 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (context.isTechnick) {
       context.prereqAttributes = attributeGrid(sys.prerequisites.attributes);
 
+      // Three ArrayFields of strings, shown as comma boxes (issue #15). They
+      // had no input at all, so a technick could not record "Trained in
+      // Acrobatics" — the commonest prerequisite the book prints.
+      context.prereqTrainedSkillsText = (sys.prerequisites.trainedSkills ?? []).join(", ");
+      context.prereqTechnicksText = (sys.prerequisites.technicks ?? []).join(", ");
+      context.prereqTalentsText = (sys.prerequisites.talents ?? []).join(", ");
+
       context.flagOptions = LASTARC.technickFlags.map((f) => ({
         value: f,
         label: `LASTARC.TechnickFlag.${f}`,
@@ -239,7 +246,10 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       "system.fitsText": "system.fits",
       "system.sensesText": "system.senses",
       "system.languagesText": "system.languages",
-      "system.featuresText": "system.features"
+      "system.featuresText": "system.features",
+      "system.prerequisites.trainedSkillsText": "system.prerequisites.trainedSkills",
+      "system.prerequisites.technicksText": "system.prerequisites.technicks",
+      "system.prerequisites.talentsText": "system.prerequisites.talents"
     })) {
       if (typeof submit[uiKey] !== "string") continue;
       submit[path] = commaList(submit[uiKey]);
@@ -256,19 +266,33 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       delete submit["system.decayText"];
     }
 
-    // Attribute maps. Rebuilt wholesale rather than patched key by key,
-    // because a dotted path cannot express "remove this key".
+    /**
+     * Attribute maps. Rebuilt wholesale rather than patched key by key,
+     * because a dotted path cannot express "remove this key".
+     *
+     * ZERO MEANS DIFFERENT THINGS IN THE TWO CASES, which is why they are not
+     * one list. A racial modifier of 0 and no racial modifier are different
+     * things to read on a sheet, so attributeMods and attributeCaps keep their
+     * zeros. A PREREQUISITE of 0 is not a requirement at all — keeping those
+     * put six phantom lines ("Str 0, Vit 0, Agi 0…") on every technick shared
+     * to chat, which is issue #15.
+     */
+    const DROP_ZERO = new Set(["system.prerequisites.attributes"]);
+
     for (const base of ["system.attributeMods", "system.attributeCaps",
                         "system.prerequisites.attributes"]) {
       const keys = Object.keys(submit).filter((k) => k.startsWith(`${base}.`));
       if (!keys.length) continue;
 
+      const dropZero = DROP_ZERO.has(base);
       const rebuilt = {};
       for (const k of keys) {
         const value = submit[k];
         delete submit[k];
         if (value === null || value === "" || Number.isNaN(value)) continue;
-        rebuilt[k.slice(base.length + 1)] = Number(value);
+        const n = Number(value);
+        if (dropZero && n === 0) continue;
+        rebuilt[k.slice(base.length + 1)] = n;
       }
       submit[base] = rebuilt;
     }

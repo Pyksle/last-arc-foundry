@@ -949,6 +949,77 @@ function registerSheetBatch(quench) {
             failures.join("\n  "));
         });
 
+        /**
+         * THE OTHER HALF OF THAT HOLE, which issues #14 and #15 fell through.
+         *
+         * An ArrayField of PLAIN STRINGS is not edited by a row widget either.
+         * It gets one comma-separated box standing in for the whole array —
+         * `languagesText`, `fitsText`, `featuresText` — and if nobody writes
+         * that box, the array is unauthorable and utterly silent about it.
+         *
+         * Three shipped that way. `details.languages` on the character was
+         * declared in the very first version and had no input for nine
+         * releases. `prerequisites.trainedSkills`, `.technicks` and `.talents`
+         * were read by checkPrerequisites the whole time, so "Trained in
+         * Acrobatics" — the commonest prerequisite the book prints — could be
+         * checked but never recorded.
+         *
+         * A stand-in box does not carry the array's own name, so this cannot
+         * look for the path directly; it checks that SOMETHING is bound whose
+         * name starts with the array's own, which is the `*Text` convention.
+         */
+        const ARRAY_EXEMPT = {
+          npc: {
+            loot: "no UI yet — the loot/steal tables are declared and unbuilt",
+            steal: "no UI yet — the loot/steal tables are declared and unbuilt"
+          }
+        };
+
+        it("every array of plain values can be edited somehow", async function () {
+          this.timeout(60_000);
+          const failures = [];
+
+          const scan = async (doc, kind) => {
+            const bound = await boundPaths(doc);
+            for (const [key, field] of Object.entries(doc.system.schema.fields)) {
+              for (const { path, element } of arrayLeaves(field, key)) {
+                if (element === "SchemaField") continue;      // covered above
+                if (ARRAY_EXEMPT[kind]?.[path]) continue;
+                // Either the array itself is bound, or a stand-in box whose
+                // name begins with it (`details.languagesText`).
+                const covered = [...bound].some(
+                  (b) => b === path || b.startsWith(path)
+                );
+                if (!covered) failures.push(`${kind}.${path}`);
+              }
+            }
+          };
+
+          /** Dotted paths of every ArrayField, recursing through SchemaFields. */
+          function arrayLeaves(field, path) {
+            const cls = field.constructor.name;
+            if (cls === "ArrayField") {
+              return [{ path, element: field.element?.constructor?.name }];
+            }
+            if (cls !== "SchemaField") return [];
+            return Object.entries(field.fields ?? {})
+              .flatMap(([k, f]) => arrayLeaves(f, `${path}.${k}`));
+          }
+
+          for (const type of Object.keys(game.system.documentTypes.Actor)) {
+            const actor = await Actor.create({ name: `Quench arrays ${type}`, type });
+            try { await scan(actor, type); } finally { await actor.delete(); }
+          }
+          for (const type of Object.keys(game.system.documentTypes.Item)) {
+            const item = await Item.create({ name: `Quench arrays ${type}`, type });
+            try { await scan(item, type); } finally { await item.delete(); }
+          }
+
+          assert.deepEqual(failures, [],
+            `arrays with no way to edit them:\n  ${failures.join("\n  ")}\n` +
+            `Add a comma box named <path>Text and repack it in _prepareSubmitData.`);
+        });
+
         it("every actor subtype exposes all of its fields, or exempts them", async function () {
           this.timeout(60_000);
           const failures = [];

@@ -634,6 +634,15 @@
       {{#if bulkStateLabel}}
         <span class="la-bulk__state">{{localize bulkStateLabel}}</span>
       {{/if}}
+
+      {{!-- Gold (issue #14). Beside Bulk because the two are the same
+            question asked twice — what you are carrying and what you can
+            afford — and a player pricing a purchase wants both at once. --}}
+      <label class="la-bulk__gold">
+        {{localize "LASTARC.Field.Gold"}}
+        <input type="number" name="system.details.gold"
+               value="{{system.details.gold}}" min="0">
+      </label>
     </div>
 
     <div class="la-items">
@@ -701,6 +710,17 @@
         no input for this anywhere. --}}
   <section class="la-panel la-panel--biography">
     <h2 class="la-panel__title">{{localize "LASTARC.Section.Biography"}}</h2>
+
+    {{!-- Languages (issue #14). An ArrayField of plain strings, so one comma
+          box rather than a row-adding widget — the same treatment a race
+          item's languages get, and typing "Common, Elvish" is fewer clicks
+          than any editor could be. --}}
+    <div class="la-field">
+      <input type="text" name="system.details.languagesText" value="{{languagesText}}"
+             placeholder="{{localize 'LASTARC.Placeholder.Languages'}}">
+      <label>{{localize "LASTARC.Field.Languages"}}</label>
+    </div>
+
     {{formInput fields.details.fields.biography value=system.details.biography
                 enriched=enrichedBiography toggled=true}}
   </section>
