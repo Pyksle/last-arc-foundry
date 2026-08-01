@@ -20,6 +20,7 @@ import { shareItem } from "../dice/share-item.mjs";
 import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
 import { markStatuses, toggleStatus } from "./status-palette.mjs";
+import { situationalOptions } from "../dice/situational.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -254,14 +255,21 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /* ------------------------------------------------------------------------ */
 
   static async #onRollAttribute(event, target) {
-    await rollAttribute(this.document, target.dataset.attribute);
+    const extra = await situationalOptions(event);
+    if (extra === null) return;
+
+    await rollAttribute(this.document, target.dataset.attribute, extra);
   }
 
   static async #onRollNpcAttack(event, target) {
     const index = Number(target.dataset.index);
+    const extra = await situationalOptions(event);
+    if (extra === null) return;
+
     const targeted = [...(game.user.targets ?? [])][0]?.actor;
 
     await rollNpcAttack(this.document, index, {
+      ...extra,
       targetDefence: defenceToBeat(targeted),
       targetProne: !!targeted?.statuses?.has?.("prone"),
       targetHelpless: !!targeted?.statuses?.has?.("helpless"),

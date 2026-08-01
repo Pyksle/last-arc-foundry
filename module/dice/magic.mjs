@@ -22,6 +22,7 @@ import * as D from "../derivation.mjs";
 import { rollDamageDice } from "./explode.mjs";
 import { rollHealing } from "./healing.mjs";
 import { describeCheck, describeDamage } from "./breakdown.mjs";
+import { situationalLabel } from "./situational.mjs";
 import * as CB from "../combat.mjs";
 
 /** Re-exported: it is a derived value and lives with the other derived values. */
@@ -283,7 +284,7 @@ export async function performItem(actor, performance, options = {}) {
     ? defensivePerformPenalty(options.threatCount ?? 0, perf.specialisation)
     : 0;
   add("LASTARC.Mod.performDefensively", defensive);
-  add("LASTARC.Mod.situational", options.situational ?? 0);
+  add(situationalLabel(options.situationalNote), options.situational ?? 0);
 
   const mod = parts.reduce((sum, p) => sum + p.value, 0);
   const roll = new Roll("1d20 + @mod", { mod });
@@ -504,7 +505,7 @@ export async function castSpell(actor, spell, options = {}) {
       })
     : 0;
   add("LASTARC.Mod.castDefensively", defensive);
-  add("LASTARC.Mod.situational", options.situational ?? 0);
+  add(situationalLabel(options.situationalNote), options.situational ?? 0);
 
   const mod = parts.reduce((s, p) => s + p.value, 0);
   const roll = new Roll("1d20 + @mod", { mod });

@@ -25,6 +25,7 @@ import { shareItem } from "../dice/share-item.mjs";
 import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
 import { markStatuses, toggleStatus } from "./status-palette.mjs";
+import { situationalOptions } from "../dice/situational.mjs";
 import { applyHealing } from "../dice/healing.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -577,11 +578,19 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
   static async #onRollSkill(event, target) {
     const { skill, subskill } = target.dataset;
-    await rollSkill(this.document, skill, { subskill: subskill || null });
+    // Alt-click asks for a situational modifier first; a dismissed prompt
+    // cancels the roll rather than rolling at +0 (issue #16).
+    const extra = await situationalOptions(event);
+    if (extra === null) return;
+
+    await rollSkill(this.document, skill, { subskill: subskill || null, ...extra });
   }
 
   static async #onRollAttribute(event, target) {
-    await rollAttribute(this.document, target.dataset.attribute);
+    const extra = await situationalOptions(event);
+    if (extra === null) return;
+
+    await rollAttribute(this.document, target.dataset.attribute, extra);
   }
 
   /**
@@ -864,8 +873,12 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const weapon = this.document.items.get(target.dataset.itemId);
     if (!weapon) return;
 
+    const extra = await situationalOptions(event);
+    if (extra === null) return;
+
     const targeted = [...(game.user.targets ?? [])][0]?.actor;
     await rollAttack(this.document, weapon, {
+      ...extra,
       targetDefence: defenceToBeat(targeted),
       // Carried so the card can offer the target a Block (issue #12). Weapon
       // attacks always target Reflex, which is exactly what a shield answers.
@@ -885,9 +898,13 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const spell = this.document.items.get(target.dataset.itemId);
     if (!spell) return;
 
+    const extra = await situationalOptions(event);
+    if (extra === null) return;
+
     const targeted = [...(game.user.targets ?? [])][0]?.actor;
 
     await castSpell(this.document, spell, {
+      ...extra,
       target: targeted,
       castDefensively: !!event.shiftKey,
       threatCount: event.shiftKey ? 1 : 0
@@ -969,7 +986,11 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const item = this.document.items.get(target.dataset.itemId);
     if (!item) return;
 
+    const extra = await situationalOptions(event);
+    if (extra === null) return;
+
     await performItem(this.document, item, {
+      ...extra,
       performDefensively: !!event.shiftKey,
       threatCount: event.shiftKey ? 1 : 0,
       // Enfeebling tiers are gated on beating a defence and can strip mana, so

@@ -22,7 +22,8 @@
               data-action="toggleStatus" data-status="{{this.id}}"
               aria-pressed="{{#if this.active}}true{{else}}false{{/if}}"
               data-tooltip="{{this.label}}">
-        <img src="{{this.img}}" alt="" class="la-status__icon">
+        <span class="la-status__icon" aria-hidden="true"
+                style="--la-status-icon: url('{{this.img}}')"></span>
         <span class="la-status__name">{{this.label}}</span>
       </button>
     {{/each}}
@@ -36,7 +37,8 @@
               data-action="toggleStatus" data-status="{{this.id}}"
               aria-pressed="{{#if this.active}}true{{else}}false{{/if}}"
               data-tooltip="{{this.label}}">
-        <img src="{{this.img}}" alt="" class="la-status__icon">
+        <span class="la-status__icon" aria-hidden="true"
+                style="--la-status-icon: url('{{this.img}}')"></span>
         <span class="la-status__name">{{this.label}}</span>
       </button>
     {{/each}}
