@@ -24,7 +24,7 @@ import { registerCombat, holdTurn, spendAction, resetActions, rollGroupInitiativ
 import * as INIT from "./initiative.mjs";
 import * as AE from "./action-economy.mjs";
 import { registerQuenchBatches } from "./quench.mjs";
-import { createWorldCompendiums, noticeContentHome, registerContentSettings }
+import { createWorldCompendiums, offerContentSetup, registerContentSettings }
   from "./world-content.mjs";
 
 const SYSTEM_ID = "last-arc";
@@ -315,9 +315,8 @@ Hooks.once("ready", () => {
     );
   }
 
-  // Where hand-authored content should live, said once per world. The system
-  // used to declare compendium packs of its own and Foundry destroyed them on
-  // every update; this is the only thing standing between a new table and the
-  // same lost weekend.
-  noticeContentHome();
+  // Offer to build the compendium set where updates cannot reach it. The system
+  // used to declare packs of its own and every update destroyed them; a GM who
+  // has just lost that content needs a button, not an API to look up.
+  offerContentSetup();
 });

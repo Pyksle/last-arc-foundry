@@ -728,6 +728,12 @@
   "LASTARC.Card.PerformMpLost": "{n} MP lost",
   "LASTARC.Content.GMOnly": "Only a GM can create compendiums.",
   "LASTARC.Content.Created": "Created {n} compendium(s); {kept} already existed.",
-  "LASTARC.Content.NoticeTitle": "Where to put the content you type in",
-  "LASTARC.Content.NoticeBody": "Last Arc ships no game content, so everything you author is yours to keep — but it must live in a WORLD compendium, not one belonging to the system. Foundry replaces a system's whole folder when it updates, and takes any compendium inside it with everything in it. Run the line below to create the standard set safely, or make your own from the Compendium tab."
+  "LASTARC.Content.NoticeTitle": "Set up your Last Arc compendiums",
+  "LASTARC.Content.NoticeBody": "Last Arc ships no game content — everything you author is typed in from your own copy of the book, so it is yours and it must not be lost. It has to live in a <strong>world</strong> compendium: those sit in the world folder, where a system update can never reach them. Earlier versions declared compendiums belonging to the system itself, and Foundry destroyed those on every update.",
+  "LASTARC.Content.NoticeList": "Create the standard set now — Races, Classes, Technicks, Talents, Weapons, Armour &amp; Shields, Accessories &amp; Consumables, Spells, Performances and a Bestiary? They will be empty and ready to fill.",
+  "LASTARC.Content.Create": "Create them",
+  "LASTARC.Content.Later": "Not now",
+  "LASTARC.Content.Never": "Never ask again",
+  "LASTARC.Setting.CreateCompendiums.name": "Create the Last Arc compendium set",
+  "LASTARC.Setting.CreateCompendiums.hint": "Tick and save to create the standard world compendiums (Races, Spells, Bestiary and so on) if you do not have them. World compendiums survive system updates. Safe to use more than once — existing ones are left alone."
 }

@@ -81,16 +81,17 @@ content. That was a trap: every release wiped them. The declarations were remove
 in 0.8.0.
 
 Put your work in a **world compendium** instead. Those live in the world folder
-and no system update touches them. Either make them yourself from the
-**Compendium** tab → *Create Compendium*, or run this as a GM in a Script macro
-to build the same organised set in one go:
+and no system update touches them.
 
-```js
-game.lastarc.createWorldCompendiums()
-```
+From 0.9.0 a GM is **asked on first load** whether to create the standard set —
+Races, Classes, Technicks, Talents, Weapons, Armour & Shields, Accessories &
+Consumables, Spells, Performances and a Bestiary — as world compendiums. One
+click and they are there, empty and ready to fill.
 
-It is safe to run more than once — an existing compendium is left alone rather
-than duplicated.
+If you dismissed that, or your world predates it, tick **Create the Last Arc
+compendium set** in the system settings. Either route is safe to use more than
+once: an existing compendium is left alone rather than duplicated. There is also
+`game.lastarc.createWorldCompendiums()` for a macro.
 
 **If you are upgrading from 0.7.0 or earlier and had content in the system
 packs**, rescue it *before* you update, because the update destroys it first.

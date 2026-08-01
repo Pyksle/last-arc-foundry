@@ -68,6 +68,18 @@ export async function createWorldCompendiums() {
     return { created: [], existing: [] };
   }
 
+  // v13 moved this under foundry.documents.collections and left a global shim.
+  // Take whichever exists rather than betting on one — this system has already
+  // been bitten once by asserting a Foundry internal it had not checked.
+  const CompendiumCls =
+    foundry?.documents?.collections?.CompendiumCollection ??
+    globalThis.CompendiumCollection;
+
+  if (!CompendiumCls) {
+    ui.notifications?.error("Last Arc | Cannot find CompendiumCollection.");
+    return { created: [], existing: [] };
+  }
+
   const created = [];
   const existing = [];
 
@@ -80,7 +92,7 @@ export async function createWorldCompendiums() {
       existing.push(label);
       continue;
     }
-    await CompendiumCollection.createCompendium({ label, type: set.type });
+    await CompendiumCls.createCompendium({ label, type: set.type });
     created.push(label);
   }
 
@@ -91,29 +103,45 @@ export async function createWorldCompendiums() {
 }
 
 /**
- * Tell a GM once where content should go.
+ * Offer to build the set, once per world, as a dialog a GM cannot miss.
  *
- * Once per world, not once per session: a notice that fires every login is one
- * people learn to dismiss without reading, and this is the only warning between
- * a new table and the same lost weekend.
+ * This replaces a whispered chat message containing a line of JavaScript to
+ * copy. That was the right information delivered in the one form nobody acts
+ * on: the compendiums people had lost stayed missing, because getting them back
+ * required knowing an API existed and typing it correctly.
  *
- * Silent when the world already has the compendiums — somebody has clearly
- * worked it out.
+ * A dialog with a button is the whole point. It also ASKS rather than doing it
+ * silently — ten compendiums appearing unannounced in someone's world is not a
+ * decision this system gets to make for them.
+ *
+ * Silent when the world already has them: somebody has clearly sorted it out.
  */
-export function noticeContentHome() {
+export async function offerContentSetup() {
   if (!game.user.isGM) return;
   if (game.settings.get(SYSTEM_ID, NOTICE_FLAG)) return;
   if (existingWorldPacks().length) return;
 
-  ChatMessage.create({
-    whisper: [game.user.id],
+  const choice = await foundry.applications.api.DialogV2.wait({
+    window: { title: game.i18n.localize("LASTARC.Content.NoticeTitle") },
     content:
-      `<div class="lastarc-card"><h3>${game.i18n.localize("LASTARC.Content.NoticeTitle")}</h3>` +
       `<p>${game.i18n.localize("LASTARC.Content.NoticeBody")}</p>` +
-      `<p><code>game.lastarc.createWorldCompendiums()</code></p></div>`
+      `<p>${game.i18n.localize("LASTARC.Content.NoticeList")}</p>`,
+    buttons: [
+      { action: "create", label: game.i18n.localize("LASTARC.Content.Create"), default: true },
+      { action: "later", label: game.i18n.localize("LASTARC.Content.Later") },
+      { action: "never", label: game.i18n.localize("LASTARC.Content.Never") }
+    ],
+    // Closing the dialog is "ask me next time", not "never" — dismissing a box
+    // is not consent to never being told again.
+    rejectClose: false
   });
 
-  game.settings.set(SYSTEM_ID, NOTICE_FLAG, true);
+  if (choice === "create") {
+    await createWorldCompendiums();
+    await game.settings.set(SYSTEM_ID, NOTICE_FLAG, true);
+  } else if (choice === "never") {
+    await game.settings.set(SYSTEM_ID, NOTICE_FLAG, true);
+  }
 }
 
 /** Registered by the entry point; kept here so the flag has one owner. */
@@ -123,5 +151,26 @@ export function registerContentSettings() {
     config: false,
     type: Boolean,
     default: false
+  });
+
+  /**
+   * A visible way back to the offer, for anyone who dismissed it or wants the
+   * set in a world made before this shipped. A checkbox rather than a menu
+   * button because a settings MENU needs its own Application class, and a
+   * one-click checkbox does the same job with none of that surface.
+   */
+  game.settings.register(SYSTEM_ID, "createCompendiumsNow", {
+    name: "LASTARC.Setting.CreateCompendiums.name",
+    hint: "LASTARC.Setting.CreateCompendiums.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    onChange: async (value) => {
+      if (!value) return;
+      // Reset immediately so the box reads as a button rather than a state.
+      await game.settings.set(SYSTEM_ID, "createCompendiumsNow", false);
+      await createWorldCompendiums();
+    }
   });
 }
