@@ -540,6 +540,7 @@ describe("§11 technick grants", () => {
   test("empty input yields a fully-formed zero object", () => {
     const g = aggregateGrants([]);
     assert.deepEqual(g.defences, { ref: 0, fort: 0, will: 0 });
+    assert.equal(g.hp, 0);
     assert.equal(g.heroPoints, 0);
     assert.equal(g.recoveryMinorActions, null);
     assert.deepEqual(g.skills, {});
@@ -554,6 +555,14 @@ describe("§11 technick grants", () => {
     assert.equal(g.defences.fort, 1);
     assert.equal(g.breakThreshold, 5);
     assert.equal(g.heroPoints, 1);
+  });
+
+  test("maximum-HP grants sum, including negatives", () => {
+    // An accessory granting HP is the common case; a cursed one taking it away
+    // uses the same field, so the sum must not be floored here — the actor
+    // applies the floor once, against the finished total.
+    const g = aggregateGrants([{ hp: 10 }, { hp: 5 }, { hp: -3 }]);
+    assert.equal(g.hp, 12);
   });
 
   test("repeatable technicks stack — three copies give three steps", () => {

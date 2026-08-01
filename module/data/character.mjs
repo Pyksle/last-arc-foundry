@@ -372,6 +372,15 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       console.warn(`Last Arc | ${this.parent?.name}: ${err.message}`);
     }
 
+    /**
+     * Flat HP granted by equipped accessories, prosthetics and talents. Added
+     * before the status multipliers so a withered character loses half of the
+     * HP they actually have, not half of the class portion with the amulet's
+     * contribution surviving intact. Floored at 0 so a large negative grant
+     * cannot push the maximum below the clamp applied just below.
+     */
+    this.resources.hp.max = Math.max(0, this.resources.hp.max + grants.hp);
+
     // Withering and dim halve the maxima. Multipliers COMPOUND in
     // aggregateStatuses rather than summing — two halvings give a quarter, not
     // zero, and zero max HP would be instant death rather than a penalty.

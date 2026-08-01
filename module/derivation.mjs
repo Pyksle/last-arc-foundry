@@ -452,6 +452,7 @@ export function aggregateGrants(grantsList = []) {
   const out = {
     defences: { ref: 0, fort: 0, will: 0 },
     breakThreshold: 0,
+    hp: 0,
     heroPoints: 0,
     initiativeSteps: 0,
     speed: 0,
@@ -467,6 +468,7 @@ export function aggregateGrants(grantsList = []) {
     out.defences.fort += g.defences?.fort ?? 0;
     out.defences.will += g.defences?.will ?? 0;
     out.breakThreshold += g.breakThreshold ?? 0;
+    out.hp += g.hp ?? 0;
     out.heroPoints += g.heroPoints ?? 0;
     out.initiativeSteps += g.initiativeSteps ?? 0;
     out.speed += g.speed ?? 0;

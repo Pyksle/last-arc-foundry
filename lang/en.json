@@ -625,6 +625,8 @@
   "LASTARC.Field.ClassRestricted": "Class-restricted",
   "LASTARC.Field.SecondWindUses": "2nd wind",
   "LASTARC.Field.RecoveryMinors": "Recovery",
+  "LASTARC.Field.GrantHp": "Max HP",
+  "LASTARC.Tooltip.GrantHp": "Flat bonus to maximum HP while this is equipped. Statuses that halve maximum HP apply to the total, this bonus included.",
   "LASTARC.TechnickKind.technick": "Technick",
   "LASTARC.TechnickKind.talent": "Talent",
   "LASTARC.Tooltip.TechnickKind": "Talents come from a class tree; technicks are taken freely.",

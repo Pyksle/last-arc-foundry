@@ -216,6 +216,12 @@ function grantsSchema() {
       will: new fields.NumberField({ initial: 0, integer: true })
     }),
     breakThreshold: new fields.NumberField({ initial: 0, integer: true }),
+    /**
+     * Flat bonus to maximum HP — an amulet of health, a Toughness-style talent.
+     * Stored as part of the payload rather than as an accessory-only field so
+     * every granting subtype expresses it the same way.
+     */
+    hp: new fields.NumberField({ initial: 0, integer: true }),
     heroPoints: new fields.NumberField({ initial: 0, integer: true }),
     /** Improved Initiative: steps the die DOWN the ladder, since lowest acts first. */
     initiativeSteps: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
@@ -275,7 +281,7 @@ export class LastArcTechnickData extends foundry.abstract.TypeDataModel {
     const g = this.grants;
     this.hasNumericGrants = !!(
       g.defences.ref || g.defences.fort || g.defences.will ||
-      g.breakThreshold || g.heroPoints || g.initiativeSteps || g.speed ||
+      g.breakThreshold || g.hp || g.heroPoints || g.initiativeSteps || g.speed ||
       g.secondWindUses || g.recoveryMinorActions !== null || g.skills.length
     );
   }

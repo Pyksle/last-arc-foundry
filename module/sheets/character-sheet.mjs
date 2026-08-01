@@ -444,6 +444,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       }
     }
     if (grants.breakThreshold) parts.push(`${sign(grants.breakThreshold)} Threshold`);
+    if (grants.hp) parts.push(`${sign(grants.hp)} Max HP`);
     if (grants.heroPoints) parts.push(`${sign(grants.heroPoints)} Hero Points`);
     if (grants.initiativeSteps) parts.push(`Init −${grants.initiativeSteps} step`);
     if (grants.speed) parts.push(`${sign(grants.speed)} Speed`);
