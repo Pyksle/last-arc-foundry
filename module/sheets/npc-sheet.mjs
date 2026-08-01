@@ -16,9 +16,36 @@ import * as D from "../derivation.mjs";
 import { rollAttribute } from "../dice/rolls.mjs";
 import { rollNpcAttack, defenceToBeat } from "../dice/attack.mjs";
 import { promptCreateItem } from "./item-creation.mjs";
+import { shareItem } from "../dice/share-item.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
+
+/**
+ * One-line summary of a technick's numeric payload.
+ *
+ * Deliberately a plain function rather than a copy of the character sheet's
+ * private method: a GM reading a monster's abilities wants the same shorthand
+ * a player gets, and two implementations would drift.
+ */
+function grantSummary(grants) {
+  if (!grants) return "";
+  const parts = [];
+  const sign = (n) => (n < 0 ? `−${Math.abs(n)}` : `+${n}`);
+
+  for (const key of ["ref", "fort", "will"]) {
+    if (grants.defences?.[key]) {
+      parts.push(`${sign(grants.defences[key])} ${game.i18n.localize(`LASTARC.Defence.${key}`)}`);
+    }
+  }
+  if (grants.breakThreshold) parts.push(`${sign(grants.breakThreshold)} Threshold`);
+  if (grants.hp) parts.push(`${sign(grants.hp)} HP`);
+  if (grants.mp) parts.push(`${sign(grants.mp)} MP`);
+  if (grants.dr) parts.push(`${sign(grants.dr)} DR`);
+  if (grants.speed) parts.push(`${sign(grants.speed)} Speed`);
+  if (grants.initiativeSteps) parts.push(`Init −${grants.initiativeSteps} step`);
+  return parts.join(" · ");
+}
 
 export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static DEFAULT_OPTIONS = {
@@ -32,7 +59,11 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       addAttack: LastArcNpcSheet.#onAddAttack,
       deleteAttack: LastArcNpcSheet.#onDeleteAttack,
       setBreakStep: LastArcNpcSheet.#onSetBreakStep,
+      addSkill: LastArcNpcSheet.#onAddSkill,
+      removeSkill: LastArcNpcSheet.#onRemoveSkill,
+      rollNpcSkill: LastArcNpcSheet.#onRollNpcSkill,
       createItem: LastArcNpcSheet.#onCreateItem,
+      shareItem: LastArcNpcSheet.#onShareItem,
       editItem: LastArcNpcSheet.#onEditItem,
       deleteItem: LastArcNpcSheet.#onDeleteItem
     }
@@ -128,12 +159,38 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       displayName: atk.name || game.i18n.localize("LASTARC.Attack.Unnamed")
     }));
 
-    context.items = this.document.items.map((i) => ({
-      id: i.id,
-      name: i.name,
-      img: i.img,
-      typeLabel: game.i18n.localize(`TYPES.Item.${i.type}`)
+    // Printed statblock skills. Stored as {key, value} pairs rather than the
+    // character's full derived rows — an NPC's skills are authored totals, not
+    // built from attributes and training (§3.2).
+    context.skillOptions = Object.entries(LASTARC.allSkills)
+      .map(([k, c]) => ({ value: k, label: c.label }));
+    context.npcSkills = sys.skills.map((s, index) => ({
+      ...s,
+      index,
+      label: LASTARC.allSkills[s.key]?.label ?? s.key
     }));
+
+    // Technicks and talents get their own panel. They were mixed into an
+    // undifferentiated item list with the creature's gear, so a monster's
+    // abilities sat between its sword and its rations with nothing to
+    // distinguish them.
+    const technicks = [];
+    const items = [];
+    for (const i of this.document.items) {
+      const row = {
+        id: i.id,
+        name: i.name,
+        img: i.img,
+        typeLabel: game.i18n.localize(`TYPES.Item.${i.type}`)
+      };
+      if (i.type === "technick" || i.type === "talent") {
+        technicks.push({ ...row, summary: grantSummary(i.system.grants) });
+      } else {
+        items.push(row);
+      }
+    }
+    context.technicks = technicks;
+    context.items = items;
 
     return context;
   }
@@ -232,8 +289,57 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     await this.document.update({ "system.breakGauge.step": next.step });
   }
 
+  static async #onAddSkill() {
+    const skills = this.document.system.toObject().skills ?? [];
+    // Default to the first skill not already listed, so adding three rows in a
+    // row does not produce three Acrobatics.
+    const used = new Set(skills.map((s) => s.key));
+    const next = Object.keys(LASTARC.allSkills).find((k) => !used.has(k))
+      ?? Object.keys(LASTARC.allSkills)[0];
+    await this.document.update({ "system.skills": [...skills, { key: next, value: 0 }] });
+  }
+
+  /** Whole-array write: `-=N` is object-key deletion and corrupts an ArrayField. */
+  static async #onRemoveSkill(event, target) {
+    const index = Number(target.dataset.index);
+    const skills = this.document.system.toObject().skills ?? [];
+    if (!skills[index]) return;
+    await this.document.update({ "system.skills": skills.filter((_, i) => i !== index) });
+  }
+
+  /**
+   * Roll a statblock skill.
+   *
+   * The printed total is used as-is plus the Break Gauge penalty — an NPC's
+   * skills are authored numbers, not derived from attributes and training, so
+   * there is nothing else to add.
+   */
+  static async #onRollNpcSkill(event, target) {
+    const index = Number(target.dataset.index);
+    const entry = this.document.system.skills[index];
+    if (!entry) return;
+
+    const penalty = this.document.system.breakGauge.penalty ?? 0;
+    const roll = await new Roll(`1d20 + ${entry.value} + ${penalty}`).evaluate();
+    await roll.toMessage({
+      speaker: ChatMessage.getSpeaker({ actor: this.document }),
+      flavor: game.i18n.format("LASTARC.Card.SkillCheck", {
+        skill: game.i18n.localize(LASTARC.allSkills[entry.key]?.label ?? entry.key)
+      })
+    });
+  }
+
   static async #onCreateItem(event, target) {
     await promptCreateItem(this.document, target.dataset.group ?? "npc");
+  }
+
+  /**
+   * Post an item to chat so the rest of the table can read it.
+   *
+   * A readout, not a use: nothing is rolled and nothing is spent.
+   */
+  static async #onShareItem(event, target) {
+    await shareItem(this.document.items.get(target.dataset.itemId));
   }
 
   static async #onEditItem(event, target) {

@@ -374,6 +374,68 @@
     </button>
   </section>
 
+  {{!-- ── Skills ──────────────────────────────────────────────────────────
+        Printed totals, not derived rows. A statblock gives "Stealth +12" and
+        that is the whole story — there was nowhere to record it at all. --}}
+  <section class="la-panel la-panel--npcskills">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Skills"}}</h2>
+
+    <div class="la-npc-skills">
+      {{#each npcSkills}}
+        <div class="la-npc-skill">
+          <select name="system.skills.{{this.index}}.key">
+            {{#each ../skillOptions}}
+              <option value="{{this.value}}" {{#if (laeq this.value ../key)}}selected{{/if}}>{{localize this.label}}</option>
+            {{/each}}
+          </select>
+          <input type="number" name="system.skills.{{this.index}}.value" value="{{this.value}}">
+          <button type="button" class="la-npc-skill__roll" data-action="rollNpcSkill"
+                  data-index="{{this.index}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.RollNpcSkill'}}">🎲</button>
+          <button type="button" class="la-item__delete" data-action="removeSkill"
+                  data-index="{{this.index}}">×</button>
+        </div>
+      {{else}}
+        <p class="la-note">{{localize "LASTARC.Note.NoNpcSkills"}}</p>
+      {{/each}}
+    </div>
+
+    <button type="button" class="la-panel__add" data-action="addSkill">
+      {{localize "LASTARC.Action.AddSkill"}}
+    </button>
+  </section>
+
+  {{!-- ── Technicks & talents ─────────────────────────────────────────────
+        Split out of the generic item list, where a monster's abilities sat
+        between its sword and its rations. --}}
+  <section class="la-panel la-panel--technicks">
+    <h2 class="la-panel__title">{{localize "LASTARC.Section.Technicks"}}</h2>
+
+    <div class="la-items">
+      {{#each technicks}}
+        <div class="la-item">
+          <img class="la-item__img" src="{{this.img}}" alt="">
+          <button type="button" class="la-item__name" data-action="editItem"
+                  data-item-id="{{this.id}}">{{this.name}}</button>
+          <span class="la-item__type">{{this.typeLabel}}</span>
+          {{#if this.summary}}<span class="la-item__summary">{{this.summary}}</span>{{/if}}
+          <button type="button" class="la-item__share" data-action="shareItem"
+                  data-item-id="{{this.id}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.ShareItem'}}">💬</button>
+          <button type="button" class="la-item__delete" data-action="deleteItem"
+                  data-item-id="{{this.id}}">×</button>
+        </div>
+      {{else}}
+        <p class="la-note">{{localize "LASTARC.Note.NoTechnicks"}}</p>
+      {{/each}}
+    </div>
+
+    <button type="button" class="la-panel__add" data-action="createItem" data-group="technicks"
+            data-tooltip="{{localize 'LASTARC.Tooltip.CreateItem'}}">
+      {{localize "LASTARC.Action.AddTechnick"}}
+    </button>
+  </section>
+
   {{!-- ── Biography ───────────────────────────────────────────────────────
         HTMLField, so {{formInput}} gives a <prose-mirror> editor. There was
         no input for this anywhere. --}}

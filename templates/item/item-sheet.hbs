@@ -461,6 +461,21 @@
                  value="{{system.grants.recoveryMinorActions}}" min="1" placeholder="3">
           <label>{{localize "LASTARC.Field.RecoveryMinors"}}</label>
         </div>
+        <div class="la-field la-field--narrow"
+             data-tooltip="{{localize 'LASTARC.Tooltip.GrantHp'}}">
+          <input type="number" name="system.grants.hp" value="{{system.grants.hp}}">
+          <label>{{localize "LASTARC.Field.HP"}}</label>
+        </div>
+        <div class="la-field la-field--narrow"
+             data-tooltip="{{localize 'LASTARC.Tooltip.GrantMp'}}">
+          <input type="number" name="system.grants.mp" value="{{system.grants.mp}}">
+          <label>{{localize "LASTARC.Field.MPCost"}}</label>
+        </div>
+        <div class="la-field la-field--narrow"
+             data-tooltip="{{localize 'LASTARC.Tooltip.GrantDr'}}">
+          <input type="number" name="system.grants.dr" value="{{system.grants.dr}}">
+          <label>{{localize "LASTARC.Field.DR"}}</label>
+        </div>
       </div>
     </section>
   {{/if}}

@@ -492,6 +492,93 @@ function registerSheetBatch(quench) {
             }
           });
 
+        /**
+         * Issue #6: equipping armour left damage reduction at 0.
+         *
+         * The armour WAS being read — its Reflex bonus applied — but nothing
+         * ever assigned `damageMods.dr`, which is the field the damage
+         * pipeline consumes. Reflex is asserted alongside DR here precisely
+         * because that pairing is what made the bug confusing to report: the
+         * armour visibly did something, just not the thing on the tin.
+         */
+        it("equipping armour raises damage reduction", async function () {
+          await withActor({}, async (actor) => {
+            const bareDr = actor.system.damageMods.dr;
+            const bareRef = actor.system.defences.ref.value;
+            assert.equal(bareDr, 0, "an unarmoured character should have no DR");
+
+            const [armour] = await actor.createEmbeddedDocuments("Item", [{
+              name: "Quench Plate", type: "armour",
+              system: { equipped: true, type: "heavy", dr: 5, refBonus: 1, maxAgiBonus: 1 }
+            }]);
+
+            assert.equal(actor.system.damageMods.dr, 5, "armour DR did not reach the actor");
+            assert.isAbove(actor.system.defences.ref.value, bareRef);
+
+            // Damaged armour stops less (§11): effectiveDr, not the printed dr.
+            await armour.update({ "system.breakGauge.step": 3 });
+            assert.equal(actor.system.damageMods.dr, 0,
+              "a −5 break penalty on DR 5 armour should leave nothing, floored at 0");
+
+            // Unequipping removes it rather than leaving the last value behind.
+            await armour.update({ "system.equipped": false, "system.breakGauge.step": 0 });
+            assert.equal(actor.system.damageMods.dr, 0);
+          });
+        });
+
+        /**
+         * Issue #3: accessories could not grant hit points — the shared grants
+         * schema had defences, threshold, hero points, initiative, speed,
+         * second wind and skills, and no HP, MP or DR.
+         */
+        it("an accessory can grant HP, MP and DR, and only while equipped",
+          async function () {
+            await withActor({}, async (actor) => {
+              const before = {
+                hp: actor.system.resources.hp.max,
+                mp: actor.system.resources.mp.max,
+                dr: actor.system.damageMods.dr
+              };
+
+              const [amulet] = await actor.createEmbeddedDocuments("Item", [{
+                name: "Quench Amulet", type: "accessory",
+                system: { equipped: true, grants: { hp: 10, mp: 4, dr: 2 } }
+              }]);
+
+              assert.equal(actor.system.resources.hp.max, before.hp + 10);
+              assert.equal(actor.system.resources.mp.max, before.mp + 4);
+              assert.equal(actor.system.damageMods.dr, before.dr + 2);
+
+              // Worn items contribute only while worn; knowledge always does.
+              await amulet.update({ "system.equipped": false });
+              assert.equal(actor.system.resources.hp.max, before.hp,
+                "an unequipped accessory must stop granting");
+            });
+          });
+
+        /**
+         * The grant is added AFTER the status multipliers, so withering halves
+         * what the class and Vitality gave and leaves the trinket alone.
+         */
+        it("a withered character keeps the full HP grant from an accessory",
+          async function () {
+            await withActor({}, async (actor) => {
+              await actor.createEmbeddedDocuments("Item", [{
+                name: "Quench Amulet", type: "accessory",
+                system: { equipped: true, grants: { hp: 10 } }
+              }]);
+              const healthy = actor.system.resources.hp.max;
+
+              await actor.toggleStatusEffect("withering", { active: true });
+              const withered = actor.system.resources.hp.max;
+              await actor.toggleStatusEffect("withering", { active: false });
+
+              const baseHalved = Math.round((healthy - 10) / 2);
+              assert.equal(withered, baseHalved + 10,
+                "the amulet's 10 HP should survive the halving intact");
+            });
+          });
+
         it("offers an add button in every panel of the character sheet", async function () {
           await withActor({}, async (actor) => {
             await actor.sheet.render(true);
@@ -628,7 +715,10 @@ function registerSheetBatch(quench) {
             "breakGauge.recoveryProgress": "ACTION — banked by the Recovery button",
             "initiative.die": "DERIVED from the first class",
             "bulk.value": "DERIVED — sum of carried item bulk",
-            "damageMods.dr": "DERIVED from equipped armour"
+            "damageMods.dr": "DERIVED from equipped armour plus grants. This entry " +
+              "was here BEFORE the code was true — nothing assigned damageMods.dr at " +
+              "all, and the exemption suppressed the check that would have caught it " +
+              "(issue #6). An EXEMPT reason is a claim about the code, not a licence."
           },
           npc: {
             "breakGauge.step": "ACTION — the Break Gauge track is clickable",

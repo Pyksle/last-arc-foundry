@@ -21,6 +21,7 @@ import { heroPointDefenceBoost } from "../dice/hero-points.mjs";
 import * as AE from "../action-economy.mjs";
 import { getTurnState, setTurnState, holdTurn, resetActions } from "../combat.mjs";
 import { promptCreateItem } from "./item-creation.mjs";
+import { shareItem } from "../dice/share-item.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -43,6 +44,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       addClass: LastArcCharacterSheet.#onAddClass,
       removeClass: LastArcCharacterSheet.#onRemoveClass,
       createItem: LastArcCharacterSheet.#onCreateItem,
+      shareItem: LastArcCharacterSheet.#onShareItem,
       editItem: LastArcCharacterSheet.#onEditItem,
       deleteItem: LastArcCharacterSheet.#onDeleteItem,
       toggleEquip: LastArcCharacterSheet.#onToggleEquip,
@@ -830,6 +832,15 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
   static async #onCreateItem(event, target) {
     await promptCreateItem(this.document, target.dataset.group);
+  }
+
+  /**
+   * Post an item to chat so the rest of the table can read it.
+   *
+   * A readout, not a use: nothing is rolled and nothing is spent.
+   */
+  static async #onShareItem(event, target) {
+    await shareItem(this.document.items.get(target.dataset.itemId));
   }
 
   static async #onEditItem(event, target) {

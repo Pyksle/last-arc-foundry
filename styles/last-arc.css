@@ -877,6 +877,51 @@
   cursor: help;
 }
 
+/**
+ * Share-to-chat button on an item row.
+ *
+ * Sits beside delete and is deliberately quieter than it: posting a talent for
+ * the table to read is a common, harmless action, and removing one is not.
+ */
+.la-item__share {
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.4;
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 0 0.2rem;
+}
+.la-item__share:hover { opacity: 1; }
+
+/* Statblock skill rows: skill, printed total, roll, remove. */
+.la-npc-skill {
+  display: grid;
+  grid-template-columns: minmax(6rem, 1fr) 4rem auto auto;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px solid var(--la-rule);
+}
+.la-npc-skill input { text-align: center; }
+.la-npc-skill__roll {
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.5;
+  font-size: 0.8rem;
+  padding: 0 0.2rem;
+}
+.la-npc-skill__roll:hover { opacity: 1; }
+
+/* An unmet prerequisite on a shared item card. */
+.lastarc-prereq { margin-right: 0.4rem; }
+.lastarc-prereq.is-unmet {
+  color: var(--la-oxblood);
+  text-decoration: line-through;
+}
+.lastarc-card__description { margin-top: 0.4rem; font-size: 0.85em; }
+
 /* Racial modifier and cap, tucked under the attribute score. */
 .la-attribute__race {
   display: flex;

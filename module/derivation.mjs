@@ -457,6 +457,12 @@ export function aggregateGrants(grantsList = []) {
     speed: 0,
     secondWindUses: 0,
     recoveryMinorActions: null,
+    // Flat bonuses to the maxima and to damage reduction. Added late so an
+    // amulet granting +10 HP is not multiplied by withering, which halves what
+    // the class and Vitality gave you rather than what a trinket did.
+    hp: 0,
+    mp: 0,
+    dr: 0,
     skills: {}
   };
 
@@ -471,6 +477,9 @@ export function aggregateGrants(grantsList = []) {
     out.initiativeSteps += g.initiativeSteps ?? 0;
     out.speed += g.speed ?? 0;
     out.secondWindUses += g.secondWindUses ?? 0;
+    out.hp += g.hp ?? 0;
+    out.mp += g.mp ?? 0;
+    out.dr += g.dr ?? 0;
 
     if (g.recoveryMinorActions != null) {
       out.recoveryMinorActions = out.recoveryMinorActions === null

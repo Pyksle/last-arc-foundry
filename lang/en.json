@@ -644,5 +644,13 @@
   "LASTARC.Tooltip.ThresholdBonus": "Break Threshold bonus from equipment or an effect. Technick grants are added automatically and are not counted here.",
   "LASTARC.Tooltip.RacialMod": "Racial attribute modifier, applied after generation. Added to the score to the left.",
   "LASTARC.Tooltip.AttributeCap": "Maximum this attribute can reach for this species, 18–22. Recorded for reference; no rule enforces it yet.",
-  "LASTARC.Tooltip.LevelDerived": "Total character level — the sum of your class levels. Add or raise a class above to level up."
+  "LASTARC.Tooltip.LevelDerived": "Total character level — the sum of your class levels. Add or raise a class above to level up.",
+  "LASTARC.Tooltip.GrantHp": "Flat bonus to maximum HP. Added after any status that halves the maxima, so withering does not eat it.",
+  "LASTARC.Tooltip.GrantMp": "Flat bonus to maximum MP.",
+  "LASTARC.Tooltip.GrantDr": "Flat damage reduction, on top of any worn armour.",
+  "LASTARC.Tooltip.ShareItem": "Post this to chat so the rest of the table can read it. Nothing is rolled or spent.",
+  "LASTARC.Note.NoNpcSkills": "No skills recorded. Statblock skills are printed totals — add the ones the entry lists.",
+  "LASTARC.Action.AddSkill": "+ Add skill",
+  "LASTARC.Tooltip.RollNpcSkill": "Roll 1d20 plus the printed total and the Break Gauge penalty.",
+  "LASTARC.Card.SkillCheck": "{skill} check"
 }

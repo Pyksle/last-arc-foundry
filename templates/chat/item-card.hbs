@@ -1,0 +1,42 @@
+{{!-- Sharing an owned item to chat.
+
+      Technicks, talents, race and class items were the only owned things with
+      no chat output at all — a player who wanted to show the table what their
+      talent does had no way to do it. Deliberately NOT a roll card: nothing is
+      resolved here, it is a readout, so it carries no total and no verdict. --}}
+<div class="lastarc-card lastarc-card--item">
+
+  <header class="lastarc-card__head">
+    <img src="{{img}}" alt="" class="lastarc-card__img">
+    <div class="lastarc-card__title">
+      <span class="lastarc-card__weapon">{{name}}</span>
+      <span class="lastarc-card__sub">
+        {{typeLabel}}{{#if kindLabel}} · {{kindLabel}}{{/if}}
+      </span>
+    </div>
+  </header>
+
+  {{#if summary}}
+    <p class="lastarc-rider">{{summary}}</p>
+  {{/if}}
+
+  {{#if prerequisites.length}}
+    <p class="lastarc-note">
+      <strong>{{localize "LASTARC.Section.Prerequisites"}}:</strong>
+      {{#each prerequisites}}
+        <span class="lastarc-prereq {{#unless this.met}}is-unmet{{/unless}}">{{this.text}}</span>
+      {{/each}}
+    </p>
+  {{/if}}
+
+  {{#if unmet}}
+    <p class="lastarc-verdict lastarc-verdict--bad">
+      {{localize "LASTARC.Item.PrereqsUnmet"}}
+    </p>
+  {{/if}}
+
+  {{#if description}}
+    <div class="lastarc-card__description">{{{description}}}</div>
+  {{/if}}
+
+</div>

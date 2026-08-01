@@ -392,8 +392,28 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       this.resources.hp.diseasedCap = true;
     }
 
+    // Flat grants from accessories, technicks and prosthetics are added AFTER
+    // the status multipliers. Withering halves what your class and Vitality
+    // gave you; it has no business halving an amulet.
+    if (grants.hp) this.resources.hp.max = Math.max(1, this.resources.hp.max + grants.hp);
+    if (grants.mp) this.resources.mp.max = Math.max(0, this.resources.mp.max + grants.mp);
+
     this.resources.hp.value = Math.clamp(this.resources.hp.value, 0, this.resources.hp.max);
     this.resources.mp.value = Math.clamp(this.resources.mp.value, 0, this.resources.mp.max);
+
+    /**
+     * Damage reduction (§11) — issue #6, "armour is not increasing DR".
+     *
+     * `damageMods.dr` was never assigned. The equipped armour was read and its
+     * Reflex bonus applied, so armour visibly did something, while the stat the
+     * damage pipeline actually consumes stayed at 0 forever.
+     *
+     * It hid because the field-coverage test excused it: the EXEMPT map said
+     * "DERIVED from equipped armour", which was a claim, not a fact, and the
+     * exemption suppressed the one check that would have caught it. An
+     * allowlist entry is an assertion about the code and can be wrong.
+     */
+    this.damageMods.dr = Math.max(0, armour.dr + grants.dr);
 
     // The Heroic technick raises the cap via its `grants.heroPoints` payload,
     // so it is counted once here rather than by name-matching.
@@ -610,7 +630,10 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       // Stored as a POSITIVE magnitude (§4.5 rev2). Coerce defensively in case
       // a hand-authored item still carries the old negative convention.
       checkPenalty: Math.abs(s.checkPenalty ?? 0),
-      dr: s.dr ?? 0,
+      // effectiveDr, not the printed dr: the armour's own Break Gauge reduces
+      // what it stops (§11), floored at 0. Falls back to the raw value for a
+      // hand-authored item whose derived data has not been prepared.
+      dr: s.effectiveDr ?? s.dr ?? 0,
       type: s.type ?? null
     };
   }

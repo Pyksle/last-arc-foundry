@@ -221,6 +221,17 @@ function grantsSchema() {
     initiativeSteps: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
     speed: new fields.NumberField({ initial: 0, integer: true }),
     secondWindUses: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
+    /**
+     * Flat additions to the maxima and to damage reduction.
+     *
+     * Absent until an accessory needed to grant hit points and there was
+     * nowhere to put it. `dr` is here for the same reason: once armour DR is
+     * derived rather than typed, a technick or trinket granting reduction has
+     * no other home.
+     */
+    hp: new fields.NumberField({ initial: 0, integer: true }),
+    mp: new fields.NumberField({ initial: 0, integer: true }),
+    dr: new fields.NumberField({ initial: 0, integer: true }),
     /** Shake it Off reduces the Recovery action from three minors to two. */
     recoveryMinorActions: new fields.NumberField({
       initial: null, nullable: true, integer: true, min: 1

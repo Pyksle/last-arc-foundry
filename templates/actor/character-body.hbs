@@ -469,6 +469,9 @@
           <span class="la-spell__time">{{this.castingTimeLabel}}</span>
           <button type="button" class="la-item__edit" data-action="editItem"
                   data-item-id="{{this.id}}">✎</button>
+          <button type="button" class="la-item__share" data-action="shareItem"
+                  data-item-id="{{this.id}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.ShareItem'}}">💬</button>
           <button type="button" class="la-item__delete" data-action="deleteItem"
                   data-item-id="{{this.id}}">×</button>
         </div>
@@ -502,6 +505,9 @@
           <span class="la-spell__time">{{this.specialisation}}</span>
           <button type="button" class="la-item__edit" data-action="editItem"
                   data-item-id="{{this.id}}">✎</button>
+          <button type="button" class="la-item__share" data-action="shareItem"
+                  data-item-id="{{this.id}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.ShareItem'}}">💬</button>
           <button type="button" class="la-item__delete" data-action="deleteItem"
                   data-item-id="{{this.id}}">×</button>
         </div>
@@ -531,6 +537,9 @@
             <span class="la-item__warn"
                   data-tooltip="{{this.unmetText}}">{{localize "LASTARC.Item.PrereqsUnmet"}}</span>
           {{/unless}}
+          <button type="button" class="la-item__share" data-action="shareItem"
+                  data-item-id="{{this.id}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.ShareItem'}}">💬</button>
           <button type="button" class="la-item__delete" data-action="deleteItem"
                   data-item-id="{{this.id}}">×</button>
         </div>
@@ -560,6 +569,9 @@
                   data-item-id="{{this.id}}">{{this.name}}</button>
           <span class="la-item__type">{{this.typeLabel}}</span>
           {{#if this.summary}}<span class="la-item__summary">{{this.summary}}</span>{{/if}}
+          <button type="button" class="la-item__share" data-action="shareItem"
+                  data-item-id="{{this.id}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.ShareItem'}}">💬</button>
           <button type="button" class="la-item__delete" data-action="deleteItem"
                   data-item-id="{{this.id}}">×</button>
         </div>
@@ -607,6 +619,9 @@
               {{#if this.equipped}}●{{else}}○{{/if}}
             </button>
           {{/if}}
+          <button type="button" class="la-item__share" data-action="shareItem"
+                  data-item-id="{{this.id}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.ShareItem'}}">💬</button>
           <button type="button" class="la-item__delete" data-action="deleteItem"
                   data-item-id="{{this.id}}">×</button>
         </div>
