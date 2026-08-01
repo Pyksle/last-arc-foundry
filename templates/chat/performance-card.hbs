@@ -82,6 +82,21 @@
           <span class="lastarc-card__type">{{localize "LASTARC.DamageType.unaspected"}}</span>
         </div>
         <p class="lastarc-calc"><span class="lastarc-calc__sum">{{damageBreakdown}}</span></p>
+
+        {{!-- Held for a button rather than applied on resolution, matching the
+              weapon and spell cards (issue #19). --}}
+        <div class="lastarc-card__buttons">
+          <button type="button" data-action="lastarcApplyDamage"
+                  data-total="{{damage.total}}" data-damage-type="unaspected"
+                  data-faces="{{damage.faces}}">
+            {{localize "LASTARC.Card.ApplyToTargets"}}
+          </button>
+          <button type="button" data-action="lastarcApplyDamage" data-half="true"
+                  data-total="{{damage.total}}" data-damage-type="unaspected"
+                  data-faces="{{damage.faces}}">
+            {{localize "LASTARC.Card.ApplyHalfToTargets"}}
+          </button>
+        </div>
       {{/if}}
 
       {{#if mpDamage}}

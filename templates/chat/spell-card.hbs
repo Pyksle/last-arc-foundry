@@ -82,6 +82,22 @@
     {{#each decay}}
       <p class="lastarc-decay">{{localize "LASTARC.Card.DecayTick" amount=this.amount n=this.turnsAhead}}</p>
     {{/each}}
+
+    {{!-- A spell used to land its damage the instant it resolved, while a
+          weapon hit posted a button and waited. Half is its own button because
+          a spell that deals half on a failed defence is routine (issue #19). --}}
+    <div class="lastarc-card__buttons">
+      <button type="button" data-action="lastarcApplyDamage"
+              data-total="{{damage.total}}" data-damage-type="{{damage.damageType}}"
+              data-faces="{{damage.faces}}">
+        {{localize "LASTARC.Card.ApplyToTargets"}}
+      </button>
+      <button type="button" data-action="lastarcApplyDamage" data-half="true"
+              data-total="{{damage.total}}" data-damage-type="{{damage.damageType}}"
+              data-faces="{{damage.faces}}">
+        {{localize "LASTARC.Card.ApplyHalfToTargets"}}
+      </button>
+    </div>
   {{/if}}
 
   {{#if healing}}

@@ -378,8 +378,14 @@ async function onComboAttack(button, message) {
 }
 
 async function onApplyDamage(button) {
-  const total = Number(button.dataset.total);
+  const rolled = Number(button.dataset.total);
   const type = button.dataset.damageType;
+  // Rounded down, matching how resistance halves in applyDamageMitigation.
+  const half = button.dataset.half === "true";
+  const total = half ? Math.floor(rolled / 2) : rolled;
+  // `faces` is absent on cards posted before 0.11.0 and on odd formulas the
+  // dice parser could not read; applyDamage says so rather than skipping.
+  const faces = Number(button.dataset.faces) || null;
 
   const targets = [...(game.user.targets ?? [])].map((t) => t.actor).filter(Boolean);
   if (!targets.length) {
@@ -389,7 +395,7 @@ async function onApplyDamage(button) {
 
   const lines = [];
   for (const target of targets) {
-    const result = await applyDamage(target, { total, type });
+    const result = await applyDamage(target, { total, type, faces });
     lines.push(describeApplication(target, result));
   }
 
@@ -442,7 +448,10 @@ async function postDamageCard({ actor, name, img, result }) {
       capped: result.capped,
       damageType: result.damageType,
       damageTypeLabel: `LASTARC.DamageType.${result.damageType}`,
-      critMultiplierLabel: critLabel
+      critMultiplierLabel: critLabel,
+      // Carried so a drenched or oiled target can roll its bonus dice at the
+      // die size that was actually used (issue #17).
+      faces: result.faces ?? null
     }
   );
 

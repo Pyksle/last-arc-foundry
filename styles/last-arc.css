@@ -942,6 +942,48 @@
 }
 .la-npc-skill__roll:hover { opacity: 1; }
 
+/* Status palette. A dense grid of togglable icons — 33 of them, so the tile is
+   small and the name sits under the icon rather than beside it. */
+.la-statuses {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.6rem, 1fr));
+  gap: 0.3rem;
+}
+.la-statuses__title {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--la-ink-faint);
+  margin: 0.7rem 0 0.25rem;
+}
+.la-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.3rem 0.15rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  /* Inactive statuses are legible but recede; the active ones are the message. */
+  opacity: 0.5;
+}
+.la-status:hover { opacity: 0.85; border-color: var(--la-rule); }
+.la-status.is-active {
+  opacity: 1;
+  border-color: var(--la-bronze);
+  background: color-mix(in srgb, var(--la-bronze) 10%, transparent);
+}
+.la-status__icon { width: 1.6rem; height: 1.6rem; }
+.la-status__name {
+  font-size: 0.58rem;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--la-ink-faint);
+}
+.la-status.is-active .la-status__name { color: var(--la-ink); }
+
 /* Loot / steal rows: item, percentage, remove.
    The two tables sit side by side and fall to one column when the sheet is
    narrow — a GM stripping a body wants both lists in view at once. */

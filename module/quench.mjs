@@ -1236,6 +1236,49 @@ function registerCombatBatch(quench) {
             assert.equal(actor.system.resources.hp.temp, 2);
           });
         });
+
+        /**
+         * ISSUE #17. Drench, oil and agony were computed into the status
+         * aggregate and read by nothing: applyDamage took the target's raw
+         * damageMods and never looked at its statuses. The unit suite could not
+         * see it — the aggregation it tests was correct all along.
+         *
+         * Bounded rather than exact, because the bonus dice EXPLODE: two d6
+         * can roll anything from 2 upwards, so the assertion is that they were
+         * rolled at all.
+         */
+        it("a drenched target takes extra dice from cold, and only from cold", async function () {
+          await withActor({}, async (actor) => {
+            await actor.toggleStatusEffect("drench", { active: true });
+
+            const cold = await game.lastarc.applyDamage(
+              actor, { total: 10, type: "cold", faces: 6 }
+            );
+            assert.isAbove(cold.final, 10, "drench adds two dice to incoming cold");
+
+            const blunt = await game.lastarc.applyDamage(
+              actor, { total: 10, type: "blunt", faces: 6 }
+            );
+            assert.equal(blunt.final, 10, "drench must not touch other damage types");
+          });
+        });
+
+        /**
+         * The same hole, on the other payload. Agony strips immunity outright,
+         * so a creature immune to cold must still take the hit.
+         */
+        it("agony strips a target's immunity at application time", async function () {
+          await withActor({
+            system: { damageMods: { immunity: ["cold"] } }
+          }, async (actor) => {
+            const immune = await game.lastarc.applyDamage(actor, { total: 10, type: "cold" });
+            assert.equal(immune.final, 0, "immunity holds while unafflicted");
+
+            await actor.toggleStatusEffect("agony", { active: true });
+            const afflicted = await game.lastarc.applyDamage(actor, { total: 10, type: "cold" });
+            assert.isAbove(afflicted.final, 0, "agony strips immunity (§12)");
+          });
+        });
       });
       describe("turn lifecycle", function () {
         /**

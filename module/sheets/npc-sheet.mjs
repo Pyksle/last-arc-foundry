@@ -19,6 +19,7 @@ import { promptCreateItem } from "./item-creation.mjs";
 import { shareItem } from "../dice/share-item.mjs";
 import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
+import { markStatuses, toggleStatus } from "./status-palette.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -76,6 +77,7 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       removeSkill: LastArcNpcSheet.#onRemoveSkill,
       addDrop: LastArcNpcSheet.#onAddDrop,
       deleteDrop: LastArcNpcSheet.#onDeleteDrop,
+      toggleStatus: LastArcNpcSheet.#onToggleStatus,
       rollNpcSkill: LastArcNpcSheet.#onRollNpcSkill,
       createItem: LastArcNpcSheet.#onCreateItem,
       shareItem: LastArcNpcSheet.#onShareItem,
@@ -214,6 +216,7 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.technicks = technicks;
     context.items = items;
     markOrder(this, { technicks, items });
+    markStatuses(context, this.document);
 
     return context;
   }
@@ -331,6 +334,10 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const skills = this.document.system.toObject().skills ?? [];
     if (!skills[index]) return;
     await this.document.update({ "system.skills": skills.filter((_, i) => i !== index) });
+  }
+
+  static async #onToggleStatus(event, target) {
+    await toggleStatus(this, target);
   }
 
   static async #onAddDrop(event, target) {

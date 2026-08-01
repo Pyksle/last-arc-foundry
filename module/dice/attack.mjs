@@ -8,7 +8,7 @@
 
 import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
-import { rollDamageDice } from "./explode.mjs";
+import { rollDamageDice, rollExplodingDice } from "./explode.mjs";
 import { describeCheck } from "./breakdown.mjs";
 
 /* -------------------------------------------------------------------------- */
@@ -473,9 +473,41 @@ export async function rollNpcDamage(actor, index, { outcome } = {}) {
  * Order is fixed by §5.5 and the Threshold tap is chosen by the
  * `breakThresholdUsesPostDR` setting (§15 A1) rather than hardcoded.
  */
-export async function applyDamage(target, { total, type = "blunt" } = {}) {
+export async function applyDamage(target, { total, type = "blunt", faces = null } = {}) {
   const sys = target.system;
-  const mods = sys.damageMods ?? {};
+
+  /**
+   * The TARGET's statuses change the instance before mitigation, and this
+   * function used to ignore them completely — three payloads were computed,
+   * tested and read by nobody (issue #17).
+   *
+   * Read off the live status set rather than `system.effectiveDamageMods`,
+   * which only characters derive: an NPC would silently take the unmodified
+   * numbers. Same reason `rollHealing` reads `target.statuses`.
+   */
+  const statuses = D.aggregateStatuses([...(target.statuses ?? [])]);
+  const mods = D.effectiveDamageMods(sys.damageMods ?? {}, statuses);
+
+  /**
+   * Drench adds two DICE to incoming cold and electric, oil two to fire (§12) —
+   * dice, not damage, so they explode like any other damage die. The size is
+   * the attacker's, carried here from the damage roll.
+   */
+  const bonusDice = statuses.bonusDamageDice?.[type] ?? 0;
+  let bonus = null;
+  if (bonusDice > 0) {
+    if (faces) {
+      bonus = await rollExplodingDice({ faces, count: bonusDice, multiplier: 1 });
+      total += bonus.total;
+    } else {
+      // Silence here would read as the status doing nothing, which is the
+      // defect this whole change exists to fix.
+      console.warn(
+        `Last Arc | ${target.name} has +${bonusDice} ${type} damage dice but the ` +
+        `damage instance carries no die size; the bonus was not applied.`
+      );
+    }
+  }
 
   const mitigated = D.applyDamageMitigation({
     total,
@@ -525,7 +557,7 @@ export async function applyDamage(target, { total, type = "blunt" } = {}) {
     await target.toggleStatusEffect?.("helpless", { active: true });
   }
 
-  return { ...mitigated, breaks, absorbed, appliedToHp: toHp, droppedToZero };
+  return { ...mitigated, breaks, absorbed, appliedToHp: toHp, droppedToZero, bonus };
 }
 
 /* -------------------------------------------------------------------------- */

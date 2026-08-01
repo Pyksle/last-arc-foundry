@@ -24,6 +24,7 @@ import { promptCreateItem } from "./item-creation.mjs";
 import { shareItem } from "../dice/share-item.mjs";
 import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
+import { markStatuses, toggleStatus } from "./status-palette.mjs";
 import { applyHealing } from "../dice/healing.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -62,7 +63,8 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       toggleSlot: LastArcCharacterSheet.#onToggleSlot,
       bankAim: LastArcCharacterSheet.#onBankAim,
       holdTurn: LastArcCharacterSheet.#onHoldTurn,
-      resetActions: LastArcCharacterSheet.#onResetActions
+      resetActions: LastArcCharacterSheet.#onResetActions,
+      toggleStatus: LastArcCharacterSheet.#onToggleStatus
     }
   };
 
@@ -421,6 +423,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     // Recorded from the rendered arrays rather than recomputed later, so the
     // handler and the list on screen cannot disagree about what "next" means.
     markOrder(this, { attacks: context.attacks, spells, performances, technicks, features, inventory });
+    markStatuses(context, this.document);
 
     context.knownSpellLimit = D.knownSpellLimit
       ? D.knownSpellLimit(sys.attributes.int.mod)
@@ -666,6 +669,10 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     if (!combatant) return;
     await resetActions(combatant);
     this.render();
+  }
+
+  static async #onToggleStatus(event, target) {
+    await toggleStatus(this, target);
   }
 
   static async #onHeroBoost(event, target) {

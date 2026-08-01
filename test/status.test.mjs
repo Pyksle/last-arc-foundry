@@ -342,3 +342,70 @@ describe("§12 status payloads verified against the book (p.188-189)", () => {
     assert.deepEqual(missing, [], `curses in the book but not the system: ${missing.join(", ")}`);
   });
 });
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * ISSUE #17. Three status payloads were computed, tested and read by nobody.
+ *
+ * `applyDamage` took the target's RAW `system.damageMods` and never looked at
+ * its statuses at all, so drench and oil added no dice to incoming damage and
+ * agony neither stripped resistances nor made the creature weak to everything.
+ * The aggregation below was correct the whole time — the consumer was missing,
+ * which is why every test here passed while the mechanic did nothing.
+ *
+ * These assert the values the damage pipeline now reads. The wiring itself is
+ * guarded separately, in "applyDamage reads the target's statuses" below.
+ */
+describe("§12 payloads the damage pipeline consumes", () => {
+  test("drench adds two dice to cold and electric, and nothing else", () => {
+    const s = aggregateStatuses(["drench"]);
+    assert.equal(s.bonusDamageDice.cold, 2);
+    assert.equal(s.bonusDamageDice.electric, 2);
+    assert.equal(s.bonusDamageDice.fire ?? 0, 0);
+  });
+
+  test("drench and oil together each keep their own damage types", () => {
+    const s = aggregateStatuses(["drench", "oil"]);
+    assert.equal(s.bonusDamageDice.cold, 2);
+    assert.equal(s.bonusDamageDice.fire, 2);
+  });
+
+  test("a status with no bonus dice leaves the table empty", () => {
+    assert.deepEqual(aggregateStatuses(["blind"]).bonusDamageDice, {});
+  });
+
+  test("agony makes an immune creature take damage from everything", () => {
+    const base = { weakness: [], resistance: ["fire"], immunity: ["cold"], dr: 0 };
+    const mods = effectiveDamageMods(base, aggregateStatuses(["agony"]));
+    assert.deepEqual(mods.immunity, []);
+    assert.deepEqual(mods.resistance, []);
+    assert.ok(mods.weakness.includes("cold"));
+  });
+});
+
+/**
+ * REGRESSION GUARD for the wiring, which no unit test can exercise directly:
+ * applyDamage needs a live Actor. The failure it protects against is silent —
+ * reading `system.damageMods` instead of the status-aware version puts the
+ * mechanic straight back to doing nothing, and nothing else here would notice.
+ */
+describe("issue #17 wiring", () => {
+  test("applyDamage reads the target's statuses", async () => {
+    const { readFileSync } = await import("node:fs");
+    const raw = readFileSync(
+      new URL("../module/dice/attack.mjs", import.meta.url), "utf8"
+    );
+    const body = raw.slice(raw.indexOf("export async function applyDamage"));
+    const src = body
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+
+    assert.match(src, /aggregateStatuses/,
+      "applyDamage must aggregate the target's statuses, not ignore them");
+    assert.match(src, /effectiveDamageMods/,
+      "agony strips resistances, so the raw damageMods are the wrong input");
+    assert.match(src, /bonusDamageDice/,
+      "drench and oil add dice to the incoming instance (§12)");
+  });
+});

@@ -49,10 +49,17 @@
     <p class="lastarc-verdict lastarc-verdict--bad">{{localize "LASTARC.Card.DiceCapped"}}</p>
   {{/if}}
 
+  {{!-- Half damage is its own button rather than a prompt: a spell that deals
+        half on a failed defence is resolved constantly, and asking each time
+        costs more than the second button does (issue #19). --}}
   <div class="lastarc-card__buttons">
     <button type="button" data-action="lastarcApplyDamage"
-            data-total="{{total}}" data-damage-type="{{damageType}}">
+            data-total="{{total}}" data-damage-type="{{damageType}}" data-faces="{{faces}}">
       {{localize "LASTARC.Card.ApplyToTargets"}}
+    </button>
+    <button type="button" data-action="lastarcApplyDamage" data-half="true"
+            data-total="{{total}}" data-damage-type="{{damageType}}" data-faces="{{faces}}">
+      {{localize "LASTARC.Card.ApplyHalfToTargets"}}
     </button>
   </div>
 

@@ -185,10 +185,37 @@ describe("spells are NOT attacks", () => {
     assert.doesNotMatch(src, /\bbuildDamageTerms\b/,
       "spell damage is the printed dice, with no Strength or half-level term");
 
-    // applyDamage is the ONE legitimate shared function: mitigation and the
-    // Break Threshold belong to the damage, not to how it was caused.
-    assert.match(src, /applyDamage/,
-      "spell damage must still respect DR, resistances and Break Threshold");
+    /**
+     * Mitigation and the Break Threshold belong to the damage, not to how it
+     * was caused, so casting must never subtract hit points itself.
+     *
+     * This used to assert that magic.mjs IMPORTS applyDamage. It no longer
+     * does: since issue #19 a spell rolls its damage and leaves it on the card
+     * for an Apply button, exactly as a weapon hit does, so the call now lives
+     * in chat.mjs. The invariant the old assertion was protecting is unchanged
+     * and is stated directly here — nothing in this module may touch HP.
+     * `resources.mp` is fair game; a performance's mana loss is its own effect.
+     */
+    assert.doesNotMatch(src, /resources\.hp/,
+      "spell damage must go through applyDamage, never subtract hit points by hand");
+  });
+
+  /**
+   * The other half of the guard above. With the applyDamage call moved out to
+   * the card, a spell whose card lost its button would roll damage that could
+   * never be dealt — and every unit test here would still pass.
+   */
+  test("the spell and performance cards can apply their damage", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const card of ["spell-card", "performance-card"]) {
+      const src = readFileSync(
+        new URL(`../templates/chat/${card}.hbs`, import.meta.url), "utf8"
+      );
+      assert.match(src, /data-action="lastarcApplyDamage"/,
+        `${card} rolls damage with no way to apply it`);
+      assert.match(src, /data-half="true"/,
+        `${card} has no half-damage button (issue #19)`);
+    }
   });
 
   test("no attack technick flag is consulted when casting", async () => {
