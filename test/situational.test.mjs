@@ -11,6 +11,9 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
+import { readFileSync } from "node:fs";
+
+import { LASTARC } from "../module/config.mjs";
 import { situationalLabel, situationalSuffix } from "../module/dice/situational.mjs";
 
 describe("§16 situational modifiers", () => {
@@ -39,5 +42,39 @@ describe("§16 situational modifiers", () => {
   test("an empty modifier adds nothing to the label", () => {
     assert.equal(situationalSuffix(null, 0), "");
     assert.equal(situationalSuffix("", 0), "");
+  });
+});
+
+/**
+ * ISSUE #29. The performance skill-bonus sentence hardcoded "to all weapon
+ * skills" and printed the chosen scope beside it, so every scope except that
+ * one contradicted its own label. It also never said which roll the bonus
+ * modifies, while "Bonus damage" sat directly beneath it on the same card —
+ * which is how a weapon-skill bonus came to be applied to damage rolls.
+ */
+describe("§9 performance skill bonus wording", () => {
+  const lang = JSON.parse(
+    readFileSync(new URL("../lang/en.json", import.meta.url), "utf8")
+  );
+
+  test("the sentence names no scope of its own", () => {
+    // Case-INSENSITIVE. The string this guards against read "to all weapon
+    // skills" in lower case while the label is "All weapon skills", so an
+    // exact comparison would have let the original bug straight through.
+    const s = lang["LASTARC.Card.PerformSkillBonus"].toLowerCase();
+    for (const scope of Object.values(LASTARC.performanceBonusScopes)) {
+      const label = lang[scope.label].toLowerCase();
+      assert.ok(!s.includes(label),
+        `the sentence hardcodes "${label}"; it must interpolate {scope} instead`);
+    }
+    assert.match(s, /\{scope\}/, "the chosen scope must appear in the sentence");
+  });
+
+  test("both variants say which roll is modified", () => {
+    for (const key of ["LASTARC.Card.PerformSkillBonus",
+                       "LASTARC.Card.PerformSkillBonusUnscoped"]) {
+      assert.match(lang[key], /d20/,
+        `${key} must say the bonus is to the check, not the damage roll`);
+    }
   });
 });

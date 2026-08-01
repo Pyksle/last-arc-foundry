@@ -57,10 +57,17 @@
     {{/if}}
 
     {{#if landed}}
+      {{!-- The scope goes INSIDE the sentence (issue #29). It used to be a chip
+            appended to a sentence that already said "all weapon skills", so
+            every other scope contradicted itself, and nothing said the bonus
+            was to the d20 check rather than to damage. --}}
       {{#if skillBonus}}
         <p class="lastarc-rider lastarc-rider--heal">
-          {{localize "LASTARC.Card.PerformSkillBonus" n=skillBonus}}
-          {{#if bonusScopeLabel}}<span class="lastarc-vs">{{bonusScopeLabel}}</span>{{/if}}
+          {{#if bonusScopeLabel}}
+            {{localize "LASTARC.Card.PerformSkillBonus" n=skillBonus scope=bonusScopeLabel}}
+          {{else}}
+            {{localize "LASTARC.Card.PerformSkillBonusUnscoped" n=skillBonus}}
+          {{/if}}
         </p>
       {{/if}}
       {{#if bonusDamage}}
