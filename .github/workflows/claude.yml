@@ -56,11 +56,23 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 
-          # The unit suite needs no Foundry install and is the fast signal on
-          # any rules or derivation change, so it is worth letting Claude run
-          # it unprompted. The Quench suite is deliberately absent: it needs a
-          # licensed Foundry server and a running world, neither of which
-          # exists on a GitHub runner.
+          # --max-turns was 15, and every run died on "Reached maximum number
+          # of turns" after correctly diagnosing the issue and starting the
+          # edit. Reading a repo this size, changing several files, running the
+          # suite, committing and opening a PR does not fit in 15 turns, and a
+          # run that stops halfway costs the same tokens as one that finishes
+          # while producing nothing.
+          #
+          # Edit/Write/MultiEdit are listed explicitly. --allowedTools is a
+          # replacement rather than an addition, so naming only the Bash
+          # entries would leave Claude able to read the repository and unable
+          # to change it — which fails in a way that looks like the model
+          # giving up rather than a misconfiguration.
+          #
+          # The unit suite runs on a bare runner and is the fast signal on any
+          # derivation change. The Quench suite is deliberately absent: it
+          # needs a licensed Foundry server and a live world, so offering it
+          # would produce confident failures rather than useful ones.
           claude_args: |
-            --max-turns 15
-            --allowedTools "Bash(npm test),Bash(npm install),Bash(node tools/build-release.mjs)"
+            --max-turns 40
+            --allowedTools "Edit,Write,MultiEdit,Read,Glob,Grep,LS,Bash(npm test),Bash(npm install),Bash(node tools/build-release.mjs),Bash(git add:*),Bash(git commit:*),Bash(git rm:*),Bash(git status:*),Bash(git diff:*)"
