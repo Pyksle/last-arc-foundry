@@ -201,7 +201,12 @@ export async function rollDamageDice({
     console.warn(`Last Arc | "${diceFormula}" is not a simple dice term; explosions not applied.`);
     const roll = new Roll(String(diceFormula || "0"));
     await roll.evaluate();
-    return { results: [], total: roll.total + flat, diceRolled: 0, capped: false, fallback: true };
+    return {
+      results: [], total: roll.total + flat, diceRolled: 0, capped: false, fallback: true,
+      // No single die size to name, so a target's status bonus dice have nothing
+      // to roll. applyDamage warns rather than skipping in silence.
+      faces: null
+    };
   }
 
   const outcome = await rollExplodingDice({
@@ -211,5 +216,8 @@ export async function rollDamageDice({
     maxDice
   });
 
-  return { ...outcome, total: outcome.total + flat, flat };
+  // `faces` is carried out so the damage card can hand it back to applyDamage:
+  // a drenched target adds two DICE to incoming cold, and the size of those
+  // dice is the attacker's, known only here.
+  return { ...outcome, total: outcome.total + flat, flat, faces: parsed.faces };
 }

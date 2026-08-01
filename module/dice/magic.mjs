@@ -22,7 +22,6 @@ import * as D from "../derivation.mjs";
 import { rollDamageDice } from "./explode.mjs";
 import { rollHealing } from "./healing.mjs";
 import { describeCheck, describeDamage } from "./breakdown.mjs";
-import { applyDamage } from "./attack.mjs";
 import * as CB from "../combat.mjs";
 
 /** Re-exported: it is a derived value and lives with the other derived values. */
@@ -315,14 +314,21 @@ export async function performItem(actor, performance, options = {}) {
   /* -- what the tier actually does ----------------------------------------- */
 
   if (landed && target) {
-    // Chapter 9's direct damage is always unaspected, which bypasses DR — so
-    // it goes through applyDamage rather than being subtracted by hand.
+    /**
+     * Chapter 9's direct damage is always unaspected, which bypasses DR — so
+     * when it is applied it goes through applyDamage rather than being
+     * subtracted by hand.
+     *
+     * It is NOT applied here. A performance used to land its damage the moment
+     * it resolved, with no way to hold it back for a ruling or a resisted
+     * effect, while a weapon hit posted a button and waited (issue #19). The
+     * card carries the button now, and the two paths agree.
+     */
     if (outcome.damage) {
       const rolled = await rollDamageDice({
         diceFormula: outcome.damage, critMultiplier: 1, explosionMultiplier: 1, flat: 0
       });
       result.damage = { ...rolled, damageType: "unaspected" };
-      result.applied = await applyDamage(target, { total: rolled.total, type: "unaspected" });
     }
 
     /**
@@ -565,10 +571,10 @@ export async function castSpell(actor, spell, options = {}) {
     const total = Math.floor(rolled.total * multiplier);
     result.damage = { ...rolled, total, damageType: sp.damageType };
 
-    if (target && total > 0) {
-      result.applied = await applyDamage(target, { total, type: sp.damageType });
-      result.decay = decayTicks(total, sp.damageOverTime ?? []);
-    }
+    // Rolled, shown, and left for the Apply button on the card — see the note
+    // on the performance path above (issue #19). The decay schedule is a
+    // property of the damage rolled, not of anyone having taken it yet.
+    if (total > 0) result.decay = decayTicks(total, sp.damageOverTime ?? []);
   }
 
   /* -- healing, if the row has any ---------------------------------------- */
