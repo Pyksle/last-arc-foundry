@@ -320,7 +320,7 @@ export async function rollAttack(actor, weapon, options = {}) {
     isCharge: !!options.isCharge
   });
 
-  await postAttackCard({ actor, weapon, roll, mods, outcome, options });
+  await postAttackCard({ actor, weapon, roll, mods, outcome, options, wield, isMelee });
   return { roll, mods, outcome, wield, skillKey, isMelee };
 }
 
@@ -476,7 +476,10 @@ export async function rollNpcAttack(actor, index, options = {}) {
     roll,
     mods,
     outcome,
-    options
+    options,
+    // An NPC attack carries its own melee flag; there is no wield category to
+    // derive because a statblock prints its numbers rather than deriving them.
+    isMelee
   });
 
   return { roll, mods, outcome, isMelee, attack };
@@ -654,8 +657,27 @@ function getSetting(key, fallback) {
  * `attackIndex` is checked with `!= null` because index 0 is legitimate and
  * would otherwise read as absent.
  */
+/**
+ * Roll options that survive a round trip through a chat card's flags.
+ *
+ * Anything that is not a primitive is dropped — `target` is an Actor document,
+ * and storing one produces a plain object on the way back that merely looks
+ * like an Actor. A Combo re-resolves its target from the user's current
+ * targeting instead, which is also the honest answer: the target may have moved
+ * or died between the two attacks.
+ */
+function sanitiseAttackOptions(options = {}) {
+  const out = {};
+  for (const [k, v] of Object.entries(options ?? {})) {
+    if (v === null || ["string", "number", "boolean"].includes(typeof v)) out[k] = v;
+  }
+  delete out.comboDepth;   // tracked separately; the chain owns it
+  return out;
+}
+
 async function postAttackCard({
-  actor, weapon, attack, attackIndex = null, roll, mods, outcome, options
+  actor, weapon, attack, attackIndex = null, roll, mods, outcome, options,
+  wield = null, isMelee = null
 }) {
   const isNpc = attack != null;
 
@@ -694,6 +716,46 @@ async function postAttackCard({
         weaponId: weapon?.id ?? null,
         attackIndex,
         outcome,
+        /**
+         * HOW THE ATTACK WAS MADE, carried to the damage roll.
+         *
+         * These were never stored, and `onRollDamage` reads them with
+         * `flags.wield ?? "oneHanded"` and `flags.isMelee ?? true`. Every
+         * damage roll launched from a chat card therefore resolved as a
+         * one-handed melee swing, whatever had actually been rolled — so:
+         *
+         *   - crossbows and staves added Strength (reported by a playtester)
+         *   - bows added it too, via the melee branch, and looked correct by
+         *     accident for the second time in one day
+         *   - two-handed weapons lost their doubled Strength entirely
+         *   - Weapon Finesse could never fire, because finesse eligibility
+         *     tests the wield category and it was always "oneHanded"
+         *
+         * The attack roll itself was right throughout, which is why this
+         * presented as "the damage is skewed" rather than as a broken attack.
+         */
+        wield,
+        isMelee,
+        /**
+         * The options this attack was rolled with, so a Combo can repeat it.
+         *
+         * Also never written, and read the same silent way: `onComboAttack`
+         * does `flags.attackOptions ?? {}`, so a Combo dropped every modifier
+         * the original attack carried — flanking, high ground, a situational
+         * the player had typed — while its own comment promised "the same
+         * weapon, target, bonuses and penalties".
+         *
+         * `comboDepth` is the sharper one. It read `?? 0` and incremented, so
+         * every Combo in a chain believed it was the first. The cap that exists
+         * because "an unbounded chain is a hang rather than a house rule" could
+         * therefore never be reached.
+         *
+         * The target is dropped rather than stored: it is an Actor document,
+         * and a flag holding one serialises to something that is not an Actor
+         * when it comes back.
+         */
+        attackOptions: sanitiseAttackOptions(options),
+        comboDepth: options?.comboDepth ?? 0,
         // Who may answer this with a Block (issue #12). Every weapon attack
         // targets Reflex, and Reflex is what a shield opposes.
         targetId: options.target?.id ?? null,

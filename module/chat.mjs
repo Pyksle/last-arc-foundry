@@ -337,10 +337,32 @@ async function onRollDamage(button, message) {
   }
 
   const weapon = resolveWeapon(actor, button);
+
+  /**
+   * How the attack was made, read back off the card.
+   *
+   * These used to default silently to a one-handed melee swing whenever the
+   * flags were absent — and they were ALWAYS absent, because nothing wrote
+   * them. Every damage roll from a chat card resolved as one-handed melee: no
+   * two-handed Strength doubling, no Weapon Finesse, and Strength added to
+   * crossbows and staves. The attack roll was correct throughout, so it looked
+   * like a damage bug rather than a plumbing one.
+   *
+   * A card written before 0.18.1 genuinely has no flags to read, so the
+   * fallback stays — but it says so now instead of quietly inventing a grip.
+   */
+  const wield = flags.wield ?? null;
+  const isMelee = flags.isMelee ?? null;
+  if (wield === null || isMelee === null) {
+    console.warn(`Last Arc | This attack card predates 0.18.1 and does not record how ` +
+      `the attack was made; damage is being resolved as a one-handed melee attack. ` +
+      `Re-roll the attack for correct damage.`);
+  }
+
   const result = await rollDamage(actor, weapon, {
     outcome,
-    wield: flags.wield ?? "oneHanded",
-    isMelee: flags.isMelee ?? true
+    wield: wield ?? "oneHanded",
+    isMelee: isMelee ?? true
   });
 
   // Null means the damage-type picker was dismissed. Posting a card anyway
