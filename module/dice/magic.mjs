@@ -384,7 +384,17 @@ export async function performItem(actor, performance, options = {}) {
       targetName: target?.name ?? null,
       effect: outcome?.effect || null,
       // A bonus with no scope is unreadable, so the two travel together.
-      skillBonus: outcome?.skillBonus || null,
+      /**
+       * ISSUE #29. The card used to render this through a string that
+       * hardcoded "to all weapon skills" and then printed the chosen scope
+       * beside it, so a Spellcraft-scoped bonus announced itself as a weapon
+       * bonus and contradicted its own label. Worse, it never said the bonus
+       * was to the CHECK — and "Bonus damage" sits directly beneath it on the
+       * same card, which is how it came to be applied to damage rolls.
+       *
+       * Pre-signed, because "gain 2" reads as a total rather than a modifier.
+       */
+      skillBonus: outcome?.skillBonus ? D.signed(outcome.skillBonus) : null,
       bonusScopeLabel: scopeLabel(LASTARC.performanceBonusScopes, outcome?.bonusScope),
       bonusDamage: outcome?.bonusDamage || null,
       bonusDamageScopeLabel:
