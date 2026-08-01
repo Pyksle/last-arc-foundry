@@ -660,6 +660,52 @@ function registerSheetBatch(quench) {
         });
 
         /**
+         * Rich-text editors must be USABLE, not merely present.
+         *
+         * The description round-tripped correctly and was still unusable: a
+         * `display: block` override collapsed the flex column Foundry's layout
+         * depends on, the absolutely-positioned content area lost the box it
+         * sizes against, and the toolbar rendered on top of the text. Reported
+         * as "the text you type is behind the rich-markdown editor".
+         *
+         * Persistence and visibility are separate questions, and the test that
+         * only asked the first one passed throughout.
+         */
+        it("the description editor lays out with the text visible", async function () {
+          this.timeout(20_000);
+          const item = await Item.create({ name: "Quench editor layout", type: "spell" });
+          try {
+            await item.sheet.render(true);
+            await new Promise((r) => setTimeout(r, 400));
+
+            const pm = item.sheet.element.querySelector("prose-mirror[name='system.description']");
+            assert.exists(pm, "no description editor on the sheet");
+
+            // Activate it the way the toggle button does.
+            pm.querySelector("button.toggle")?.click();
+            await new Promise((r) => setTimeout(r, 600));
+
+            const styles = getComputedStyle(pm);
+            const rect = (sel) => pm.querySelector(sel)?.getBoundingClientRect();
+            const menu = rect("menu");
+            const content = rect(".ProseMirror");
+
+            assert.equal(styles.display, "flex",
+              "prose-mirror must stay a flex column — its content area is absolutely " +
+              "positioned inside a flex:1 container and gets its height from nowhere else");
+            assert.isAbove(content?.height ?? 0, 20,
+              "the editor's content area has collapsed, so there is nowhere to type");
+            if (menu && content) {
+              assert.isAtMost(menu.bottom, content.top + 2,
+                "the toolbar overlaps the text area — typing goes behind it");
+            }
+          } finally {
+            await item.sheet.close({ animate: false });
+            await item.delete();
+          }
+        });
+
+        /**
          * The other half. An input whose value derivation overwrites is worse
          * than a missing one: it accepts typing and shows the old number back.
          */

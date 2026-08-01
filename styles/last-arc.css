@@ -913,15 +913,30 @@
   font-style: italic;
 }
 
-/* ProseMirror editors need a floor, or they collapse to a single line. */
+/**
+ * ProseMirror editors: style the frame, NEVER the layout.
+ *
+ * Foundry builds these as a flex column — `prose-mirror { display: flex;
+ * flex-direction: column }` — whose `.editor-container` takes `flex: 1` and
+ * whose `.editor-content` is `position: absolute; inset: 0` inside it. The
+ * content area therefore gets its height from the flex column and nowhere else.
+ *
+ * An earlier version of this rule set `display: block` to give the box a
+ * minimum height. That collapsed the container to nothing, the absolutely
+ * positioned content had no box to size against, and the toolbar rendered on
+ * top of the text — reported, accurately, as "the text you type is behind the
+ * rich-markdown editor".
+ *
+ * The height floor is Foundry's own `--min-height` variable (default 150px).
+ * Setting the variable raises the floor without touching the layout that
+ * depends on it. Do not add `display`, `height` or `min-height` here.
+ */
 .la-body prose-mirror {
-  display: block;
-  min-height: 8rem;
+  --min-height: 10rem;
   border: 1px solid var(--la-rule);
   border-radius: var(--la-radius);
   padding: 0.4rem 0.6rem;
 }
-.la-body prose-mirror .editor-content { min-height: 6rem; }
 
 /**
  * Keep the edit pencil visible instead of revealing it on hover.
