@@ -97,6 +97,32 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     // the array would store the raw string and quietly lose it.
     context.languagesText = (sys.details.languages ?? []).join(", ");
 
+    /**
+     * Proficiencies (issue #21). Both of these are ArrayFields of category
+     * keys that WERE ALREADY BEING READ — `proficiencies.weapons` costs −5 on
+     * every attack with a weapon whose category is missing, and
+     * `proficiencies.armour` decides whether the armour check penalty applies
+     * to every Str- and Agi-based skill. Neither had an input anywhere, so
+     * every character was non-proficient with every weapon, permanently.
+     *
+     * Checkboxes rather than a comma box: both are closed sets of eight and
+     * three, and asking a player to type `bludgeons` correctly to stop losing
+     * 5 from their attacks is a trap. Repacked in _prepareSubmitData.
+     */
+    const weaponProf = sys.proficiencies.weapons ?? [];
+    context.weaponProficiencies = LASTARC.weaponCategories.map((key) => ({
+      key,
+      label: `LASTARC.WeaponCategory.${key}`,
+      active: weaponProf.includes(key)
+    }));
+
+    const armourProf = sys.proficiencies.armour ?? [];
+    context.armourProficiencies = Object.keys(LASTARC.armourTypes).map((key) => ({
+      key,
+      label: `LASTARC.ArmourType.${key}`,
+      active: armourProf.includes(key)
+    }));
+
     // Attributes in PRINTED order, not object-key order (§2 rev2).
     context.attributes = LASTARC.attributeOrder.map((key) => ({
       key,
@@ -246,6 +272,30 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       submit["system.details.languages"] =
         raw.split(",").map((s) => s.trim()).filter(Boolean);
       delete submit["system.details.languagesText"];
+    }
+
+    /**
+     * Collapse the proficiency checkbox grids back into their ArrayFields.
+     *
+     * One checkbox per category, named `...weaponsChoice.<key>`, is gathered
+     * into `proficiencies.weapons`. The stand-in prefix matters: it has to
+     * begin with the array's own path so the field-coverage guard counts the
+     * array as reachable, which is the same `*Text` convention the comma boxes
+     * use — and the guard that should have caught this being missing.
+     *
+     * Rebuilt from the boxes rather than merged into the stored array, so
+     * UNCHECKING one removes it. A merge would make proficiency additive and
+     * impossible to take away.
+     */
+    for (const [field, stand] of [["weapons", "weaponsChoice"], ["armour", "armourChoice"]]) {
+      const prefix = `system.proficiencies.${stand}.`;
+      const keys = Object.keys(submit).filter((k) => k.startsWith(prefix));
+      if (!keys.length) continue;
+
+      submit[`system.proficiencies.${field}`] = keys
+        .filter((k) => submit[k])
+        .map((k) => k.slice(prefix.length));
+      for (const k of keys) delete submit[k];
     }
 
     return submit;
