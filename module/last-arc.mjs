@@ -175,6 +175,17 @@ function registerSettings() {
     initial: false
   });
 
+  // Issue #7 — whether the Break Gauge penalty drags Break Threshold down with
+  // it. OFF by default: the gauge's penalty is enumerated in the book as
+  // applying to attack rolls, skill checks, attribute checks and defences, and
+  // Threshold is named in none of those. Deriving it from the penalised
+  // Fortitude produced a death spiral the text does not ask for.
+  def("breakGaugeAffectsThreshold", {
+    name: "LASTARC.Setting.breakGaugeAffectsThreshold.name",
+    hint: "LASTARC.Setting.breakGaugeAffectsThreshold.hint",
+    initial: false
+  });
+
   // A6 — Combo chaining depth.
   game.settings.register(SYSTEM_ID, "maxComboChain", {
     name: "LASTARC.Setting.maxComboChain.name",

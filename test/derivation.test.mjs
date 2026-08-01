@@ -212,7 +212,7 @@ describe("§4.1 defences", () => {
 
 /* -------------------------------------------------------------------------- */
 
-describe("§4.2 Break Threshold and the death spiral", () => {
+describe("§4.2 Break Threshold", () => {
   test("size bonus applies from Large up only", () => {
     assert.equal(breakThreshold({ fort: 20, size: "medium" }), 20);
     assert.equal(breakThreshold({ fort: 20, size: "small" }), 20);
@@ -220,23 +220,49 @@ describe("§4.2 Break Threshold and the death spiral", () => {
     assert.equal(breakThreshold({ fort: 20, size: "colossal" }), 70);
   });
 
-  test("THE DEATH SPIRAL: worsening the gauge lowers Threshold automatically", () => {
+  /**
+   * Issue #7. This test previously asserted the opposite — "THE DEATH SPIRAL:
+   * worsening the gauge lowers Threshold automatically" — and passed, because
+   * it fed `breakThreshold` the already-penalised Fortitude itself. The pure
+   * function is agnostic about which Fortitude it is given; the test encoded
+   * the wrong CALL-SITE convention and then verified its own premise.
+   *
+   * The book's Break Gauge penalty is enumerated at every step as applying "to
+   * all defences, attack rolls, skill checks, and attribute checks". Break
+   * Threshold is in none of those lists. It is what damage is compared
+   * against, not a roll or a roll target, and the book lists it among the
+   * statistics computed at character creation.
+   */
+  test("Threshold is built from the UNPENALISED Fortitude, so the gauge does not move it", () => {
     const actor = { level: 5, vitMod: 3, classBonus: { ref: 0, fort: 2, will: 0 } };
-    const thresholdAt = (step) =>
+
+    // What the actor model now feeds it: fort minus the break penalty, which
+    // is the `beforeBreak` subtotal.
+    const thresholdAt = (step) => {
+      const d = computeDefences({ ...actor, breakStep: step });
+      return breakThreshold({ fort: d.fort - d.breakPenalty });
+    };
+
+    const unbroken = thresholdAt(0);
+    assert.equal(unbroken, 20);
+
+    for (const step of [1, 2, 3, 4]) {
+      assert.equal(thresholdAt(step), unbroken,
+        `Threshold moved at break step ${step}; it must stay constant`);
+    }
+  });
+
+  test("the optional spiral is still expressible by passing the live Fortitude", () => {
+    // breakGaugeAffectsThreshold restores this for tables that read it the
+    // other way, so the arithmetic must still work — it is the call site that
+    // decides, not the function.
+    const actor = { level: 5, vitMod: 3, classBonus: { ref: 0, fort: 2, will: 0 } };
+    const spiralAt = (step) =>
       breakThreshold({ fort: computeDefences({ ...actor, breakStep: step }).fort });
 
-    const t0 = thresholdAt(0);
-    const t1 = thresholdAt(1);
-    const t3 = thresholdAt(3);
-    const t4 = thresholdAt(4);
-
-    assert.equal(t0, 20);
-    assert.equal(t1, 19);
-    assert.equal(t3, 15);
-    assert.equal(t4, 10);
-
-    assert.ok(t1 < t0 && t3 < t1 && t4 < t3,
-      "each Break step must make the next one easier — this is the signature mechanic");
+    assert.equal(spiralAt(0), 20);
+    assert.equal(spiralAt(1), 19);
+    assert.equal(spiralAt(4), 10);
   });
 });
 

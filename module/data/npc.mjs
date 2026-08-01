@@ -215,11 +215,23 @@ export class LastArcNpcData extends foundry.abstract.TypeDataModel {
       (this.defences.ref.flatFootedBase ?? (this.defences.ref.base - Math.max(0, this.attributes.agi.mod)))
       + bp;
 
-    // Threshold: use the printed value when present, else derive from the LIVE
-    // Fortitude so the death spiral still applies to hand-entered NPCs.
+    /**
+     * Threshold: the printed value when present, else derived from the
+     * UNBROKEN Fortitude (issue #7).
+     *
+     * Both branches used to add the break penalty, on the reasoning that
+     * Threshold is Fortitude and Fortitude falls with the gauge. The book's
+     * penalty is enumerated as applying to attack rolls, skill checks,
+     * attribute checks and defences, and Threshold is in none of those — so a
+     * statblock's printed Threshold is simply its Threshold, broken or not.
+     *
+     * Deliberately NOT gated on breakGaugeAffectsThreshold: a printed
+     * statblock number is an authored constant, and a world setting has no
+     * business rewriting what the page says.
+     */
     this.breakGauge.threshold = this.breakGauge.thresholdBase !== null
-      ? this.breakGauge.thresholdBase + bp
-      : D.breakThreshold({ fort: this.defences.fort.value, size: this.details.size });
+      ? this.breakGauge.thresholdBase
+      : D.breakThreshold({ fort: this.defences.fort.base, size: this.details.size });
 
     // Printed attack bonuses are unbroken, exactly like the defences above.
     // `printed` is kept beside `total` so the sheet can show the book value and

@@ -356,9 +356,29 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     this.defences.fort.beforeBreak = computed.fort - computed.breakPenalty;
     this.defences.will.beforeBreak = computed.will - computed.breakPenalty;
 
-    // 8. Break Threshold — MUST follow the finished Fortitude ----------------
+    /**
+     * 8. Break Threshold (issue #7) ----------------------------------------
+     *
+     * Built from the UNPENALISED Fortitude. This previously used the live,
+     * break-penalised value, which produced a death spiral: each step down the
+     * gauge lowered Threshold, so the next hit broke you more easily.
+     *
+     * The book does not say that. The Break Gauge's penalty is enumerated —
+     * "a penalty to their attack rolls, skill checks, attribute checks, and
+     * defences", and the table repeats "to all defences, attack rolls, skill
+     * checks, and attribute checks" at every step. Break Threshold is not in
+     * that list. It is a damage comparison, not a roll or a roll target, and
+     * the book presents it among the statistics calculated at character
+     * creation (Step 5) alongside HP, MP and speed.
+     *
+     * The spiral was my inference from "Threshold = Fortitude Defence", not
+     * something the text asks for. `breakGaugeAffectsThreshold` restores it for
+     * anyone who reads it the other way.
+     */
     this.breakGauge.threshold = D.breakThreshold({
-      fort: this.defences.fort.value,
+      fort: settings.breakGaugeAffectsThreshold
+        ? this.defences.fort.value
+        : this.defences.fort.beforeBreak,
       size: this.details.size,
       technicks: grants.breakThreshold,
       itemBonus: this.breakGauge.thresholdBonus
@@ -688,7 +708,8 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       clampAttributeModifier: get("clampAttributeModifier", true),
       multiclassRegrantsLevel1Benefits: get("multiclassRegrantsLevel1Benefits", false),
       breakThresholdUsesPostDR: get("breakThresholdUsesPostDR", true),
-      heroPointAffectsThreshold: get("heroPointAffectsThreshold", true)
+      heroPointAffectsThreshold: get("heroPointAffectsThreshold", true),
+      breakGaugeAffectsThreshold: get("breakGaugeAffectsThreshold", false)
     };
   }
 }

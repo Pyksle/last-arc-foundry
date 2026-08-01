@@ -206,16 +206,24 @@ function registerDerivationBatch(quench) {
           });
         });
 
-        it("THE DEATH SPIRAL: worsening the gauge lowers Threshold", async function () {
+        /**
+         * Issue #7, and the second test that asserted the opposite. Kept here
+         * rather than deleted because the pairing is the point: the Break
+         * Gauge penalty is real and reaches Fortitude, and it stops there.
+         */
+        it("the gauge penalises Fortitude but leaves Threshold alone", async function () {
           await withActor({
-            system: { details: { level: 5 }, classes: [{ name: "warrior", levels: 5 }] }
+            system: { classes: [{ name: "warrior", levels: 5 }] }
           }, async (actor) => {
-            const before = actor.system.breakGauge.threshold;
-            await actor.update({ "system.breakGauge.step": 3 });
-            const after = actor.system.breakGauge.threshold;
+            const thresholdBefore = actor.system.breakGauge.threshold;
+            const fortBefore = actor.system.defences.fort.value;
 
-            assert.isBelow(after, before, "Threshold must fall with Fortitude");
-            assert.equal(before - after, 5, "step 3 is a -5 penalty");
+            await actor.update({ "system.breakGauge.step": 3 });
+
+            assert.equal(actor.system.defences.fort.value, fortBefore - 5,
+              "step 3 is a −5 penalty and Fortitude must take it");
+            assert.equal(actor.system.breakGauge.threshold, thresholdBefore,
+              "Threshold is not in the gauge's enumerated penalty list");
           });
         });
 
@@ -577,6 +585,52 @@ function registerSheetBatch(quench) {
               assert.equal(withered, baseHalved + 10,
                 "the amulet's 10 HP should survive the halving intact");
             });
+          });
+
+        /**
+         * Issue #7: the Break Gauge was dragging Break Threshold down with it.
+         *
+         * Tested on a live actor rather than through the pure function,
+         * because this is entirely a call-site question — `breakThreshold`
+         * happily accepts either Fortitude, and the unit test that "proved"
+         * the old behaviour did so by passing in the penalised one itself.
+         */
+        it("worsening the Break Gauge does not lower Break Threshold", async function () {
+          await withActor({
+            system: {
+              attributes: { vit: { value: 16 } },
+              classes: [{ name: "warrior", levels: 5 }]
+            }
+          }, async (actor) => {
+            const unbroken = actor.system.breakGauge.threshold;
+            const fortUnbroken = actor.system.defences.fort.value;
+
+            for (const step of [1, 2, 3, 4]) {
+              await actor.update({ "system.breakGauge.step": step });
+              assert.equal(actor.system.breakGauge.threshold, unbroken,
+                `Threshold moved at break step ${step}`);
+              // The defence itself MUST still fall — the penalty is real, it
+              // simply does not reach Threshold.
+              assert.isBelow(actor.system.defences.fort.value, fortUnbroken,
+                `Fortitude should still be penalised at step ${step}`);
+            }
+          });
+        });
+
+        it("a statblock's printed Threshold is not reduced by its Break Gauge",
+          async function () {
+            const npc = await Actor.create({
+              name: "Quench threshold npc", type: "npc",
+              system: { breakGauge: { thresholdBase: 40 } }
+            });
+            try {
+              assert.equal(npc.system.breakGauge.threshold, 40);
+              await npc.update({ "system.breakGauge.step": 4 });
+              assert.equal(npc.system.breakGauge.threshold, 40,
+                "a printed statblock number is an authored constant");
+            } finally {
+              await npc.delete();
+            }
           });
 
         it("offers an add button in every panel of the character sheet", async function () {

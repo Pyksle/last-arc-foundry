@@ -652,5 +652,7 @@
   "LASTARC.Note.NoNpcSkills": "No skills recorded. Statblock skills are printed totals — add the ones the entry lists.",
   "LASTARC.Action.AddSkill": "+ Add skill",
   "LASTARC.Tooltip.RollNpcSkill": "Roll 1d20 plus the printed total and the Break Gauge penalty.",
-  "LASTARC.Card.SkillCheck": "{skill} check"
+  "LASTARC.Card.SkillCheck": "{skill} check",
+  "LASTARC.Setting.breakGaugeAffectsThreshold.name": "Break Gauge lowers Break Threshold",
+  "LASTARC.Setting.breakGaugeAffectsThreshold.hint": "Off by default. The book's Break Gauge penalty is listed as applying to attack rolls, skill checks, attribute checks and defences — Break Threshold is not among them, so it stays constant as you move down the track. Turn this on to derive Threshold from the penalised Fortitude instead, which makes each break easier than the last."
 }
