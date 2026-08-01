@@ -24,6 +24,8 @@ import { registerCombat, holdTurn, spendAction, resetActions, rollGroupInitiativ
 import * as INIT from "./initiative.mjs";
 import * as AE from "./action-economy.mjs";
 import { registerQuenchBatches } from "./quench.mjs";
+import { createWorldCompendiums, noticeContentHome, registerContentSettings }
+  from "./world-content.mjs";
 
 const SYSTEM_ID = "last-arc";
 
@@ -54,7 +56,15 @@ Hooks.once("init", () => {
     holdTurn,
     spendAction,
     resetActions,
-    rollGroupInitiative
+    rollGroupInitiative,
+    /**
+     * Build the standard compendium set in the WORLD.
+     *
+     * Public because it is the answer to "where do I put the content I typed
+     * in", and that answer used to be a set of system packs every update
+     * destroyed. A macro one-liner, so a GM can run it without a UI for it.
+     */
+    createWorldCompendiums
   };
 
   CONFIG.Actor.dataModels.character = LastArcCharacterData;
@@ -62,6 +72,7 @@ Hooks.once("init", () => {
   Object.assign(CONFIG.Item.dataModels, ITEM_DATA_MODELS);
 
   registerSettings();
+  registerContentSettings();
   registerTokenDefaults();
   registerResourceDefaults();
   registerSheets();
@@ -303,4 +314,10 @@ Hooks.once("ready", () => {
       `Character creation for those classes will throw until they are filled in.`
     );
   }
+
+  // Where hand-authored content should live, said once per world. The system
+  // used to declare compendium packs of its own and Foundry destroyed them on
+  // every update; this is the only thing standing between a new table and the
+  // same lost weekend.
+  noticeContentHome();
 });

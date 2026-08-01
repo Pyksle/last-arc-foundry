@@ -20,6 +20,13 @@ stop.
 Do not add "example" spells, weapons or monsters, even as test fixtures. Tests
 use obviously synthetic names (`Quench weapon`, `ZZ probe`).
 
+**Never declare a compendium pack in `system.json`.** A system's packs live in
+the system folder, which Foundry replaces wholesale on update, taking every
+document in them. Ten empty packs shipped from 0.1.0 to 0.7.0 as a home for
+hand-authored content and destroyed it on every release. Content belongs in a
+WORLD compendium — `game.lastarc.createWorldCompendiums()` builds the set. A
+test enforces `packs: []`.
+
 ## Layout
 
 ```

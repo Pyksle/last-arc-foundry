@@ -2,7 +2,7 @@
   "id": "last-arc",
   "title": "Last Arc: Tactics Analogue",
   "description": "An unofficial Foundry VTT implementation of Last Arc: Tactics Analogue. Ships with empty compendia — populate them from your own licensed copy of the rulebook.",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "compatibility": {
     "minimum": "13",
     "verified": "13"
@@ -59,82 +59,11 @@
   },
   "primaryTokenAttribute": "resources.hp",
   "secondaryTokenAttribute": "resources.mp",
-  "packs": [
-    {
-      "name": "races",
-      "label": "Races",
-      "path": "packs/races",
-      "type": "Item",
-      "system": "last-arc"
-    },
-    {
-      "name": "classes",
-      "label": "Classes",
-      "path": "packs/classes",
-      "type": "Item",
-      "system": "last-arc"
-    },
-    {
-      "name": "technicks",
-      "label": "Technicks",
-      "path": "packs/technicks",
-      "type": "Item",
-      "system": "last-arc"
-    },
-    {
-      "name": "talents",
-      "label": "Talents",
-      "path": "packs/talents",
-      "type": "Item",
-      "system": "last-arc"
-    },
-    {
-      "name": "weapons",
-      "label": "Weapons",
-      "path": "packs/weapons",
-      "type": "Item",
-      "system": "last-arc"
-    },
-    {
-      "name": "armour",
-      "label": "Armour & Shields",
-      "path": "packs/armour",
-      "type": "Item",
-      "system": "last-arc"
-    },
-    {
-      "name": "equipment",
-      "label": "Accessories & Consumables",
-      "path": "packs/equipment",
-      "type": "Item",
-      "system": "last-arc"
-    },
-    {
-      "name": "spells",
-      "label": "Spells",
-      "path": "packs/spells",
-      "type": "Item",
-      "system": "last-arc"
-    },
-    {
-      "name": "performances",
-      "label": "Performances",
-      "path": "packs/performances",
-      "type": "Item",
-      "system": "last-arc"
-    },
-    {
-      "name": "bestiary",
-      "label": "Bestiary",
-      "path": "packs/bestiary",
-      "type": "Actor",
-      "system": "last-arc"
-    }
-  ],
+  "packs": [],
   "license": "LICENSE",
   "readme": "README.md",
   "url": "https://github.com/Pyksle/last-arc-foundry",
   "changelog": "https://github.com/Pyksle/last-arc-foundry/releases",
   "manifest": "https://raw.githubusercontent.com/Pyksle/last-arc-foundry/main/system.json",
-  "download": "https://github.com/Pyksle/last-arc-foundry/releases/download/v0.7.0/last-arc-0.7.0.zip"
+  "download": "https://github.com/Pyksle/last-arc-foundry/releases/download/v0.8.0/last-arc-0.8.0.zip"
 }

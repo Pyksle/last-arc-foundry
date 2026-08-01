@@ -725,5 +725,9 @@
   "LASTARC.Card.PerformBeat": "beaten",
   "LASTARC.Card.PerformResisted": "resists",
   "LASTARC.Card.PerformPenalty": "−{n} penalty",
-  "LASTARC.Card.PerformMpLost": "{n} MP lost"
+  "LASTARC.Card.PerformMpLost": "{n} MP lost",
+  "LASTARC.Content.GMOnly": "Only a GM can create compendiums.",
+  "LASTARC.Content.Created": "Created {n} compendium(s); {kept} already existed.",
+  "LASTARC.Content.NoticeTitle": "Where to put the content you type in",
+  "LASTARC.Content.NoticeBody": "Last Arc ships no game content, so everything you author is yours to keep — but it must live in a WORLD compendium, not one belonging to the system. Foundry replaces a system's whole folder when it updates, and takes any compendium inside it with everything in it. Run the line below to create the standard set safely, or make your own from the Compendium tab."
 }

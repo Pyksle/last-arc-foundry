@@ -560,8 +560,33 @@ describe("system.json manifest", () => {
     assert.deepEqual(absent, [], `build-release.mjs would omit: ${absent.join(", ")}`);
   });
 
-  test("compendium packs are declared but ship EMPTY (§17)", () => {
-    assert.ok(systemJson.packs.length > 0);
+  /**
+   * THE SYSTEM DECLARES NO COMPENDIUM PACKS, AND MUST NOT.
+   *
+   * It used to declare ten empty ones — Races, Spells, Bestiary and so on —
+   * meant as a home for content each table hand-authors from its own copy of
+   * the book. That destroyed people's work.
+   *
+   * A system's packs live INSIDE the system folder, and Foundry replaces that
+   * whole folder when it updates a system. So every release wiped everything
+   * anyone had put in them, and the empty packs were an invitation to put work
+   * exactly where it would be destroyed. Reported after a playtest as "when we
+   * update, all of the compendium things we make get overwritten", which is
+   * precisely what happened, seven releases running.
+   *
+   * Hand-authored content belongs in a WORLD compendium (Compendium tab →
+   * Create Compendium), which lives in the world folder and is never touched by
+   * a system update. See the README.
+   *
+   * This test inverts the one it replaces, which asserted the packs existed.
+   */
+  test("the system declares NO compendium packs — updates destroy them", () => {
+    assert.deepEqual(systemJson.packs ?? [], [],
+      "A system pack lives in the system folder, which Foundry replaces on " +
+      "update, taking every document in it. Content goes in a WORLD compendium.");
+  });
+
+  test("generated compendium content is still gitignored (§17)", () => {
     const gitignore = readFileSync(join(root, ".gitignore"), "utf8");
     assert.ok(
       gitignore.split("\n").some((l) => l.trim() === "packs/"),

@@ -60,16 +60,43 @@ names and descriptions, bestiary entries, setting material, and artwork — are 
 property of **Old World Studios Inc.** This project is unofficial and is not
 affiliated with, endorsed by, or sponsored by them.
 
-This repository contains **no game content**. The compendium packs listed in
-`system.json` ship empty, and they stay empty — there is no download that fills
-them.
+This repository contains **no game content**, and the system ships no compendium
+packs — there is no download that fills them.
 
 **You enter content by hand, from your own copy of the book.** Every panel on the
 character sheet has an *Add* row at its foot — weapons, spells, performances,
 technicks and talents, race and class features, equipment — and the NPC sheet has
 one too. Clicking it asks for a name, then opens that item's sheet so you can type
-in the numbers your book prints. Anything you make can be dragged into a
-compendium of your own to reuse across worlds.
+in the numbers your book prints.
+
+### Keep what you type in a WORLD compendium
+
+> **A system's compendiums are destroyed every time the system updates.**
+> Foundry replaces the whole system folder when it installs a new version, and
+> anything stored in a compendium inside that folder goes with it.
+
+Up to and including **0.7.0**, this system declared ten empty compendium packs of
+its own — Races, Spells, Bestiary and so on — as a home for hand-authored
+content. That was a trap: every release wiped them. The declarations were removed
+in 0.8.0.
+
+Put your work in a **world compendium** instead. Those live in the world folder
+and no system update touches them. Either make them yourself from the
+**Compendium** tab → *Create Compendium*, or run this as a GM in a Script macro
+to build the same organised set in one go:
+
+```js
+game.lastarc.createWorldCompendiums()
+```
+
+It is safe to run more than once — an existing compendium is left alone rather
+than duplicated.
+
+**If you are upgrading from 0.7.0 or earlier and had content in the system
+packs**, rescue it *before* you update, because the update destroys it first.
+[`tools/rescue-compendiums.js`](tools/rescue-compendiums.js) copies everything
+out of the system packs into world compendiums; paste it into a Script macro and
+run it as a GM while still on your current version.
 
 The code in this repository is MIT licensed — see [LICENSE](LICENSE).
 
