@@ -254,7 +254,11 @@ describe("every array of fixed choices can actually be chosen from", () => {
 describe("no decoy technick flags", () => {
   const readers = ["module/dice/attack.mjs", "module/dice/magic.mjs",
                    "module/derivation.mjs", "module/action-economy.mjs",
-                   "module/combat.mjs"].map(read).join("\n");
+                   "module/combat.mjs",
+                   // The study flags are counted during derivation rather than
+                   // tested for in a dice pipeline — they gate how many spells
+                   // and performances may be known, not a roll.
+                   "module/data/character.mjs"].map(read).join("\n");
 
   test("every flag in the picker is read by the rules engine", () => {
     const decoys = LASTARC.technickFlags.filter((f) => !readers.includes(`"${f}"`));

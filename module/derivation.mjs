@@ -282,6 +282,30 @@ export function heroPointMax(level = 1, heroicTechnicks = 0) {
   return Math.min(4, tiers) + heroicTechnicks;
 }
 
+/**
+ * How many spells or performances a character may know (§10, book p.78).
+ *
+ * Arcane Study and Bardic Study each let you learn `1 + Int modifier` of the
+ * relevant thing, and both may be taken more than once, "each time increasing
+ * the maximum ... by 1+Int modifier (minimum 1)".
+ *
+ * THE MINIMUM IS PER TAKING, NOT ON THE TOTAL. A character with Int 8 (−1) who
+ * takes Arcane Study twice knows 2 spells, not 0 — each taking floors at 1
+ * before they are summed. Applying the floor to the total instead would give 1,
+ * and would silently punish exactly the low-Int caster the floor exists to
+ * protect.
+ *
+ * The base is zero on purpose: without the technick you may not learn spells at
+ * all, so a character sheet that starts at some positive number is inventing a
+ * permission the book does not give (issue #33).
+ *
+ * @param {number} takings  how many times the study technick is held
+ * @param {number} intMod   the character's Intelligence modifier
+ */
+export function studyLimit(takings = 0, intMod = 0) {
+  return Math.max(0, takings) * Math.max(1, 1 + intMod);
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Skills (§4.5)                                                              */
 /* -------------------------------------------------------------------------- */
@@ -379,30 +403,35 @@ export function resolveInjuryRoll(percentile) {
 }
 
 /**
- * Spells a caster may know = 1 + Int modifier (§18.1, book p.140).
+ * Spells a caster may know (§18.1, book p.140 — and p.78 for the gate).
  *
  * Learned from scrolls. If the Int modifier later rises the limit increases
  * RETROACTIVELY, which is why this is derived on every prepare rather than
  * stored — a stored count would silently go stale on an attribute increase.
  *
- * Floors at zero: a caster with a punishing Int knows nothing, rather than
- * owing the game a spell.
+ * TAKES THE NUMBER OF ARCANE STUDY TECHNICKS, not just the modifier. It used to
+ * be `1 + intMod` flat, which was wrong twice over (issue #33): it handed every
+ * character a spell allowance whether or not they had the technick that grants
+ * one, and it ignored that Arcane Study is explicitly repeatable, capping a
+ * character at their first taking and discarding every one after it.
+ *
+ * Kept as its own function rather than calling `studyLimit` at the two sites,
+ * because the two limits are independent — a character with both technicks
+ * tracks each separately, and a shared helper invited exactly one pool.
  */
-export function knownSpellLimit(intMod = 0) {
-  return Math.max(0, 1 + intMod);
+export function knownSpellLimit(arcaneStudyTakings = 0, intMod = 0) {
+  return studyLimit(arcaneStudyTakings, intMod);
 }
 
 /**
- * Performances a character may know = 1 + Int modifier (§19.1, book p.156).
+ * Performances a character may know (§19.1, book p.156; gate on p.78).
  *
- * The same FORMULA as spells but a different gate and a different source: the
+ * The same shape as spells but a different gate and a different source: the
  * Bardic Study technick rather than Arcane Study, and orchestral scores rather
- * than spell scrolls. Kept as its own function rather than aliased, because the
- * two limits are independent — a character with both technicks tracks each
- * separately, and collapsing them would silently share one pool.
+ * than spell scrolls.
  */
-export function knownPerformanceLimit(intMod = 0) {
-  return Math.max(0, 1 + intMod);
+export function knownPerformanceLimit(bardicStudyTakings = 0, intMod = 0) {
+  return studyLimit(bardicStudyTakings, intMod);
 }
 
 /**

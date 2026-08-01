@@ -24,14 +24,36 @@ import {
   performancesDisplacedBy
 } from "../module/dice/magic.mjs";
 
+/**
+ * Issue #33. This suite used to assert `knownSpellLimit(intMod) === 1 + intMod`
+ * — the formula without its gate. It was faithful to §18.1 and wrong about the
+ * game: p.78 grants the allowance through the Arcane Study technick, which is
+ * explicitly repeatable, so the count of takings is half the input. Testing the
+ * formula in isolation is what let a character with no technick at all be told
+ * they knew a spell.
+ */
 describe("§18.1 known spells", () => {
-  test("known spells is 1 + Int modifier", () => {
-    assert.equal(knownSpellLimit(0), 1);
-    assert.equal(knownSpellLimit(3), 4);
+  test("no Arcane Study means no spells may be learned", () => {
+    assert.equal(knownSpellLimit(0, 0), 0);
+    assert.equal(knownSpellLimit(0, 5), 0, "a high Int grants nothing on its own");
   });
 
-  test("a punishing Int floors at zero rather than going negative", () => {
-    assert.equal(knownSpellLimit(-3), 0);
+  test("one taking is 1 + Int modifier", () => {
+    assert.equal(knownSpellLimit(1, 0), 1);
+    assert.equal(knownSpellLimit(1, 3), 4);
+  });
+
+  test("the technick is repeatable and each taking adds again", () => {
+    assert.equal(knownSpellLimit(2, 3), 8);
+    assert.equal(knownSpellLimit(3, 1), 6);
+  });
+
+  test("a punishing Int floors each taking at 1, not the total at 0", () => {
+    // "each time increasing the maximum ... by 1+Int modifier (minimum 1)".
+    // Flooring the total instead would give 1 here, and would punish the low-Int
+    // caster the floor exists to protect.
+    assert.equal(knownSpellLimit(1, -3), 1);
+    assert.equal(knownSpellLimit(2, -3), 2);
   });
 });
 

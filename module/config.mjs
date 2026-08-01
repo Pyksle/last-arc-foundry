@@ -303,7 +303,17 @@ LASTARC.technickFlags = [
   "tripleCrit",           // ranged crit multiplier x3 instead of x2
   "doubledExplosions",    // each exploding die generates 2 rather than 1 (Backstab)
   "combatCasting",        // multi-threat casting reduced to a single -5
-  "debilitatingInjury"    // damage over Threshold worsens the gauge by 2, not 1
+  "debilitatingInjury",   // damage over Threshold worsens the gauge by 2, not 1
+  /**
+   * The two study technicks (issue #33). Flags rather than `grants` entries
+   * because what they give is not a constant: each taking is worth
+   * `1 + Int modifier`, so the number moves when Intelligence does. A flat
+   * grant would have to be re-typed every time the character's Int changed,
+   * and would be wrong in between. Counted, not merely tested for — both are
+   * explicitly repeatable.
+   */
+  "arcaneStudy",          // +1+Int spells known per taking (minimum 1)
+  "bardicStudy"           // +1+Int performances known per taking (minimum 1)
 ];
 
 /**

@@ -535,8 +535,9 @@
   <section class="la-panel la-panel--spells">
     <h2 class="la-panel__title">{{localize "LASTARC.Section.Spells"}}</h2>
 
-    <p class="la-note {{#if overSpellLimit}}is-warning{{/if}}">
-      {{spells.length}} / {{knownSpellLimit}}
+    <p class="la-note {{#if study.spells.over}}is-warning{{/if}}">
+      {{localize "LASTARC.Note.SpellsKnown"}} {{study.spells.known}} / {{study.spells.max}}
+      {{#if noArcaneStudy}}— {{localize "LASTARC.Note.NeedsArcaneStudy"}}{{/if}}
     </p>
 
     <div class="la-spells">
@@ -577,8 +578,9 @@
         the one case where the panel matters most. --}}
   <section class="la-panel la-panel--performances">
     <h2 class="la-panel__title">{{localize "LASTARC.Section.Performances"}}</h2>
-    <p class="la-note {{#if overPerformanceLimit}}is-warning{{/if}}">
-      {{performances.length}} / {{knownPerformanceLimit}}
+    <p class="la-note {{#if study.performances.over}}is-warning{{/if}}">
+      {{localize "LASTARC.Note.PerformancesKnown"}} {{study.performances.known}} / {{study.performances.max}}
+      {{#if noBardicStudy}}— {{localize "LASTARC.Note.NeedsBardicStudy"}}{{/if}}
     </p>
     <div class="la-spells">
       {{#each performances}}

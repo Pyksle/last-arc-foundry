@@ -505,12 +505,16 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     markOrder(this, { attacks: context.attacks, spells, performances, technicks, features, inventory });
     markStatuses(context, this.document);
 
-    context.knownSpellLimit = D.knownSpellLimit
-      ? D.knownSpellLimit(sys.attributes.int.mod)
-      : null;
-    context.overSpellLimit = spells.length > (context.knownSpellLimit ?? Infinity);
-    context.knownPerformanceLimit = D.knownPerformanceLimit(sys.attributes.int.mod);
-    context.overPerformanceLimit = performances.length > context.knownPerformanceLimit;
+    /**
+     * Read straight off the derived model rather than recomputed here (issue
+     * #33). Both limits are gated on a repeatable technick and on Intelligence,
+     * and a second implementation on the sheet would be a second place for the
+     * gate to be forgotten — which is how the old flat `1 + Int` came to be
+     * handed to characters who had never taken Arcane Study.
+     */
+    context.study = sys.study;
+    context.noArcaneStudy = sys.study.spells.takings === 0;
+    context.noBardicStudy = sys.study.performances.takings === 0;
     context.highArcanaOptions = LASTARC.highArcanaIds.map((id) => ({
       value: id, label: game.i18n.localize(LASTARC.highArcana[id].label)
     }));

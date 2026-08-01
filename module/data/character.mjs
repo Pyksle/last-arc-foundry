@@ -279,6 +279,12 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     const grants = this.#aggregateGrants();
     this.grants = grants;
 
+    // 3b. Spells and performances known (issue #33) -------------------------
+    // Read-only on both sides: the limit derives from the study technicks and
+    // Intelligence, and the count derives from the items actually on the actor.
+    // Neither may be bound to an input — see the class docstring.
+    this.study = this.#studyLimits();
+
     // 4. Equipped armour ----------------------------------------------------
     const armour = this.#equippedArmour();
 
@@ -645,6 +651,50 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     }
 
     return D.aggregateGrants(contributing);
+  }
+
+  /**
+   * How many spells and performances this character may know, against how many
+   * they actually have (§10, book p.78).
+   *
+   * Both study technicks are repeatable, so this COUNTS the technicks carrying
+   * each flag rather than asking whether one exists — `hasFlag`-style boolean
+   * logic would cap a character at their first taking and silently discard
+   * every one after it.
+   *
+   * Suspended technicks do not count, for the same reason they grant nothing
+   * else: a switched-off technick contributes nothing.
+   */
+  #studyLimits() {
+    const items = this.parent?.items ?? [];
+    let arcane = 0;
+    let bardic = 0;
+    let spells = 0;
+    let performances = 0;
+
+    for (const item of items) {
+      if (item.type === "spell") { spells++; continue; }
+      if (item.type === "performance") { performances++; continue; }
+      if (item.type !== "technick" && item.type !== "talent") continue;
+      if (item.system?.active === false) continue;
+
+      if (item.system?.flags?.includes("arcaneStudy")) arcane++;
+      if (item.system?.flags?.includes("bardicStudy")) bardic++;
+    }
+
+    const intMod = this.attributes.int.mod;
+    // Each pool goes through its OWN named limit rather than the shared helper,
+    // so a future divergence between the two rules has an obvious place to land
+    // and cannot accidentally be applied to both.
+    const build = (known, takings, limitOf) => {
+      const max = limitOf(takings, intMod);
+      return { known, max, takings, over: known > max };
+    };
+
+    return {
+      spells: build(spells, arcane, D.knownSpellLimit),
+      performances: build(performances, bardic, D.knownPerformanceLimit)
+    };
   }
 
   /** Total bulk carried, summed across the inventory (§4.6). */
