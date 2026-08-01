@@ -1,19 +1,27 @@
 {{!-- Performance result. Like the spell card there is no hit/miss — the Perform
       check selects a tier. Unlike it, there is no mana line: performances cost
-      none (Chapter 9 never mentions MP). --}}
+      none (Chapter 9 never mentions MP).
+
+      Every bonus and penalty states its SCOPE (issue #13). A tier that reads
+      "+3" and nothing else is unreadable — Chapter 9's tiers are almost all
+      "+N to <a named category>", and the category is the half that decides
+      whether the number does anything at all. --}}
 <div class="lastarc-card lastarc-card--performance">
 
   <header class="lastarc-card__head">
     <img src="{{img}}" alt="" class="lastarc-card__img">
     <div class="lastarc-card__title">
       <span class="lastarc-card__weapon">{{name}}</span>
-      <span class="lastarc-card__sub">{{kindLabel}} · {{specLabel}}</span>
+      <span class="lastarc-card__sub">
+        {{kindLabel}} · {{specLabel}}{{#if effectTagLabel}} · {{effectTagLabel}}{{/if}}
+      </span>
     </div>
-    <div class="lastarc-card__total">{{total}}</div>
+    <div class="lastarc-card__total" data-tooltip="{{breakdown}}">{{total}}</div>
   </header>
 
-  {{#if parts.length}}
-    <div class="lastarc-card__natural">
+  <div class="lastarc-card__natural">
+    <span class="lastarc-card__die">d20: <strong>{{natural}}</strong></span>
+    {{#if parts.length}}
       <span class="lastarc-card__parts">
         {{#each parts}}
           <span class="lastarc-part" data-tooltip="{{localize this.label}}">
@@ -21,21 +29,77 @@
           </span>
         {{/each}}
       </span>
-    </div>
-  {{/if}}
+    {{/if}}
+  </div>
 
   {{#if achieved}}
     {{#if dc}}
       <p class="lastarc-verdict lastarc-verdict--good">
         {{localize "LASTARC.Card.Achieved" dc=dc}}
+        <span class="lastarc-vs">{{total}} {{localize "LASTARC.Card.Versus"}} {{localize "LASTARC.Card.DC"}} {{dc}}</span>
       </p>
     {{/if}}
-    {{#if skillBonus}}
-      <p class="lastarc-rider">{{localize "LASTARC.Card.PerformSkillBonus" n=skillBonus}}</p>
+
+    {{#if opposed}}
+      {{!-- The enfeebling gate: "should your check beat an enemy's Will
+            Defence". An enhancing tier has no gate and never reaches here. --}}
+      <p class="lastarc-verdict {{#if beat}}lastarc-verdict--good{{else}}lastarc-verdict--bad{{/if}}">
+        {{#if targetName}}<strong>{{targetName}}</strong>{{/if}}
+        {{#if beat}}
+          {{localize "LASTARC.Card.PerformBeat"}}
+        {{else}}
+          {{localize "LASTARC.Card.PerformResisted"}}
+        {{/if}}
+        <span class="lastarc-vs">
+          {{total}} {{localize "LASTARC.Card.Versus"}} {{defenceLabel}} {{defence}}
+        </span>
+      </p>
     {{/if}}
-    {{#if bonusDamage}}
-      <p class="lastarc-rider">{{localize "LASTARC.Card.PerformBonusDamage" dice=bonusDamage}}</p>
+
+    {{#if landed}}
+      {{#if skillBonus}}
+        <p class="lastarc-rider lastarc-rider--heal">
+          {{localize "LASTARC.Card.PerformSkillBonus" n=skillBonus}}
+          {{#if bonusScopeLabel}}<span class="lastarc-vs">{{bonusScopeLabel}}</span>{{/if}}
+        </p>
+      {{/if}}
+      {{#if bonusDamage}}
+        <p class="lastarc-rider lastarc-rider--combo">
+          {{localize "LASTARC.Card.PerformBonusDamage" dice=bonusDamage}}
+          {{#if bonusDamageScopeLabel}}<span class="lastarc-vs">{{bonusDamageScopeLabel}}</span>{{/if}}
+        </p>
+      {{/if}}
+      {{#if penalty}}
+        <p class="lastarc-rider lastarc-rider--crit">
+          {{localize "LASTARC.Card.PerformPenalty" n=penalty}}
+          {{#if penaltyScopeLabel}}<span class="lastarc-vs">{{penaltyScopeLabel}}</span>{{/if}}
+        </p>
+      {{/if}}
+
+      {{#if damage}}
+        <div class="lastarc-card__damage">
+          <span class="lastarc-card__total" data-tooltip="{{damageBreakdown}}">{{damage.total}}</span>
+          <span class="lastarc-card__type">{{localize "LASTARC.DamageType.unaspected"}}</span>
+        </div>
+        <p class="lastarc-calc"><span class="lastarc-calc__sum">{{damageBreakdown}}</span></p>
+      {{/if}}
+
+      {{#if mpDamage}}
+        {{!-- The mana die EXPLODES, which nothing else draining a resource
+              does, so the total is worth stating beside the new value. --}}
+        <p class="lastarc-rider lastarc-rider--crit">
+          {{localize "LASTARC.Card.PerformMpLost" n=mpDamage.lost}}
+          <span class="lastarc-vs">{{mpDamage.before}} → {{mpDamage.after}}</span>
+        </p>
+      {{/if}}
+
+      {{#if statusLabel}}
+        <p class="lastarc-rider lastarc-rider--status">
+          {{localize "LASTARC.Card.OnHitApplies"}} <strong>{{statusLabel}}</strong>
+        </p>
+      {{/if}}
     {{/if}}
+
     {{#if effect}}<p class="lastarc-note">{{effect}}</p>{{/if}}
   {{else}}
     <p class="lastarc-verdict lastarc-verdict--neutral">
@@ -50,6 +114,7 @@
   {{/if}}
 
   {{#if notes}}<p class="lastarc-note">{{notes}}</p>{{/if}}
+  {{#if special}}<p class="lastarc-note">{{special}}</p>{{/if}}
 
   {{!-- The replacement rule is easy to forget at the table, so the card says it. --}}
   <p class="lastarc-note lastarc-note--faint">{{localize "LASTARC.Card.PerformanceReplaces"}}</p>

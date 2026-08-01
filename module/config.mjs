@@ -690,6 +690,69 @@ LASTARC.performanceKinds = Object.freeze({
   enfeebling: { label: "LASTARC.Perform.enfeebling", targetsAllies: false }
 });
 
+/* -------------------------------------------------------------------------- */
+/*  Performance outcomes (Chapter 9, issue #13)                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A performance's DC tiers are NOT shaped like a spell's, which is why reusing
+ * the spell editor for them would have produced boxes for the wrong things.
+ *
+ * A spell tier answers "how much damage, against which defence, for how long".
+ * A performance tier answers "who gets what bonus TO WHAT" — and the scope is
+ * the load-bearing half. Chapter 9's tiers are almost all "+N to <a named
+ * category>", and the categories are specific and repeated: weapon skills,
+ * Reflex against spells, Reflex against attacks, Spellcraft, and a general
+ * skills bucket that explicitly excludes the other three.
+ *
+ * A bare `skillBonus: 3` cannot tell those apart, so a bard reading their own
+ * card could not know what the +3 applied to. These are the categories the
+ * chapter actually prints, and no others.
+ */
+LASTARC.performanceBonusScopes = Object.freeze({
+  weaponSkills:  { label: "LASTARC.PerformScope.weaponSkills" },
+  refVsSpells:   { label: "LASTARC.PerformScope.refVsSpells" },
+  refVsAttacks:  { label: "LASTARC.PerformScope.refVsAttacks" },
+  spellcraft:    { label: "LASTARC.PerformScope.spellcraft" },
+  /** Skill checks EXCLUDING weapon skills, Alchemy, Smithing and Spellcraft. */
+  generalSkills: { label: "LASTARC.PerformScope.generalSkills" }
+});
+
+/** Bonus damage riders apply to one attack kind, never to both. */
+LASTARC.performanceDamageScopes = Object.freeze({
+  melee:  { label: "LASTARC.PerformScope.melee" },
+  ranged: { label: "LASTARC.PerformScope.ranged" }
+});
+
+/** What an enfeebling tier's flat penalty lands on. */
+LASTARC.performancePenaltyScopes = Object.freeze({
+  allDefences:      { label: "LASTARC.PerformScope.allDefences" },
+  ref:              { label: "LASTARC.Defence.ref" },
+  fort:             { label: "LASTARC.Defence.fort" },
+  will:             { label: "LASTARC.Defence.will" },
+  attacksAndSkills: { label: "LASTARC.PerformScope.attacksAndSkills" }
+});
+
+/**
+ * Effect tags a performance can carry.
+ *
+ * Printed as a trailing sentence on the enfeebling entries ("this is a mind
+ * effect", "this is a fear effect"). They exist so a creature immune to one can
+ * be adjudicated; nothing in this system consumes them automatically, so they
+ * are a label on the card rather than a rule.
+ */
+LASTARC.performanceEffectTags = Object.freeze({
+  mind: { label: "LASTARC.PerformTag.mind" },
+  fear: { label: "LASTARC.PerformTag.fear" }
+});
+
+/**
+ * MP loss from a performance EXPLODES, which nothing else draining a resource
+ * does. Chapter 9 says so explicitly on the tier that causes it, so it is
+ * recorded here rather than left to whoever wires the roll.
+ */
+LASTARC.performanceMpLossExplodes = true;
+
 /**
  * Casting times seen across Chapters 8 and 9. These map onto the §9 action
  * slots directly — there is no minor-action casting.

@@ -410,19 +410,81 @@ export class LastArcPerformanceData extends foundry.abstract.TypeDataModel {
         initial: "enhancing", choices: Object.keys(LASTARC.performanceKinds)
       }),
 
-      /** Same tiered shape as spells — see LastArcSpellData.outcomes. */
+      /**
+       * DC tiers. Tiered like a spell's, but NOT the same shape — see
+       * LASTARC.performanceBonusScopes for why (issue #13).
+       *
+       * The comment here used to read "same tiered shape as spells", and that
+       * was the whole bug: the array existed, `performItem` read it, and the
+       * item sheet had no editor for it, so every performance in every world
+       * had zero rows and resolved to nothing. Worse, the obvious fix — point
+       * the spell editor at it — would have offered boxes for opposed damage
+       * multipliers and threshold modifiers that Chapter 9 never uses, and no
+       * box for the scope, which is the half that matters.
+       */
       outcomes: new fields.ArrayField(
         new fields.SchemaField({
+          /** Blank means the row always applies. */
           dc: new fields.NumberField({ initial: null, integer: true, nullable: true }),
+
+          /**
+           * Enfeebling tiers are gated on beating a defence — in the printed
+           * chapter always Will, but stored generally rather than assumed.
+           * Blank means the tier applies unconditionally, which is how every
+           * enhancing tier reads.
+           */
+          opposedDefence: new fields.StringField({
+            initial: "", blank: true, choices: ["", ...LASTARC.opposableDefences]
+          }),
+
           effect: new fields.StringField({ initial: "", blank: true }),
-          /** e.g. +2 to all weapon skills. */
+
+          /** +N, and the category it applies to. A bonus with no scope is unreadable. */
           skillBonus: new fields.NumberField({ initial: 0, integer: true }),
+          bonusScope: new fields.StringField({
+            initial: "", blank: true,
+            choices: ["", ...Object.keys(LASTARC.performanceBonusScopes)]
+          }),
+
+          /** Extra damage on the target's own successful attacks, melee or ranged. */
           bonusDamage: new fields.StringField({ initial: "", blank: true }),
+          bonusDamageScope: new fields.StringField({
+            initial: "", blank: true,
+            choices: ["", ...Object.keys(LASTARC.performanceDamageScopes)]
+          }),
+
+          /** Damage the performance itself deals. Always unaspected in Chapter 9. */
+          damage: new fields.StringField({ initial: "", blank: true }),
+
+          /** Mana stripped from the target. This die EXPLODES — see config. */
+          mpDamage: new fields.StringField({ initial: "", blank: true }),
+
+          /**
+           * Flat penalty, stored as a POSITIVE magnitude like §4.5's armour
+           * check penalty. Storing it negative would make a hostile tier a
+           * bonus the first time someone typed what the book prints.
+           */
+          penalty: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
+          penaltyScope: new fields.StringField({
+            initial: "", blank: true,
+            choices: ["", ...Object.keys(LASTARC.performancePenaltyScopes)]
+          }),
+
           status: new fields.StringField({ initial: "", blank: true }),
           notes: new fields.StringField({ initial: "", blank: true })
         }),
         { initial: [] }
       ),
+
+      /**
+       * "This is a mind effect" / "a fear effect", printed as a trailing line
+       * on the enfeebling entries. A tag for adjudication, not a rule — nothing
+       * here consumes it.
+       */
+      effectTag: new fields.StringField({
+        initial: "", blank: true,
+        choices: ["", ...Object.keys(LASTARC.performanceEffectTags)]
+      }),
 
       /**
        * Some performances let allies SUBSTITUTE the performer's Perform check

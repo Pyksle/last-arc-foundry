@@ -901,6 +901,54 @@ function registerSheetBatch(quench) {
             `item fields with no input — nobody can set these:\n  ${failures.join("\n  ")}`);
         });
 
+        /**
+         * THE HOLE THE ABOVE LEAVES, and the one issue #13 fell through.
+         *
+         * `leafPaths` skips ArrayFields outright, on the reasoning that an
+         * array is edited by an add/remove widget rather than a bound input.
+         * True of the array — and completely false of its ELEMENT, whose fields
+         * do get bound inputs (`system.outcomes.0.dc`). So an array of schemas
+         * could ship with no row editor at all, or gain a field that no row
+         * renders, and the coverage test would report full marks.
+         *
+         * That is exactly what happened: performances carried an `outcomes`
+         * array, `performItem` read it, and the item sheet had no editor for
+         * it. Every performance in every world had zero rows and resolved to
+         * nothing, and the guard could not see it.
+         *
+         * Checked at runtime rather than by reading the template, because the
+         * row markup only exists once a row does — so this adds one, renders,
+         * and looks for its fields.
+         */
+        it("every array-of-schemas has a row editor covering its fields", async function () {
+          this.timeout(60_000);
+          const failures = [];
+
+          for (const type of Object.keys(game.system.documentTypes.Item)) {
+            const item = await Item.create({ name: `Quench rows ${type}`, type });
+            try {
+              for (const [key, field] of Object.entries(item.system.schema.fields)) {
+                if (field.constructor.name !== "ArrayField") continue;
+                if (field.element?.constructor?.name !== "SchemaField") continue;
+
+                // Seed one row so the editor has something to draw.
+                await item.update({ [`system.${key}`]: [field.element.clean({})] });
+
+                const bound = await boundPaths(item);
+                for (const { path } of leafPaths(field.element, `${key}.0`)) {
+                  if (!covers(bound, path)) failures.push(`${type}.${path}`);
+                }
+              }
+            } finally {
+              await item.delete();
+            }
+          }
+
+          assert.deepEqual(failures, [],
+            `array rows with no input — the row exists and cannot be edited:\n  ` +
+            failures.join("\n  "));
+        });
+
         it("every actor subtype exposes all of its fields, or exempts them", async function () {
           this.timeout(60_000);
           const failures = [];
@@ -1646,6 +1694,97 @@ function registerCombatBatch(quench) {
             await MAGIC.castSpell(pc, spell);
             assert.equal(pc.system.resources.hp.value, 5, "1 + 4");
           });
+        });
+      });
+
+      /* -- Performance outcomes (issue #13) --------------------------------- */
+
+      describe("performance outcomes", function () {
+        /**
+         * The reported bug, at its root. The array existed, `performItem` read
+         * it, and no sheet could author a row — so every performance in every
+         * world resolved to nothing at all.
+         */
+        it("a tier the check reaches is selected and reported", async function () {
+          await withActor({
+            system: { skills: { perform: { trained: true, focus: 20 } } }
+          }, async (pc) => {
+            const [perf] = await pc.createEmbeddedDocuments("Item", [{
+              name: "ZZ tune", type: "performance",
+              system: {
+                kind: "enhancing",
+                outcomes: [
+                  { dc: 15, skillBonus: 1, bonusScope: "weaponSkills" },
+                  { dc: 500, skillBonus: 5, bonusScope: "weaponSkills" }
+                ]
+              }
+            }]);
+
+            const result = await MAGIC.performItem(pc, perf);
+            assert.equal(result.outcome.dc, 15, "the unreachable tier must not win");
+            assert.isTrue(result.landed);
+          });
+        });
+
+        /**
+         * Enfeebling tiers read "should your check beat an enemy's Will
+         * Defence". An enhancing tier has no gate, and conflating the two would
+         * make every buff need a target.
+         */
+        it("an enfeebling tier is gated on beating the defence", async function () {
+          await withActor({}, async (pc) => {
+            const [perf] = await pc.createEmbeddedDocuments("Item", [{
+              name: "ZZ jeer", type: "performance",
+              system: {
+                kind: "enfeebling",
+                outcomes: [{ dc: null, opposedDefence: "will", penalty: 2, penaltyScope: "allDefences" }]
+              }
+            }]);
+
+            await withNpc({ system: { defences: { will: { base: 500 } } } }, async (npc) => {
+              const result = await MAGIC.performItem(pc, perf, { target: npc });
+              assert.isTrue(result.opposed.opposed);
+              assert.isFalse(result.opposed.beat, "nothing beats a 500 Will");
+              assert.isFalse(result.landed, "and a resisted tier must not apply");
+            });
+          });
+        });
+
+        /**
+         * Mana loss EXPLODES — Chapter 9 says so outright, and it is the only
+         * resource drain in the system that does. Verified by draining a d1-ish
+         * die is impossible, so this checks the plumbing rather than the
+         * cascade: MP actually leaves the target and floors at zero.
+         */
+        it("mana loss actually strips MP and floors at zero", async function () {
+          await withActor({}, async (pc) => {
+            const [perf] = await pc.createEmbeddedDocuments("Item", [{
+              name: "ZZ drain", type: "performance",
+              system: {
+                kind: "enfeebling",
+                outcomes: [{ dc: null, mpDamage: "100" }]
+              }
+            }]);
+
+            await withNpc({ system: { resources: { mp: { value: 10, max: 10 } } } }, async (npc) => {
+              const result = await MAGIC.performItem(pc, perf, { target: npc });
+              assert.equal(npc.system.resources.mp.value, 0);
+              assert.equal(result.mpDamage.lost, 10, "only what was there is lost");
+            });
+          });
+        });
+
+        it("a new outcome row matches the performance schema, not the spell one", async function () {
+          const perf = await Item.create({ name: "ZZ shape", type: "performance" });
+          try {
+            const blank = perf.system.schema.fields.outcomes.element.clean({});
+            assert.property(blank, "bonusScope", "the scope is the half that matters");
+            assert.property(blank, "mpDamage");
+            assert.notProperty(blank, "onFail", "that is a spell's shape");
+            assert.isNull(blank.dc, "a blank DC means the row always applies");
+          } finally {
+            await perf.delete();
+          }
         });
       });
 

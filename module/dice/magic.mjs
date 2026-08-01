@@ -265,7 +265,10 @@ export async function performItem(actor, performance, options = {}) {
           `${game.i18n.format("LASTARC.Card.PerformanceDisrupted", { name: performance.name })}` +
           `</p></div>`
       });
-      return { disrupted: true, counter, roll: null, outcome: null, achieved: false };
+      return {
+        disrupted: true, counter, roll: null, outcome: null,
+        achieved: false, landed: false
+      };
     }
   }
 
@@ -288,6 +291,66 @@ export async function performItem(actor, performance, options = {}) {
   await roll.evaluate();
 
   const outcome = selectOutcome(perf.outcomes, roll.total);
+  const target = options.target;
+
+  /* -- the enfeebling gate ------------------------------------------------- */
+
+  // Enfeebling tiers read "should your check beat an enemy's Will Defence,
+  // they suffer...". Reusing resolveOpposed keeps the meet-it-beat-it rule in
+  // one place; an enhancing tier leaves opposedDefence blank and passes.
+  const opposed = outcome
+    ? resolveOpposed(outcome, {
+        checkTotal: roll.total,
+        targetDefences: {
+          ref: target?.system?.defences?.ref?.value,
+          fort: target?.system?.defences?.fort?.value,
+          will: target?.system?.defences?.will?.value
+        }
+      })
+    : { opposed: false, beat: false, defence: null, defenceKey: null };
+
+  const landed = !!outcome && (!opposed.opposed || opposed.beat);
+  const result = { roll, parts, outcome, opposed, achieved: !!outcome, landed };
+
+  /* -- what the tier actually does ----------------------------------------- */
+
+  if (landed && target) {
+    // Chapter 9's direct damage is always unaspected, which bypasses DR — so
+    // it goes through applyDamage rather than being subtracted by hand.
+    if (outcome.damage) {
+      const rolled = await rollDamageDice({
+        diceFormula: outcome.damage, critMultiplier: 1, explosionMultiplier: 1, flat: 0
+      });
+      result.damage = { ...rolled, damageType: "unaspected" };
+      result.applied = await applyDamage(target, { total: rolled.total, type: "unaspected" });
+    }
+
+    /**
+     * Mana loss. THE DIE EXPLODES — Chapter 9 says so outright, and it is the
+     * only resource drain in the system that does. Rolling it flat would
+     * quietly cap the worst case at the die's face value.
+     */
+    if (outcome.mpDamage) {
+      const rolled = await rollDamageDice({
+        diceFormula: outcome.mpDamage,
+        critMultiplier: 1,
+        explosionMultiplier: LASTARC.performanceMpLossExplodes ? 1 : 0,
+        flat: 0
+      });
+      const before = target.system.resources?.mp?.value ?? 0;
+      const after = Math.max(0, before - rolled.total);
+      await target.update({ "system.resources.mp.value": after });
+      result.mpDamage = { ...rolled, before, after, lost: before - after };
+    }
+
+    if (outcome.status && LASTARC.allStatusIds.includes(outcome.status)) {
+      await target.toggleStatusEffect?.(outcome.status, { active: true });
+      result.statusApplied = outcome.status;
+    }
+  }
+
+  const scopeLabel = (table, key) =>
+    key ? game.i18n.localize(table[key]?.label ?? key) : null;
 
   const content = await foundry.applications.handlebars.renderTemplate(
     "systems/last-arc/templates/chat/performance-card.hbs",
@@ -299,13 +362,39 @@ export async function performItem(actor, performance, options = {}) {
         LASTARC.performSpecialisations[perf.specialisation]?.label ?? ""
       ),
       total: roll.total,
+      natural: roll.dice[0]?.results?.[0]?.result ?? 0,
       parts,
+      breakdown: describeCheck(roll, parts),
       achieved: !!outcome,
+      landed,
       dc: outcome?.dc ?? null,
+      opposed: opposed.opposed,
+      beat: opposed.beat,
+      defence: opposed.defence,
+      defenceLabel: opposed.defenceKey
+        ? game.i18n.localize(`LASTARC.Defence.${opposed.defenceKey}`)
+        : null,
+      targetName: target?.name ?? null,
       effect: outcome?.effect || null,
+      // A bonus with no scope is unreadable, so the two travel together.
       skillBonus: outcome?.skillBonus || null,
+      bonusScopeLabel: scopeLabel(LASTARC.performanceBonusScopes, outcome?.bonusScope),
       bonusDamage: outcome?.bonusDamage || null,
+      bonusDamageScopeLabel:
+        scopeLabel(LASTARC.performanceDamageScopes, outcome?.bonusDamageScope),
+      penalty: outcome?.penalty || null,
+      penaltyScopeLabel: scopeLabel(LASTARC.performancePenaltyScopes, outcome?.penaltyScope),
+      damage: result.damage ?? null,
+      damageBreakdown: result.damage ? describeDamage(result.damage) : null,
+      mpDamage: result.mpDamage ?? null,
+      statusLabel: result.statusApplied
+        ? game.i18n.localize(`LASTARC.Status.${result.statusApplied}`)
+        : null,
+      effectTagLabel: perf.effectTag
+        ? game.i18n.localize(LASTARC.performanceEffectTags[perf.effectTag]?.label ?? "")
+        : null,
       notes: outcome?.notes || null,
+      special: perf.special || null,
       substitutesDefence: perf.substitutesDefence
         ? game.i18n.localize(`LASTARC.Defence.${perf.substitutesDefence}`)
         : null
@@ -319,7 +408,7 @@ export async function performItem(actor, performance, options = {}) {
     flags: { "last-arc": { type: "performance", actorId: actor.id } }
   });
 
-  return { roll, parts, outcome, achieved: !!outcome };
+  return result;
 }
 
 /* -------------------------------------------------------------------------- */

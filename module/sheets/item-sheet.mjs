@@ -138,13 +138,34 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       ...["ref", "fort", "will"].map((k) => ({ value: k, label: `LASTARC.Defence.${k}` }))
     ];
 
-    if (item.type === "spell") {
-      // Indexed here rather than in the template: the outcome rows are edited
-      // by index, and Handlebars has no way to produce one.
+    // Spells and performances BOTH have DC tiers, and both need them indexed
+    // here rather than in the template: the rows are edited by index and
+    // Handlebars has no way to produce one. The two render different editors —
+    // see LASTARC.performanceBonusScopes — but the plumbing is identical, and
+    // performances having no editor at all was issue #13.
+    if (item.type === "spell" || item.type === "performance") {
       context.outcomes = sys.outcomes.map((o, index) => ({ ...o, index }));
+    }
+
+    if (item.type === "spell") {
       // Decay fractions are an array of numbers but a comma list in the UI —
       // "0.5, 0.25" is how the book writes it and how a GM thinks of it.
       context.decayText = sys.damageOverTime.join(", ");
+    }
+
+    if (item.type === "performance") {
+      const options = (table, blankLabel) => [
+        { value: "", label: game.i18n.localize(blankLabel) },
+        ...Object.entries(table).map(([value, cfg]) => ({ value, label: cfg.label }))
+      ];
+      context.bonusScopeOptions =
+        options(LASTARC.performanceBonusScopes, "LASTARC.Field.NoScope");
+      context.damageScopeOptions =
+        options(LASTARC.performanceDamageScopes, "LASTARC.Field.NoScope");
+      context.penaltyScopeOptions =
+        options(LASTARC.performancePenaltyScopes, "LASTARC.Field.NoScope");
+      context.effectTagOptions =
+        options(LASTARC.performanceEffectTags, "LASTARC.Field.NoEffectTag");
     }
 
     // ArrayFields of plain strings get one comma-separated box rather than a
@@ -260,19 +281,26 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   /**
    * Add an outcome row.
    *
-   * `dc: null` rather than 0 is deliberate: null means "applies whenever the
-   * spell is cast", which is the common case for the first row, and 0 would be
-   * a tier every check trivially reaches.
+   * The blank row is built FROM THE SCHEMA rather than written out here, so one
+   * handler serves both spells and performances — whose tiers share the DC
+   * ladder and nothing else (issue #13). A hardcoded spell-shaped row pushed
+   * onto a performance would have its unknown keys silently dropped and its
+   * real ones left at whatever the literal happened to say.
+   *
+   * That also keeps `dc: null` correct for free. Null rather than 0 is
+   * deliberate — it means "this row always applies", the common case for a
+   * first row, where 0 would be a tier every check trivially reaches.
    */
   static async #onAddOutcome() {
     const outcomes = this.document.system.toObject().outcomes ?? [];
-    await this.document.update({
-      "system.outcomes": [...outcomes, {
-        dc: null, opposedDefence: "", damage: "", status: "", healing: "",
-        thresholdMod: 0, durationTurns: 0,
-        onFail: { damageMultiplier: 0, thresholdMod: 0 }, notes: ""
-      }]
-    });
+
+    // `clean({})` is what Foundry itself does to fill a schema from nothing: it
+    // walks every subfield, recursing into nested ones, and substitutes the
+    // declared initial wherever a key is missing. Safer than reading `initial`
+    // by hand, which would miss the spell row's nested `onFail`.
+    const blank = this.document.system.schema.fields.outcomes.element.clean({});
+
+    await this.document.update({ "system.outcomes": [...outcomes, blank] });
   }
 
   /**

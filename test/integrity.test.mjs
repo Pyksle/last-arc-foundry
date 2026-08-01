@@ -52,6 +52,20 @@ describe("localisation coverage", () => {
     for (const c of Object.values(LASTARC.classes)) check(c.label);
     for (const s of Object.values(LASTARC.sizes)) check(s.label);
 
+    // Performance outcome vocabularies (issue #13). These are option lists the
+    // item sheet builds from config, so a missing label shows up as a blank
+    // <option> rather than an error.
+    for (const table of [
+      LASTARC.performanceBonusScopes,
+      LASTARC.performanceDamageScopes,
+      LASTARC.performancePenaltyScopes,
+      LASTARC.performanceEffectTags,
+      LASTARC.performSpecialisations,
+      LASTARC.performanceKinds
+    ]) {
+      for (const entry of Object.values(table)) check(entry.label);
+    }
+
     assert.deepEqual(missing, [], `missing localisation keys: ${missing.join(", ")}`);
   });
 

@@ -889,7 +889,10 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
     await performItem(this.document, item, {
       performDefensively: !!event.shiftKey,
-      threatCount: event.shiftKey ? 1 : 0
+      threatCount: event.shiftKey ? 1 : 0,
+      // Enfeebling tiers are gated on beating a defence and can strip mana, so
+      // a performance needs its target the same way a spell does (issue #13).
+      target: [...(game.user.targets ?? [])][0]?.actor
     });
   }
 

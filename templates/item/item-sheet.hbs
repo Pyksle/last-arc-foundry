@@ -631,10 +631,138 @@
           <label>{{localize "LASTARC.Field.Area"}}</label>
         </div>
         <div class="la-field">
+          <select name="system.effectTag">
+            {{#each effectTagOptions}}
+              <option value="{{this.value}}" {{#if (laeq this.value ../system.effectTag)}}selected{{/if}}>{{localize this.label}}</option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.EffectTag"}}</label>
+        </div>
+        <div class="la-field">
           <input type="text" name="system.special" value="{{system.special}}">
           <label>{{localize "LASTARC.Field.Special"}}</label>
         </div>
       </div>
+    </section>
+
+    {{!-- ── Performance outcomes (issue #13) ───────────────────────────────
+          Tiered like a spell's and shaped nothing like one. Chapter 9's tiers
+          are almost all "+N to <a named category>", and the CATEGORY is the
+          load-bearing half — a bare +3 tells a bard nothing about what it
+          applies to. Reusing the spell editor here would have offered boxes
+          for damage multipliers and threshold modifiers the chapter never
+          uses, and no box for the scope. --}}
+    <section class="la-panel la-panel--outcomes">
+      <h2 class="la-panel__title">{{localize "LASTARC.Section.Outcomes"}}</h2>
+      <p class="la-note">{{localize "LASTARC.Note.PerformOutcomes"}}</p>
+
+      {{#each outcomes}}
+        <div class="la-outcome">
+          <div class="la-field-row">
+            <div class="la-field la-field--narrow">
+              <input type="number" name="system.outcomes.{{this.index}}.dc"
+                     value="{{this.dc}}" placeholder="—">
+              <label>{{localize "LASTARC.Field.DC"}}</label>
+            </div>
+            <div class="la-field"
+                 data-tooltip="{{localize 'LASTARC.Tooltip.PerformOpposed'}}">
+              <select name="system.outcomes.{{this.index}}.opposedDefence">
+                {{#each ../defenceOptions}}
+                  <option value="{{this.value}}" {{#if (laeq this.value ../opposedDefence)}}selected{{/if}}>{{localize this.label}}</option>
+                {{/each}}
+              </select>
+              <label>{{localize "LASTARC.Field.OpposedBy"}}</label>
+            </div>
+            <div class="la-field la-field--narrow">
+              <input type="number" name="system.outcomes.{{this.index}}.skillBonus"
+                     value="{{this.skillBonus}}">
+              <label>{{localize "LASTARC.Field.Bonus"}}</label>
+            </div>
+            <div class="la-field">
+              <select name="system.outcomes.{{this.index}}.bonusScope">
+                {{#each ../bonusScopeOptions}}
+                  <option value="{{this.value}}" {{#if (laeq this.value ../bonusScope)}}selected{{/if}}>{{localize this.label}}</option>
+                {{/each}}
+              </select>
+              <label>{{localize "LASTARC.Field.BonusApplies"}}</label>
+            </div>
+            <button type="button" class="la-item__delete" data-action="deleteOutcome"
+                    data-index="{{this.index}}">×</button>
+          </div>
+
+          <div class="la-field-row">
+            <div class="la-field">
+              <input type="text" name="system.outcomes.{{this.index}}.bonusDamage"
+                     value="{{this.bonusDamage}}" placeholder="1d6">
+              <label>{{localize "LASTARC.Field.BonusDamage"}}</label>
+            </div>
+            <div class="la-field">
+              <select name="system.outcomes.{{this.index}}.bonusDamageScope">
+                {{#each ../damageScopeOptions}}
+                  <option value="{{this.value}}" {{#if (laeq this.value ../bonusDamageScope)}}selected{{/if}}>{{localize this.label}}</option>
+                {{/each}}
+              </select>
+              <label>{{localize "LASTARC.Field.BonusDamageOn"}}</label>
+            </div>
+            <div class="la-field"
+                 data-tooltip="{{localize 'LASTARC.Tooltip.PerformDamage'}}">
+              <input type="text" name="system.outcomes.{{this.index}}.damage"
+                     value="{{this.damage}}" placeholder="1d8">
+              <label>{{localize "LASTARC.Field.Damage"}}</label>
+            </div>
+            <div class="la-field"
+                 data-tooltip="{{localize 'LASTARC.Tooltip.PerformMpLoss'}}">
+              <input type="text" name="system.outcomes.{{this.index}}.mpDamage"
+                     value="{{this.mpDamage}}" placeholder="1d4">
+              <label>{{localize "LASTARC.Field.MpLoss"}}</label>
+            </div>
+          </div>
+
+          <div class="la-field-row">
+            <div class="la-field la-field--narrow"
+                 data-tooltip="{{localize 'LASTARC.Tooltip.PerformPenalty'}}">
+              <input type="number" name="system.outcomes.{{this.index}}.penalty"
+                     value="{{this.penalty}}" min="0">
+              <label>{{localize "LASTARC.Field.Penalty"}}</label>
+            </div>
+            <div class="la-field">
+              <select name="system.outcomes.{{this.index}}.penaltyScope">
+                {{#each ../penaltyScopeOptions}}
+                  <option value="{{this.value}}" {{#if (laeq this.value ../penaltyScope)}}selected{{/if}}>{{localize this.label}}</option>
+                {{/each}}
+              </select>
+              <label>{{localize "LASTARC.Field.PenaltyApplies"}}</label>
+            </div>
+            <div class="la-field">
+              <select name="system.outcomes.{{this.index}}.status">
+                {{#each ../statusOptions}}
+                  <option value="{{this.value}}" {{#if (laeq this.value ../status)}}selected{{/if}}>{{this.label}}</option>
+                {{/each}}
+              </select>
+              <label>{{localize "LASTARC.Field.Status"}}</label>
+            </div>
+          </div>
+
+          <div class="la-field-row">
+            <div class="la-field">
+              <input type="text" name="system.outcomes.{{this.index}}.effect"
+                     value="{{this.effect}}">
+              <label>{{localize "LASTARC.Field.Effect"}}</label>
+            </div>
+            <div class="la-field">
+              <input type="text" name="system.outcomes.{{this.index}}.notes"
+                     value="{{this.notes}}">
+              <label>{{localize "LASTARC.Field.Notes"}}</label>
+            </div>
+          </div>
+        </div>
+      {{else}}
+        <p class="la-note">{{localize "LASTARC.Note.NoOutcomes"}}</p>
+      {{/each}}
+
+      <button type="button" class="la-panel__add" data-action="addOutcome">
+        {{localize "LASTARC.Action.AddOutcome"}}
+      </button>
     </section>
   {{/if}}
 
