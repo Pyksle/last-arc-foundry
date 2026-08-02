@@ -58,6 +58,16 @@ export async function rollSkill(actor, skillKey, options = {}) {
     return null;
   }
 
+  // Silence stops Spellcraft, Persuasion and the audible Performs outright —
+  // it is not a penalty, so there is no number to roll. Refuse for the same
+  // reason as above: a total on the card implies the attempt was allowed.
+  if (actor.system.statuses?.blocksSkills?.has(skillKey)) {
+    ui.notifications?.warn(
+      game.i18n.format("LASTARC.Warning.SkillBlocked", { name: actor.name, skill: label })
+    );
+    return null;
+  }
+
   // A skill check has no itemised parts list, so the reason rides on the label:
   // "Acrobatics — footing is bad -2" rather than an unexplained total.
   return evaluateCheck({

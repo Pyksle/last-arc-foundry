@@ -398,6 +398,7 @@
   "LASTARC.Dialog.RemoveFirstClass.content": "The first class determines the character's level-1 HP and Mana grant and their class defence bonuses. Removing it promotes the next class into that role, which will change those values.",
   "LASTARC.Info.RecoveryBanked": "Recovery: {banked} of {required} consecutive minor actions banked.",
   "LASTARC.Warning.Incapacitated": "{name} is at the bottom of the Break Gauge and cannot act.",
+  "LASTARC.Warning.SkillBlocked": "{name} cannot use {skill} — a status is blocking it.",
   "LASTARC.Warning.WeaponSkillTakeN": "Weapon skills cannot Take 10 or Take 20.",
   "LASTARC.Warning.PersistentFloor": "Recovery cannot clear persistent steps. This character is held at step {steps} until the underlying condition is cured.",
   "LASTARC.Warning.RecoveryBlocked": "Already at the persistent floor — recovery cannot improve the gauge further.",

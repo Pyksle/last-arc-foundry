@@ -4,6 +4,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { LASTARC } from "../module/config.mjs";
 import {
@@ -46,16 +47,29 @@ describe("§12 status aggregation", () => {
    * that it is "fully a discussion at the table rather than needing the
    * mechanics", so it is REMOVED rather than left looking implemented.
    *
-   * `blocksSkills` (which no status carried at all) and `blocksFlying` went the
-   * same way. A key that produces no behaviour is worse than an absent one: it
-   * reads as a feature to anyone auditing the payload.
+   * `blocksFlying` went the same way. A key that produces no behaviour is worse
+   * than an absent one: it reads as a feature to anyone auditing the payload.
+   *
+   * `blocksSkills` was on this list and should NOT have been. I reported to the
+   * GM that no status carried it; `silence` did, and does. It is wired now
+   * rather than deleted — see the silence tests below.
    */
   test("payload keys the table adjudicates are absent, not inert", () => {
     const s = aggregateStatuses(["helpless", "toad", "encumbered"]);
-    for (const gone of ["enablesCoupDeGrace", "blocksSkills", "blocksFlying"]) {
+    for (const gone of ["enablesCoupDeGrace", "blocksFlying"]) {
       assert.ok(!(gone in s),
         `${gone} is still produced and still read by nothing — remove it or wire it`);
     }
+  });
+
+  test("silence blocks the audible skills and nothing else", () => {
+    const s = aggregateStatuses(["silence"]);
+    for (const blocked of ["spellcraft", "persuasion", "performInstrument", "performOratory"]) {
+      assert.ok(s.blocksSkills.has(blocked), `silence should block ${blocked}`);
+    }
+    // Dance makes no sound to suppress.
+    assert.ok(!s.blocksSkills.has("performDance"));
+    assert.equal(aggregateStatuses([]).blocksSkills.size, 0);
   });
 
   test("helpless SUPERSEDES prone rather than stacking with it", () => {
@@ -422,5 +436,74 @@ describe("issue #17 wiring", () => {
       "agony strips resistances, so the raw damageMods are the wrong input");
     assert.match(src, /bonusDamageDice/,
       "drench and oil add dice to the incoming instance (§12)");
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The guard that 0.31.0 needed and did not have.
+ *
+ * Removing `blocksSkills` was done in two halves: the key came out of the
+ * payload defaults, and the loop that WRITES it was left behind. `silence`
+ * still carried it in the table — my claim on #46 that "no status carried it"
+ * was simply wrong, read off the wrong end of the file. So aggregating
+ * `silence` did `undefined.add(...)` and threw, inside `prepareDerivedData`,
+ * which takes the whole actor down with it.
+ *
+ * 543 tests were green. Every status test aggregated a hand-picked id —
+ * helpless, toad, exhaustion — and none of them picked the broken one.
+ *
+ * So: aggregate EVERY registered id, not a chosen few. A table-driven check
+ * cannot be fooled by the author's choice of example.
+ */
+describe("every registered status aggregates without throwing", () => {
+  const ids = [
+    ...Object.keys(LASTARC.statusEffects),
+    ...Object.keys(LASTARC.curses ?? {})
+  ];
+
+  for (const id of ids) {
+    test(`${id} aggregates`, () => {
+      assert.doesNotThrow(() => aggregateStatuses([id]));
+    });
+  }
+
+  test("and all of them at once", () => {
+    assert.doesNotThrow(() => aggregateStatuses(ids));
+  });
+});
+
+/**
+ * The same bug stated structurally, so it is caught even by a status no test
+ * happens to name.
+ *
+ * `aggregateStatuses` is a defaults object followed by a loop that writes into
+ * it. Delete a default and leave its writer and you get a crash; delete a
+ * writer and leave its default and you get a key that is permanently neutral
+ * and looks implemented. Both halves have to move together, so check that the
+ * set of keys the loop WRITES matches the set the defaults DECLARE.
+ */
+describe("aggregateStatuses defaults and writers agree", () => {
+  const src = readFileSync(new URL("../module/derivation.mjs", import.meta.url), "utf8");
+  const body = src.slice(src.indexOf("export function aggregateStatuses"));
+  const fn = body.slice(0, body.indexOf("\n}\n") + 2);
+
+  const declared = new Set(Object.keys(aggregateStatuses([])));
+  const written = new Set(
+    [...fn.matchAll(/\bout\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1])
+  );
+
+  test("every key the loop writes has a default", () => {
+    const undeclared = [...written].filter((k) => !declared.has(k));
+    assert.deepEqual(undeclared, [],
+      `written but never initialised — these throw or silently vanish: ${undeclared.join(", ")}`);
+  });
+
+  test("every declared key is written by something", () => {
+    // `active` is assigned in the defaults literal itself, not in the loop.
+    const inert = [...declared].filter((k) => !written.has(k) && k !== "active");
+    assert.deepEqual(inert, [],
+      `declared but never written — permanently neutral: ${inert.join(", ")}`);
   });
 });

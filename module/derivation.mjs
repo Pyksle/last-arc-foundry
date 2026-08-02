@@ -664,6 +664,17 @@ export function aggregateStatuses(statusIds = []) {
     blocksD20Reroll: false,
     rerollKeepLower: false,
     skillPenalties: {},
+    /**
+     * Skills the creature cannot roll at all (silence). A Set, like `active`.
+     *
+     * This key was removed in 0.31.0 on the strength of my own claim that no
+     * status carried it. `silence` did. The removal took out the default but
+     * left the loop that writes to it, so aggregating silence called
+     * `undefined.add(...)` and threw — inside `prepareDerivedData`, which takes
+     * the actor down with it. Restored and, this time, actually read: see
+     * `rollSkill`.
+     */
+    blocksSkills: new Set(),
     skillCheckPenalty: 0,
     damageRollPenalty: 0,
     healingBecomesDamage: false,

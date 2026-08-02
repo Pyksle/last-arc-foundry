@@ -507,9 +507,17 @@ LASTARC.statusEffects = {
     blocksNaturalHealing: true
   },
   silence: {
-    /** Skills requiring vocalisation. Perform is sub-skilled; only some qualify. */
-    blocksSkills: ["spellcraft", "persuasion"],
-    blocksPerformSpecialisations: ["instrument", "oratory"]
+    /**
+     * Skills needing audible sound. Perform used to be one container skill with
+     * named specialisations, so this was two keys: `blocksSkills` plus a
+     * `blocksPerformSpecialisations: ["instrument", "oratory"]`. Issue #35 made
+     * Perform eight ordinary skills and the second key was left describing a
+     * shape that no longer exists — it named no skill anything could look up,
+     * so it was dead on arrival. One list of real skill keys now.
+     *
+     * Dance is deliberately absent: it makes no sound to suppress.
+     */
+    blocksSkills: ["spellcraft", "persuasion", "performInstrument", "performOratory"]
   },
   sleep: {
     agiDenied: true,
