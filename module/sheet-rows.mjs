@@ -308,3 +308,42 @@ export function itemChoiceOptions() {
       .map((d) => ({ value: d, label: d })),
   };
 }
+
+/**
+ * The performance sheet's four scope pickers (#44).
+ *
+ * Each leads with a BLANK entry, because a scope once set must be clearable —
+ * a select with no empty option is a one-way door.
+ *
+ * Extracted for the same reason as the rest, and found the same way: I stubbed
+ * these as `[]` in the fixture an hour ago and the preview rendered two empty
+ * dropdowns. That is precisely the lie this issue is about, reproduced by me
+ * while fixing it. A stub in a fixture is a second implementation that always
+ * disagrees.
+ */
+/**
+ * The "which defence does this oppose?" picker, blank entry first.
+ *
+ * `LASTARC.opposableDefences`, not a `["ref","fort","will"]` literal — the
+ * literal appeared in four places across this codebase and each was one edit
+ * away from disagreeing with the others.
+ */
+export function opposedDefenceOptions(localize = identityLocalize) {
+  return [
+    { value: "", label: localize("LASTARC.Field.NoOpposedDefence") },
+    ...LASTARC.opposableDefences.map((k) => ({ value: k, label: `LASTARC.Defence.${k}` }))
+  ];
+}
+
+export function performanceScopeOptions(localize = identityLocalize) {
+  const options = (table, blankLabel) => [
+    { value: "", label: localize(blankLabel) },
+    ...Object.entries(table).map(([value, cfg]) => ({ value, label: cfg.label }))
+  ];
+  return {
+    bonusScopeOptions: options(LASTARC.performanceBonusScopes, "LASTARC.Field.NoScope"),
+    damageScopeOptions: options(LASTARC.performanceDamageScopes, "LASTARC.Field.NoScope"),
+    penaltyScopeOptions: options(LASTARC.performancePenaltyScopes, "LASTARC.Field.NoScope"),
+    effectTagOptions: options(LASTARC.performanceEffectTags, "LASTARC.Field.NoEffectTag")
+  };
+}

@@ -245,6 +245,24 @@ describe("§ every sheet and card renders, for every subtype", () => {
     ...Object.entries(renderedCards)
   ];
 
+  /**
+   * An empty `<select>` is the fixture-drift bug in its purest form: it renders
+   * as a control with nothing in it, which is exactly what an unwired field
+   * looks like. Every item sheet previewed before #44 had several, and I read
+   * one as a fixture quirk rather than as the tool lying.
+   */
+  test("no dropdown renders with nothing in it", () => {
+    const bad = [];
+    for (const [label, html] of surfaces()) {
+      for (const m of html.matchAll(/<select name="([^"]+)">\s*<\/select>/g)) {
+        bad.push(`${label}: ${m[1]}`);
+      }
+    }
+    assert.deepEqual(bad, [],
+      "these render an empty picker, so the preview cannot tell an unwired " +
+      "field from an unpopulated fixture:\n  " + bad.join("\n  "));
+  });
+
   test("nothing renders NaN", () => {
     // A NaN reaches the page from one missing number in an arithmetic chain —
     // `Math.min(x, undefined)` is the one this codebase has hit, which is why

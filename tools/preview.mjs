@@ -479,10 +479,9 @@ export function itemContext(type) {
     prereqTrainedSkillsText: "",
     attributeCaps: [],
     attributeMods: [],
-    effectTagOptions: [],
-    bonusScopeOptions: [],
-    damageScopeOptions: [],
-    penaltyScopeOptions: [],
+    // From the sheet's own code, not stubbed — an empty stub renders an empty
+    // dropdown, which is the lie this whole issue is about.
+    ...ROWS.performanceScopeOptions(localize),
     rerollKindFields: LASTARC.grantableRerollKinds.map((key) => ({
       key,
       label: `LASTARC.RerollKind.${key}`,
@@ -504,7 +503,7 @@ export function itemContext(type) {
     grantedSkills: [],
     skillOptions: [],
     statusOptions: [],
-    defenceOptions: [],
+    defenceOptions: ROWS.opposedDefenceOptions(localize),
     weaponDamageTypes: [],
     flagOptions: []
   };

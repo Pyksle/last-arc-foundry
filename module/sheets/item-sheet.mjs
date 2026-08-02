@@ -118,10 +118,7 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         value: id, label: game.i18n.localize(`LASTARC.Status.${id}`)
       }))
     ];
-    context.defenceOptions = [
-      { value: "", label: game.i18n.localize("LASTARC.Field.NoOpposedDefence") },
-      ...["ref", "fort", "will"].map((k) => ({ value: k, label: `LASTARC.Defence.${k}` }))
-    ];
+    context.defenceOptions = ROWS.opposedDefenceOptions((k) => game.i18n.localize(k));
 
     /**
      * Skill grants, for anything carrying the shared `grants` block.
@@ -160,18 +157,7 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     }
 
     if (item.type === "performance") {
-      const options = (table, blankLabel) => [
-        { value: "", label: game.i18n.localize(blankLabel) },
-        ...Object.entries(table).map(([value, cfg]) => ({ value, label: cfg.label }))
-      ];
-      context.bonusScopeOptions =
-        options(LASTARC.performanceBonusScopes, "LASTARC.Field.NoScope");
-      context.damageScopeOptions =
-        options(LASTARC.performanceDamageScopes, "LASTARC.Field.NoScope");
-      context.penaltyScopeOptions =
-        options(LASTARC.performancePenaltyScopes, "LASTARC.Field.NoScope");
-      context.effectTagOptions =
-        options(LASTARC.performanceEffectTags, "LASTARC.Field.NoEffectTag");
+      Object.assign(context, ROWS.performanceScopeOptions((k) => game.i18n.localize(k)));
     }
 
     // ArrayFields of plain strings get one comma-separated box rather than a
