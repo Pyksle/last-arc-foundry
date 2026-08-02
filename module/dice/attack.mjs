@@ -451,7 +451,9 @@ export async function rollAttack(actor, weapon, options = {}) {
     isCharge: !!options.isCharge
   });
 
-  await postAttackCard({ actor, weapon, roll, mods, outcome, options, wield, isMelee });
+  await postAttackCard({
+    actor, weapon, roll, mods, outcome, options, wield, isMelee, discardedNatural
+  });
   return { roll, mods, outcome, wield, skillKey, isMelee };
 }
 
@@ -528,6 +530,28 @@ export async function rollDamage(
     critMultiplier,
     explosionMultiplier,
     damageType: type
+  };
+}
+
+/**
+ * The target's own conditions, resolved through the status rules.
+ *
+ * NOT read straight off `target.statuses`, which is what both sheets used to
+ * do. §10 says helpless does not stack with prone, and `aggregateStatuses`
+ * already honours that through `supersedes` — but only for code that goes
+ * through it. The sheets asked the raw Foundry set, got both, and passed both.
+ *
+ * The result was that shooting a downed creature was no easier than shooting a
+ * standing one: dropping to 0 HP applies prone AND helpless together, prone is
+ * −5 at range, helpless is +5, and they cancelled exactly. A rule the book
+ * states, implemented in the right place, and bypassed by the two callers that
+ * needed it.
+ */
+export function targetConditions(target) {
+  const active = D.aggregateStatuses([...(target?.statuses ?? [])]).active;
+  return {
+    targetProne: active.has("prone"),
+    targetHelpless: active.has("helpless")
   };
 }
 
@@ -621,7 +645,8 @@ export async function rollNpcAttack(actor, index, options = {}) {
     options,
     // An NPC attack carries its own melee flag; there is no wield category to
     // derive because a statblock prints its numbers rather than deriving them.
-    isMelee
+    isMelee,
+    discardedNatural
   });
 
   return { roll, mods, outcome, isMelee, attack };
@@ -819,7 +844,7 @@ function sanitiseAttackOptions(options = {}) {
 
 async function postAttackCard({
   actor, weapon, attack, attackIndex = null, roll, mods, outcome, options,
-  wield = null, isMelee = null
+  wield = null, isMelee = null, discardedNatural = null
 }) {
   const isNpc = attack != null;
 
@@ -834,6 +859,14 @@ async function postAttackCard({
       formula: roll.formula,
       total: roll.total,
       natural: outcome.natural,
+      /**
+       * The die Misfortune threw away (§12). Shown struck through beside the
+       * survivor, because a status that silently halves your rolls is
+       * indistinguishable from bad luck — the GM reported Misfortune as "not
+       * working at all" while it was working, because nothing on the card said
+       * two dice had been rolled.
+       */
+      discardedNatural,
       parts: mods.parts,
       breakdown: describeCheck(roll, mods.parts),
       outcome,

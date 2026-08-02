@@ -1870,6 +1870,18 @@
   font-size: 0.76rem;
   opacity: 0.9;
 }
+
+/* The die Misfortune threw away. Literal hex like everything else on a card —
+   chat renders outside `.last-arc`, so the palette variables do not reach it. */
+.lastarc-misfortune {
+  font-family: var(--la-font-num, Georgia, serif);
+  font-size: 0.8rem;
+  color: #7a2e2e;
+  opacity: 0.75;
+  margin-left: 0.3rem;
+  cursor: help;
+}
+.lastarc-misfortune s { text-decoration-thickness: 2px; }
 .lastarc-part {
   border: 1px solid currentColor;
   border-radius: 999px;

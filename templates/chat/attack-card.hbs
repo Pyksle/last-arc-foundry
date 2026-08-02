@@ -19,6 +19,14 @@
 
   <div class="lastarc-card__natural">
     <span class="lastarc-card__die">d20: <strong>{{natural}}</strong></span>
+    {{!-- Misfortune rolled twice and kept the worse. Without this the card is
+          indistinguishable from ordinary bad luck. --}}
+    {{#if discardedNatural}}
+      <span class="lastarc-misfortune"
+            data-tooltip="{{localize 'LASTARC.Card.MisfortuneDiscarded'}}">
+        <s>{{discardedNatural}}</s>
+      </span>
+    {{/if}}
     {{#if parts.length}}
       <span class="lastarc-card__parts">
         {{#each parts}}
@@ -43,7 +51,9 @@
       {{#if outcome.hit}}{{localize "LASTARC.Card.Hit"}}{{else}}{{localize "LASTARC.Card.Miss"}}{{/if}}
       {{#if targetName}}<strong>{{targetName}}</strong>{{/if}}
       <span class="lastarc-vs">
-        {{total}} {{localize "LASTARC.Card.Versus"}} {{localize "LASTARC.Card.VsReflex"}} {{targetDefence}}
+        {{!-- `VsReflex` already reads "vs Reflex"; the Versus before it printed
+             "vs vs Reflex" on every targeted attack card in the game. --}}
+        {{total}} {{localize "LASTARC.Card.VsReflex"}} {{targetDefence}}
       </span>
     </p>
   {{else}}

@@ -37,10 +37,25 @@ describe("§12 status aggregation", () => {
     assert.ok(s.noReactions);
   });
 
-  test("helpless overrides Agility to -5 and enables Coup de Grace", () => {
-    const s = aggregateStatuses(["helpless"]);
-    assert.equal(s.agiOverride, -5);
-    assert.ok(s.enablesCoupDeGrace);
+  test("helpless overrides Agility to -5", () => {
+    assert.equal(aggregateStatuses(["helpless"]).agiOverride, -5);
+  });
+
+  /**
+   * Coup de Grace was a payload key nothing acted on. The GM's call on #46 was
+   * that it is "fully a discussion at the table rather than needing the
+   * mechanics", so it is REMOVED rather than left looking implemented.
+   *
+   * `blocksSkills` (which no status carried at all) and `blocksFlying` went the
+   * same way. A key that produces no behaviour is worse than an absent one: it
+   * reads as a feature to anyone auditing the payload.
+   */
+  test("payload keys the table adjudicates are absent, not inert", () => {
+    const s = aggregateStatuses(["helpless", "toad", "encumbered"]);
+    for (const gone of ["enablesCoupDeGrace", "blocksSkills", "blocksFlying"]) {
+      assert.ok(!(gone in s),
+        `${gone} is still produced and still read by nothing — remove it or wire it`);
+    }
   });
 
   test("helpless SUPERSEDES prone rather than stacking with it", () => {

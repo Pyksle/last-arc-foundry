@@ -56,19 +56,24 @@ describe("§ a player and a monster attack under the same rules", () => {
     assert.ok(params.includes("targetHelpless"), params.join(", "));
   });
 
-  test("both sheets supply every target-derived modifier", () => {
-    const character = attackOptions("module/sheets/character-sheet.mjs", "rollAttack");
-    const npc = attackOptions("module/sheets/npc-sheet.mjs", "rollNpcAttack");
-
-    const missing = [];
-    for (const param of targetDerivedParams()) {
-      if (!character.has(param)) missing.push(`character-sheet does not pass ${param}`);
-      if (!npc.has(param)) missing.push(`npc-sheet does not pass ${param}`);
+  /**
+   * Both sheets resolve the target's conditions through the SAME helper.
+   *
+   * Stronger than checking they pass the same keys, which is what this used to
+   * do. They both passed `targetProne` and `targetHelpless` and both read them
+   * straight off `target.statuses` — so both were wrong in the same way, and a
+   * parity check was satisfied by matching mistakes.
+   */
+  test("both sheets resolve target conditions through the shared helper", () => {
+    for (const file of [
+      "module/sheets/character-sheet.mjs", "module/sheets/npc-sheet.mjs"
+    ]) {
+      const src = read(file);
+      assert.match(src, /\.\.\.targetConditions\(/,
+        `${file} builds the target's conditions itself`);
+      assert.doesNotMatch(src, /statuses\?\.has\?\.\("(prone|helpless)"\)/,
+        `${file} reads the raw status set, which bypasses the supersedes rule`);
     }
-
-    assert.deepEqual(missing, [],
-      "a modifier every combatant should take is being asked for by only one " +
-      "of them:\n  " + missing.join("\n  "));
   });
 
   test("both sheets resolve the target's defence the same way", () => {
@@ -93,5 +98,51 @@ describe("§ a player and a monster attack under the same rules", () => {
     assert.equal(val({ targetProne: true, isMelee: true }), 5, "prone in melee");
     assert.equal(val({ targetProne: true, isMelee: false }), -5, "prone at range");
     assert.equal(val({ targetHelpless: true }), 5, "helpless");
+  });
+});
+
+/**
+ * §10: helpless does not stack with prone.
+ *
+ * `aggregateStatuses` has honoured this via `supersedes` since it was written.
+ * Both sheets bypassed it by asking `target.statuses` directly, so a creature
+ * that had been dropped to 0 HP — which applies prone AND helpless AND
+ * unconscious together — took both modifiers at once.
+ *
+ * At range those are −5 and +5. They cancelled exactly, so shooting an
+ * unconscious body was no easier than shooting a standing enemy. The rule was
+ * right, implemented, and routed around.
+ */
+describe("§10 helpless supersedes prone", () => {
+  const target = (...ids) => ({ statuses: new Set(ids) });
+
+  test("a downed creature reads as helpless, not prone", async () => {
+    const { targetConditions } = await import("../module/dice/attack.mjs");
+    assert.deepEqual(
+      targetConditions(target("prone", "helpless", "unconscious")),
+      { targetProne: false, targetHelpless: true }
+    );
+  });
+
+  test("prone alone is still prone", async () => {
+    const { targetConditions } = await import("../module/dice/attack.mjs");
+    assert.deepEqual(targetConditions(target("prone")),
+      { targetProne: true, targetHelpless: false });
+  });
+
+  test("shooting a downed creature is +5, not zero", async () => {
+    const { targetConditions, situationalModifiers } = await import("../module/dice/attack.mjs");
+    const conditions = targetConditions(target("prone", "helpless", "unconscious"));
+    const total = situationalModifiers({ ...conditions, isMelee: false })
+      .reduce((sum, p) => sum + p.value, 0);
+    assert.equal(total, 5,
+      "prone's −5 at range is cancelling helpless's +5 on a creature that " +
+      "cannot benefit from lying down");
+  });
+
+  test("no target at all is no conditions", async () => {
+    const { targetConditions } = await import("../module/dice/attack.mjs");
+    assert.deepEqual(targetConditions(undefined),
+      { targetProne: false, targetHelpless: false });
   });
 });

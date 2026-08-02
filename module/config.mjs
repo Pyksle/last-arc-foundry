@@ -620,7 +620,6 @@ LASTARC.statusEffects = {
     /** Agi is treated as −5 outright, and Coup de Grace becomes available. */
     agiOverride: -5,
     incomingAttackBonus: 5,
-    enablesCoupDeGrace: true,
     /** Does not stack with prone (§10). */
     supersedes: ["prone"]
   },
@@ -638,12 +637,10 @@ LASTARC.statusEffects = {
   },
   encumbered: {
     speedReduction: 0.25,
-    blocksFlying: true
   },
   overencumbered: {
     speedZero: true,
     agiDenied: true,
-    blocksFlying: true
   }
 };
 

@@ -14,7 +14,7 @@
 import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollAttribute } from "../dice/rolls.mjs";
-import { rollNpcAttack, defenceToBeat } from "../dice/attack.mjs";
+import { rollNpcAttack, defenceToBeat, targetConditions } from "../dice/attack.mjs";
 import { rollCheckD20 } from "../dice/d20.mjs";
 import { promptCreateItem } from "./item-creation.mjs";
 import { shareItem } from "../dice/share-item.mjs";
@@ -272,8 +272,7 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     await rollNpcAttack(this.document, index, {
       ...extra,
       targetDefence: defenceToBeat(targeted),
-      targetProne: !!targeted?.statuses?.has?.("prone"),
-      targetHelpless: !!targeted?.statuses?.has?.("helpless"),
+      ...targetConditions(targeted),
       // Carried so the card can offer the target a Block (issue #12). A
       // monster's attack is the commonest thing a player will want to block.
       target: targeted

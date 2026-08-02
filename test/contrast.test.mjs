@@ -302,3 +302,42 @@ describe("sheet palette: ink on paper", () => {
       "the icon must be masked so currentColor applies");
   });
 });
+
+/**
+ * Card text that reads as English.
+ *
+ * `LASTARC.Card.VsReflex` is already "vs Reflex", and the attack card printed
+ * `Versus` immediately before it — so every targeted attack in the game said
+ * "9 vs vs Reflex 17". Nothing could see it: both keys exist, both are
+ * localised, and the integrity suite only checks that a key RESOLVES.
+ *
+ * Found by rendering a card and reading it, which is the only way this class of
+ * defect ever surfaces.
+ */
+describe("§ chat card wording", () => {
+  test("no card prints two prepositions in a row", async () => {
+    const { readFileSync, readdirSync } = await import("node:fs");
+    const { fileURLToPath } = await import("node:url");
+    const dir = fileURLToPath(new URL("../templates/chat", import.meta.url));
+    const lang = JSON.parse(
+      readFileSync(fileURLToPath(new URL("../lang/en.json", import.meta.url)), "utf8"));
+
+    const doubled = [];
+    for (const file of readdirSync(dir).filter((f) => f.endsWith(".hbs"))) {
+      const src = readFileSync(`${dir}/${file}`, "utf8");
+      // Two adjacent {{localize}} calls whose STRINGS both start with the same
+      // word — "vs" then "vs Reflex".
+      for (const m of src.matchAll(
+        /\{\{localize "([\w.]+)"\}\}\s*\{\{localize "([\w.]+)"\}\}/g
+      )) {
+        const a = (lang[m[1]] ?? "").trim().toLowerCase();
+        const b = (lang[m[2]] ?? "").trim().toLowerCase();
+        if (a && b && (b === a || b.startsWith(`${a} `))) {
+          doubled.push(`${file}: "${lang[m[1]]}" + "${lang[m[2]]}"`);
+        }
+      }
+    }
+    assert.deepEqual(doubled, [],
+      "these render a word twice in a row:\n  " + doubled.join("\n  "));
+  });
+});

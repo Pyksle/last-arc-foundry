@@ -15,7 +15,7 @@
 import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollSkill, rollAttribute } from "../dice/rolls.mjs";
-import { rollAttack, defenceToBeat, weaponProfileFor } from "../dice/attack.mjs";
+import { rollAttack, defenceToBeat, weaponProfileFor, targetConditions } from "../dice/attack.mjs";
 import { castSpell, performItem, performancesDisplacedBy } from "../dice/magic.mjs";
 import { heroPointDefenceBoost } from "../dice/hero-points.mjs";
 import * as AE from "../action-economy.mjs";
@@ -989,8 +989,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
        * automatically at 0 HP, so every attack a player made against a downed
        * creature was quietly 5 short.
        */
-      targetProne: !!targeted?.statuses?.has?.("prone"),
-      targetHelpless: !!targeted?.statuses?.has?.("helpless"),
+      ...targetConditions(targeted),
       // Carried so the card can offer the target a Block (issue #12). Weapon
       // attacks always target Reflex, which is exactly what a shield answers.
       target: targeted

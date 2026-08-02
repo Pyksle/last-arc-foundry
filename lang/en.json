@@ -110,6 +110,7 @@
   "LASTARC.Mod.weaponBonus": "Weapon damage bonus",
   "LASTARC.Mod.weaponBreak": "Weapon Break Gauge penalty",
   "LASTARC.Card.AttackRoll": "Attack",
+  "LASTARC.Card.MisfortuneDiscarded": "Misfortune: rolled twice and kept the lower. This die was discarded.",
   "LASTARC.Card.Damage": "Damage",
   "LASTARC.Card.Hit": "Hit",
   "LASTARC.Card.Miss": "Miss",

@@ -653,7 +653,6 @@ export function aggregateStatuses(statusIds = []) {
     noReactions: false,
     speedZero: false,
     speedReduction: 0,
-    blocksFlying: false,
     blocksRecovery: false,
     blocksNaturalHealing: false,
     currentHpBecomesMax: false,
@@ -664,7 +663,6 @@ export function aggregateStatuses(statusIds = []) {
     weakToAll: false,
     blocksD20Reroll: false,
     rerollKeepLower: false,
-    blocksSkills: new Set(),
     skillPenalties: {},
     skillCheckPenalty: 0,
     damageRollPenalty: 0,
@@ -675,7 +673,6 @@ export function aggregateStatuses(statusIds = []) {
     speedMinimum: 0,
     speedMultiplier: null,
     bonusDamageDice: {},
-    enablesCoupDeGrace: false,
     incomingAttackBonus: 0
   };
 
@@ -711,7 +708,6 @@ export function aggregateStatuses(statusIds = []) {
     out.noActions ||= !!def.noActions;
     out.noReactions ||= !!def.noReactions;
     out.speedZero ||= !!def.speedZero;
-    out.blocksFlying ||= !!def.blocksFlying;
     out.blocksRecovery ||= !!def.blocksRecovery;
     out.blocksNaturalHealing ||= !!def.blocksNaturalHealing;
     out.currentHpBecomesMax ||= !!def.currentHpBecomesMax;
@@ -720,7 +716,6 @@ export function aggregateStatuses(statusIds = []) {
     out.weakToAll ||= !!def.weakToAll;
     out.blocksD20Reroll ||= !!def.blocksD20Reroll;
     out.rerollKeepLower ||= !!def.rerollKeepLower;
-    out.enablesCoupDeGrace ||= !!def.enablesCoupDeGrace;
 
     if (def.agiOverride != null) {
       out.agiOverride = out.agiOverride === null
