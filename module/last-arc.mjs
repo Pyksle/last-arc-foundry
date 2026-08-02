@@ -19,6 +19,7 @@ import { rollAttack, rollDamage, applyDamage } from "./dice/attack.mjs";
 import { explodeDice, rollExplodingDice } from "./dice/explode.mjs";
 import * as heroPoints from "./dice/hero-points.mjs";
 import { registerChatListeners } from "./chat.mjs";
+import { warnUnsupportedTargets } from "./effects.mjs";
 import { registerCombat, holdTurn, spendAction, resetActions, rollGroupInitiative }
   from "./combat.mjs";
 import * as INIT from "./initiative.mjs";
@@ -75,6 +76,7 @@ Hooks.once("init", () => {
   registerContentSettings();
   registerTokenDefaults();
   registerResourceDefaults();
+  registerEffectGuards();
   registerSheets();
   registerHandlebarsHelpers();
   registerPartials();
@@ -120,6 +122,27 @@ function registerTokenDefaults() {
         sight: { enabled: isCharacter }
       }
     });
+  });
+}
+
+/**
+ * Say something when an Active Effect points where it cannot work (issue #20).
+ *
+ * Effects apply BETWEEN `prepareBaseData` and `prepareDerivedData`, so every
+ * path derivation assigns is overwritten in memory on the next prepare. The
+ * failure is completely silent: the effect exists, its icon shows on the token,
+ * and the number never moves.
+ *
+ * Both create and update, because the path is as easy to get wrong on the
+ * second edit as the first.
+ */
+function registerEffectGuards() {
+  Hooks.on("preCreateActiveEffect", (effect) => warnUnsupportedTargets(effect));
+  Hooks.on("preUpdateActiveEffect", (effect, changed) => {
+    // `changed` carries the incoming edit; fall back to the stored effect when
+    // the update does not touch `changes` at all.
+    if (!changed?.changes) return;
+    warnUnsupportedTargets({ name: effect.name, changes: changed.changes });
   });
 }
 

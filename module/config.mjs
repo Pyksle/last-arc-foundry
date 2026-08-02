@@ -1016,6 +1016,90 @@ LASTARC.prostheticSites = ["arm", "leg"];
 LASTARC.opposableDefences = ["ref", "fort", "will"];
 
 /* -------------------------------------------------------------------------- */
+/*  Active Effect targets (issue #20)                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The paths an Active Effect may usefully write.
+ *
+ * THIS IS A WHITELIST, AND IT HAS TO BE. Active Effects apply BETWEEN
+ * `prepareBaseData` and `prepareDerivedData`, so every path derivation assigns
+ * afterwards is overwritten in memory on the very next prepare. Forty paths are
+ * written after that point, and they are exactly the ones anybody reaches for
+ * first: `resources.hp.max`, `defences.ref.value`, `movement.value`,
+ * `damageMods.dr`, `breakGauge.threshold`.
+ *
+ * An effect on any of those does nothing, reports no error, and leaves a GM
+ * staring at a number that will not move. Offering a free-text path box would
+ * make that the DEFAULT experience, so the authoring UI offers this list and
+ * nothing else, and `module/effects.mjs` warns about anything outside it.
+ *
+ * What makes an entry safe is that it is an INPUT slot — `misc`, `racialMod`,
+ * an attribute's `value` — deliberately provided for exactly this. Derivation
+ * reads them and never assigns them. `test/effect-targets.test.mjs` re-derives
+ * the written set from the data model source and fails if any entry here has
+ * become one of them, so this list cannot rot into a lie.
+ *
+ * Categories, not individual skills: a group expands to its members at use
+ * time, because "all weapon skills" is what a performance actually grants and
+ * making the GM tick five boxes would invite them to miss one.
+ */
+LASTARC.effectTargetGroups = Object.freeze({
+  attribute: { label: "LASTARC.EffectTarget.groupAttribute" },
+  defence: { label: "LASTARC.EffectTarget.groupDefence" },
+  skill: { label: "LASTARC.EffectTarget.groupSkill" },
+  skillGroup: { label: "LASTARC.EffectTarget.groupSkillGroup" }
+});
+
+/**
+ * Named collections of skills a single effect can hit at once.
+ *
+ * `generalSkills` is defined by EXCLUSION in Chapter 9 — every skill that is
+ * not a weapon skill, Alchemy, Smithing or Spellcraft — so it is resolved from
+ * that rule rather than listed, and cannot fall out of step when a skill is
+ * added.
+ */
+LASTARC.effectSkillGroups = Object.freeze({
+  weaponSkills: {
+    label: "LASTARC.PerformScope.weaponSkills",
+    members: () => Object.entries(LASTARC.allSkills)
+      .filter(([, cfg]) => cfg.weapon).map(([k]) => k)
+  },
+  generalSkills: {
+    label: "LASTARC.PerformScope.generalSkills",
+    members: () => Object.entries(LASTARC.allSkills)
+      .filter(([k, cfg]) => !cfg.weapon && !["alchemy", "smithing", "spellcraft"].includes(k))
+      .map(([k]) => k)
+  },
+  allSkills: {
+    label: "LASTARC.EffectTarget.allSkills",
+    members: () => Object.keys(LASTARC.allSkills)
+  }
+});
+
+/**
+ * Performance and spell scopes that CANNOT become an Active Effect, with the
+ * reason, so the card can say so instead of silently dropping them.
+ *
+ * Both are conditional on something the effect system cannot see:
+ *
+ *   - a Reflex bonus that applies only against spells, or only against
+ *     attacks, would have to sit on `defences.ref.misc`, which applies to
+ *     everything. Over-applying a bonus is worse than not applying it.
+ *   - bonus damage is assembled at roll time from the weapon and the
+ *     wielder's attribute. There is no actor field standing behind it, so
+ *     there is nothing for an effect to point at.
+ *
+ * These belong to issue #16's conditional modifiers, not here.
+ */
+LASTARC.unmappableEffectScopes = Object.freeze({
+  refVsSpells: "LASTARC.EffectTarget.conditionalOnly",
+  refVsAttacks: "LASTARC.EffectTarget.conditionalOnly",
+  melee: "LASTARC.EffectTarget.noDamageField",
+  ranged: "LASTARC.EffectTarget.noDamageField"
+});
+
+/* -------------------------------------------------------------------------- */
 /*  Hook surface (§11)                                                         */
 /* -------------------------------------------------------------------------- */
 
