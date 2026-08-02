@@ -423,14 +423,11 @@ export function buildContext() {
     },
     noArcaneStudy: false,
     noBardicStudy: true,
-    highArcanaOptions: LASTARC.highArcanaIds.map((id) => ({
-      value: id, label: LASTARC.highArcana[id].label
-    })),
+    highArcanaOptions: ROWS.highArcanaOptions(localize),
 
     classOptions: Object.entries(LASTARC.classes).map(([k, c]) => ({ value: k, label: c.label })),
-    sizeOptions: LASTARC.sizeOrder.map((k) => ({ value: k, label: LASTARC.sizes[k].label })),
-    ethosPurityOptions: LASTARC.ethosPurity.map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` })),
-    ethosMoralityOptions: LASTARC.ethosMorality.map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` })),
+    sizeOptions: ROWS.sizeOptions(),
+    ...ROWS.ethosOptions(),
   };
 }
 
@@ -515,25 +512,16 @@ export function itemContext(type) {
      * this stub was silently OVERRIDING the real thing. A stub that overrides
      * shared code is worse than one that fills a gap.
      */
-    statusOptions: [
-      { value: "", label: localize("LASTARC.Field.NoStatus") },
-      ...LASTARC.allStatusIds.map((id) => ({ value: id, label: `LASTARC.Status.${id}` }))
-    ],
+    statusOptions: ROWS.statusOptions((k) => k),
     defenceOptions: ROWS.opposedDefenceOptions(localize),
     // Shapes copied from the sheet, not guessed. My first attempt invented
     // `{key, active}` where the sheet produces `{value, hint, selected}`, and
     // the render came out with `data-key=""` and `data-tooltip="undefined"` —
     // the third time tonight a hand-written fixture has been confidently wrong
     // about a shape, which is the whole argument of this issue.
-    weaponDamageTypes: LASTARC.allDamageTypes.map((k) => ({
-      value: k, label: `LASTARC.DamageType.${k}`, selected: k === "slashing"
-    })),
-    flagOptions: LASTARC.technickFlags.map((f) => ({
-      value: f,
-      label: `LASTARC.TechnickFlag.${f}`,
-      hint: `LASTARC.TechnickFlagHint.${f}`,
-      selected: false
-    }))
+    weaponDamageTypes: ROWS.damageTypeOptions()
+      .map((o) => ({ ...o, selected: o.value === "slashing" })),
+    flagOptions: ROWS.technickFlagOptions([])
   };
 }
 
@@ -573,12 +561,8 @@ export function npcContext() {
     // Copying the item sheet's convention here rendered raw keys in the picker
     // — two sheets, two conventions, and a fixture can only mirror one of them
     // correctly. Caught by the untranslated-key guard.
-    damageTypeOptions: LASTARC.allDamageTypes
-      .map((k) => ({ value: k, label: localize(`LASTARC.DamageType.${k}`) })),
-    statusOptions: [
-      { value: "", label: localize("LASTARC.Attack.NoStatus") },
-      ...LASTARC.allStatusIds.map((id) => ({ value: id, label: localize(`LASTARC.Status.${id}`) }))
-    ],
+    damageTypeOptions: ROWS.damageTypeOptions(localize),
+    statusOptions: ROWS.statusOptions(localize),
     skillOptions: Object.entries(LASTARC.allSkills)
       .map(([k, c]) => ({ value: k, label: c.label })),
     /**

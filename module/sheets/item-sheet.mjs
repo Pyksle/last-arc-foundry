@@ -112,12 +112,7 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
     // A blank first entry is the "none" case and must be selectable, or a
     // field once set could never be cleared.
-    context.statusOptions = [
-      { value: "", label: game.i18n.localize("LASTARC.Attack.NoStatus") },
-      ...LASTARC.allStatusIds.map((id) => ({
-        value: id, label: game.i18n.localize(`LASTARC.Status.${id}`)
-      }))
-    ];
+    context.statusOptions = ROWS.statusOptions((k) => game.i18n.localize(k));
     context.defenceOptions = ROWS.opposedDefenceOptions((k) => game.i18n.localize(k));
 
     /**
@@ -194,12 +189,7 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
        * submits on change, and a checkbox can lose its click to the re-render
        * between mousedown and click.
        */
-      context.flagOptions = LASTARC.technickFlags.map((f) => ({
-        value: f,
-        label: `LASTARC.TechnickFlag.${f}`,
-        hint: `LASTARC.TechnickFlagHint.${f}`,
-        selected: sys.flags.includes(f)
-      }));
+      context.flagOptions = ROWS.technickFlagOptions(sys.flags);
 
       // If the item is on an actor, show whether its prerequisites are actually
       // met. A prerequisite list the player has to check by hand is a
@@ -233,11 +223,8 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
        * exists to serve could not be exercised.
        */
       const chosen = sys.damageType ?? [];
-      context.weaponDamageTypes = LASTARC.allDamageTypes.map((k) => ({
-        value: k,
-        label: `LASTARC.DamageType.${k}`,
-        selected: chosen.includes(k)
-      }));
+      context.weaponDamageTypes = ROWS.damageTypeOptions()
+        .map((o) => ({ ...o, selected: chosen.includes(o.value) }));
       context.noDamageType = chosen.length === 0;
     }
 

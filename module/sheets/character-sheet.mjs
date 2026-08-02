@@ -191,14 +191,10 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       isFirst: index === 0,
       isOnly: sys.classes.length === 1
     }));
-    context.sizeOptions = LASTARC.sizeOrder
-      .map((k) => ({ value: k, label: LASTARC.sizes[k].label }));
+    context.sizeOptions = ROWS.sizeOptions();
     // Built as {value,label} pairs rather than bare strings so the template does
     // not need a `concat` helper to assemble localisation keys.
-    context.ethosPurityOptions = LASTARC.ethosPurity
-      .map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` }));
-    context.ethosMoralityOptions = LASTARC.ethosMorality
-      .map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` }));
+    Object.assign(context, ROWS.ethosOptions());
 
 
     this.#prepareItems(context, sys);
@@ -426,9 +422,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.study = sys.study;
     context.noArcaneStudy = sys.study.spells.takings === 0;
     context.noBardicStudy = sys.study.performances.takings === 0;
-    context.highArcanaOptions = LASTARC.highArcanaIds.map((id) => ({
-      value: id, label: game.i18n.localize(LASTARC.highArcana[id].label)
-    }));
+    context.highArcanaOptions = ROWS.highArcanaOptions((k) => game.i18n.localize(k));
     context.bulkState = sys.bulk.state === "none" ? null : sys.bulk.state;
     context.bulkStateLabel = context.bulkState ? `LASTARC.Status.${context.bulkState}` : null;
   }

@@ -271,8 +271,7 @@ export function itemChoiceOptions() {
   return {
     availabilityOptions: Object.keys(LASTARC.availability)
       .map((k) => ({ value: k, label: `LASTARC.Availability.${k}` })),
-    sizeOptions: LASTARC.sizeOrder
-      .map((k) => ({ value: k, label: LASTARC.sizes[k].label })),
+    sizeOptions: sizeOptions(),
     weaponCategoryOptions: LASTARC.weaponCategories
       .map((k) => ({ value: k, label: `LASTARC.WeaponCategory.${k}` })),
     armourTypeOptions: Object.keys(LASTARC.armourTypes)
@@ -321,6 +320,75 @@ export function itemChoiceOptions() {
  * while fixing it. A stub in a fixture is a second implementation that always
  * disagrees.
  */
+/**
+ * Damage types as options.
+ *
+ * `localize` is passed rather than assumed because the two sheets disagree:
+ * the NPC sheet localises at build time and renders `{{this.label}}` raw, the
+ * item sheet leaves keys and renders `{{localize this.label}}`. Sharing the
+ * BUILDER without forcing a convention keeps both templates rendering exactly
+ * what they render today — unifying the convention is a separate change, and
+ * one that needs both templates edited in the same breath.
+ */
+export function damageTypeOptions(localize = identityLocalize) {
+  return LASTARC.allDamageTypes.map((k) => ({
+    value: k, label: localize(`LASTARC.DamageType.${k}`)
+  }));
+}
+
+/**
+ * Statuses as options, blank first.
+ *
+ * The blank entry is the "no rider" case and must be selectable: without it a
+ * field once set could never be cleared. Both sheets build this identically,
+ * down to the blank label.
+ */
+export function statusOptions(localize = identityLocalize) {
+  return [
+    { value: "", label: localize("LASTARC.Attack.NoStatus") },
+    ...LASTARC.allStatusIds.map((id) => ({ value: id, label: localize(`LASTARC.Status.${id}`) }))
+  ];
+}
+
+/** The two ethos axes. Labels stay keys — both sheets render them localised. */
+export function ethosOptions() {
+  return {
+    ethosPurityOptions: LASTARC.ethosPurity.map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` })),
+    ethosMoralityOptions: LASTARC.ethosMorality.map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` }))
+  };
+}
+
+/** High Arcana, whose labels live on the config entry rather than by key. */
+export function highArcanaOptions(localize = identityLocalize) {
+  return LASTARC.highArcanaIds.map((id) => ({
+    value: id, label: localize(LASTARC.highArcana[id].label)
+  }));
+}
+
+/** Technick flags, with the item's own selections marked. */
+export function technickFlagOptions(chosen = []) {
+  return LASTARC.technickFlags.map((f) => ({
+    value: f,
+    label: `LASTARC.TechnickFlag.${f}`,
+    hint: `LASTARC.TechnickFlagHint.${f}`,
+    selected: chosen.includes(f)
+  }));
+}
+
+/**
+ * Creature sizes as `{value, label}` options.
+ *
+ * The last decision that was still written out four times — both actor sheets,
+ * the item sheet's option block, and the preview fixture — all identical, and
+ * each one edit from disagreeing with the others. There are TWO size tables in
+ * this system (creatures and objects) and they are not the same, so a picker
+ * built from the wrong one is a plausible mistake to make once and impossible
+ * to notice four times.
+ */
+export function sizeOptions() {
+  return LASTARC.sizeOrder.map((k) => ({ value: k, label: LASTARC.sizes[k].label }));
+}
+
 /**
  * The "which defence does this oppose?" picker, blank entry first.
  *

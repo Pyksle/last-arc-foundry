@@ -465,6 +465,41 @@ describe("§44 the sheet and the harness build rows from the same code", () => {
       "the NPC sheet has its own copy of the gauge guard again");
   });
 
+  /**
+   * The general form, rather than a list of the specific shapes that have gone
+   * wrong so far.
+   *
+   * Every one of these started as one place, became two when a second sheet
+   * needed it, and was three or four by the time anyone looked. `sizeOptions`
+   * was in FOUR — both actor sheets, the item option block, and the fixture —
+   * all identical, each one edit from disagreeing with the rest.
+   *
+   * The rule is simple enough to state: outside `sheet-rows.mjs`, nothing
+   * turns a config table into `{value, label}` options. That is what the shared
+   * module is for.
+   */
+  test("no sheet or fixture builds config options itself", () => {
+    const offenders = [];
+    const OPTION_SHAPE = /\{\s*value:\s*\w+\s*,\s*label:/;
+
+    for (const file of [
+      "module/sheets/character-sheet.mjs",
+      "module/sheets/npc-sheet.mjs",
+      "module/sheets/item-sheet.mjs",
+      "tools/preview.mjs"
+    ]) {
+      const src = read(file).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+      for (const m of src.matchAll(/LASTARC\.\w+(?:\.\w+)*\s*\n?\s*\.?map\(\([^)]*\)\s*=>\s*\(?(\{[\s\S]{0,80})/g)) {
+        if (OPTION_SHAPE.test(m[1])) offenders.push(`${file}: ${m[0].split("\n")[0].trim()}`);
+      }
+    }
+
+    assert.deepEqual(offenders, [],
+      "these build {value,label} options from a config table outside " +
+      "sheet-rows.mjs, which is how the same picker came to exist in four " +
+      "places:\n  " + offenders.join("\n  "));
+  });
+
   test("neither rebuilds a row from the config lists by hand", () => {
     // The specific shapes that were duplicated. Matching either outside
     // sheet-rows.mjs means a second copy has grown back.

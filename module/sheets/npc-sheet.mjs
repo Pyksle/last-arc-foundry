@@ -111,10 +111,7 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.enrichedBiography = await foundry.applications.ux.TextEditor
       .implementation.enrichHTML(sys.details.biography ?? "", { relativeTo: this.document });
 
-    context.ethosPurityOptions = LASTARC.ethosPurity
-      .map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` }));
-    context.ethosMoralityOptions = LASTARC.ethosMorality
-      .map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` }));
+    Object.assign(context, ROWS.ethosOptions());
 
     // Shared with the character sheet: a statblock with 0 max MP is common and
     // must not render NaN%. This was a byte-identical copy in both files (#44).
@@ -147,8 +144,7 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     context.attributes = ROWS.npcAttributeRows(sys);
 
-    context.sizeOptions = LASTARC.sizeOrder
-      .map((k) => ({ value: k, label: LASTARC.sizes[k].label }));
+    context.sizeOptions = ROWS.sizeOptions();
 
     context.defenceRows = ROWS.npcDefenceRows(sys);
 
@@ -162,18 +158,11 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.resistanceText = sys.damageMods.resistance.join(", ");
     context.immunityText = sys.damageMods.immunity.join(", ");
 
-    context.damageTypeOptions = LASTARC.allDamageTypes.map((t) => ({
-      value: t, label: game.i18n.localize(`LASTARC.DamageType.${t}`)
-    }));
+    context.damageTypeOptions = ROWS.damageTypeOptions((k) => game.i18n.localize(k));
 
     // A blank first entry is the "no rider" case and has to be selectable —
     // without it an attack that applies no status could never be un-set.
-    context.statusOptions = [
-      { value: "", label: game.i18n.localize("LASTARC.Attack.NoStatus") },
-      ...LASTARC.allStatusIds.map((id) => ({
-        value: id, label: game.i18n.localize(`LASTARC.Status.${id}`)
-      }))
-    ];
+    context.statusOptions = ROWS.statusOptions((k) => game.i18n.localize(k));
 
     const bp = sys.breakGauge.penalty;
     context.attacks = sys.attacks.map((atk, index) => ({
