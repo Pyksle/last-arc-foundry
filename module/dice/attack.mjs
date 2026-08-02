@@ -842,6 +842,61 @@ function sanitiseAttackOptions(options = {}) {
   return out;
 }
 
+/**
+ * Re-post an attack card after a hero-point reroll (#48).
+ *
+ * A reroll used to post a small "original 4, rerolled 17, kept 17" card and
+ * stop there. That card carries no attack flags, so it has no Roll Damage
+ * button and no Block offer — a player who spent a hero point to turn a miss
+ * into a hit was left with a hit they could not resolve. The GM reported it as
+ * the reroll "not creating a new card".
+ *
+ * The outcome is RECOMPUTED rather than carried over. The whole point of the
+ * reroll is that hit-or-miss may now be different, and a natural 20 or 1 on the
+ * new die has to mean what it always means.
+ *
+ * Returns false when the message was not an attack, so the caller can fall back
+ * to the plain card for skill checks and the like.
+ */
+export async function repostAttackAfterReroll(actor, flags, roll) {
+  if (flags?.type !== "attack") return false;
+
+  const weapon = flags.weaponId ? actor.items?.get(flags.weaponId) ?? null : null;
+  const attackIndex = flags.attackIndex ?? null;
+  const attack = attackIndex != null ? actor.system?.attacks?.[attackIndex] ?? null : null;
+
+  // A statblock attack needs its row and a weapon attack needs its item. If
+  // either has been deleted between the roll and the reroll there is nothing
+  // to rebuild, and a half-populated card would be worse than the plain one.
+  if (!weapon && !attack) return false;
+
+  const options = flags.attackOptions ?? {};
+  const natural = roll.dice?.[0]?.results?.[0]?.result ?? 0;
+
+  const outcome = resolveAttack({
+    natural,
+    total: roll.total,
+    targetDefence: options.targetDefence ?? null,
+    isMelee: flags.isMelee ?? true,
+    isArea: !!options.isArea,
+    isCharge: !!options.isCharge
+  });
+
+  await postAttackCard({
+    actor,
+    weapon,
+    attack,
+    attackIndex,
+    roll,
+    mods: flags.mods ?? { total: 0, parts: [] },
+    outcome,
+    options,
+    wield: flags.wield ?? null,
+    isMelee: flags.isMelee ?? null
+  });
+  return true;
+}
+
 async function postAttackCard({
   actor, weapon, attack, attackIndex = null, roll, mods, outcome, options,
   wield = null, isMelee = null, discardedNatural = null
@@ -929,6 +984,16 @@ async function postAttackCard({
          */
         wield,
         isMelee,
+        /**
+         * The modifier total and its itemised parts.
+         *
+         * Stored so a hero-point reroll can rebuild this card rather than
+         * replacing it with a bare "you rolled a 17" (#48). Without it the
+         * reroll produced a message carrying no attack flags, so the Roll
+         * Damage button was gone and a player who spent a point to turn a miss
+         * into a hit had no way to follow through.
+         */
+        mods,
         /**
          * The options this attack was rolled with, so a Combo can repeat it.
          *

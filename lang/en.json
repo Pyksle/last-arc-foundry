@@ -839,5 +839,7 @@
   "LASTARC.Field.DropItem": "Item",
   "LASTARC.Tooltip.DropChance": "Percentage chance, 0–100.",
   "LASTARC.Tooltip.DeleteDrop": "Remove this row",
-  "LASTARC.NpcManual.why": "A printed maximum is an authored number, so the system will not overwrite what you typed. The same curse on a player character is applied automatically."
+  "LASTARC.NpcManual.why": "A printed maximum is an authored number, so the system will not overwrite what you typed. The same curse on a player character is applied automatically.",
+  "LASTARC.Note.StatusesTemplateOnly": "This is the shared statblock, not a token. Its tokens are unlinked, so statuses toggled here do not reach any creature already on the scene — open the token's own sheet for that.",
+  "LASTARC.Note.StatusDuplicates": "Applied more than once. Click to remove every copy."
 }

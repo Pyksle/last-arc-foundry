@@ -8,7 +8,8 @@
 
 import { LASTARC } from "./config.mjs";
 import {
-  rollDamage, applyDamage, rollAttack, rollNpcAttack, rollNpcDamage
+  rollDamage, applyDamage, rollAttack, rollNpcAttack, rollNpcDamage,
+  repostAttackAfterReroll
 } from "./dice/attack.mjs";
 import {
   canSpendHeroPoint, heroPointReroll, heroPointBonusRoll,
@@ -237,7 +238,11 @@ async function onHeroReroll(button, message) {
   const original = message.rolls?.[0];
   if (!original) return;
 
-  const result = await heroPointReroll(actor, original);
+  const flags = message.flags?.["last-arc"] ?? {};
+
+  // The reroll carries the SAME modifier as the roll it replaces, or its total
+  // would be a bare die face and every comparison downstream would be wrong.
+  const result = await heroPointReroll(actor, original, { mod: flags.mods?.total ?? 0 });
   if (!result) return;
 
   await message.setFlag("last-arc", "heroRerolled", true);
@@ -251,6 +256,17 @@ async function onHeroReroll(button, message) {
       })}</p></div>`,
     rolls: [result.roll]
   });
+
+  /**
+   * An attack gets a REBUILT attack card as well (#48).
+   *
+   * The hero card above says what the dice did; it carries no attack flags, so
+   * on its own it has no Roll Damage button and no Block offer. A player who
+   * spent a point to turn a miss into a hit could see the hit and not resolve
+   * it. The rebuilt card re-resolves hit-or-miss against the same defence —
+   * the outcome is the thing the reroll was bought to change.
+   */
+  await repostAttackAfterReroll(actor, flags, result.keptRoll);
 }
 
 /** Spend a hero point to add an exploding 1d6 to this roll's result. */

@@ -72,7 +72,7 @@ export async function rollHeroDie({ rerollOnes = false } = {}) {
  * @param {Roll} originalRoll
  * @param {"second"|"higher"|"lower"} kind  Which reroll semantics apply (§12).
  */
-export async function heroPointReroll(actor, originalRoll, { kind = "second" } = {}) {
+export async function heroPointReroll(actor, originalRoll, { kind = "second", mod = 0 } = {}) {
   const check = canSpendHeroPoint(actor, HERO_SPEND.REROLL);
   if (!check.allowed) {
     ui.notifications?.warn(game.i18n.localize(check.reason));
@@ -81,7 +81,15 @@ export async function heroPointReroll(actor, originalRoll, { kind = "second" } =
 
   const original = originalRoll.dice[0]?.results?.[0]?.result ?? 0;
 
-  const reroll = new Roll("1d20");
+  /**
+   * Rolled WITH the modifier, not as a bare `1d20`.
+   *
+   * The reroll used to be a naked die, so its `total` was just the face — fine
+   * for a card that only printed "you rolled a 17", useless for rebuilding an
+   * attack card, where the total has to be the number compared against a
+   * defence (#48). Both candidate rolls are now real, comparable rolls.
+   */
+  const reroll = new Roll("1d20 + @mod", { mod });
   await reroll.evaluate();
   const rerolled = reroll.dice[0]?.results?.[0]?.result ?? 0;
 
@@ -89,7 +97,18 @@ export async function heroPointReroll(actor, originalRoll, { kind = "second" } =
 
   await spend(actor, 1);
 
-  return { original, rerolled, kept, kind, roll: reroll };
+  return {
+    original, rerolled, kept, kind,
+    // The reroll itself, for the plain card's "1d20 → 17" display.
+    roll: reroll,
+    /**
+     * The roll that WON, as a real evaluated Roll. `resolveReroll` decides by
+     * natural; whichever natural it picked, the caller needs that die's whole
+     * roll — original included — or an attack card rebuilt from it would show
+     * a total the dice never produced.
+     */
+    keptRoll: kept === rerolled ? reroll : originalRoll
+  };
 }
 
 /**

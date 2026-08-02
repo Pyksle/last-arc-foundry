@@ -15,6 +15,17 @@
   <h2 class="la-panel__title">{{localize "LASTARC.Section.Statuses"}}</h2>
   <p class="la-note">{{localize "LASTARC.Note.StatusesPersist"}}</p>
 
+  {{!-- An unlinked token's actor is a different document (CLAUDE.md §7), and
+        NPCs are unlinked by default. Opened from the Actors sidebar, this is
+        the TEMPLATE — none of the statuses on any token show here, and
+        toggling one changes nothing on the board. Reported as the palette
+        being out of sync with the token (#47). --}}
+  {{#if statusesAreTemplate}}
+    <p class="la-warning la-warning--template">
+      {{localize "LASTARC.Note.StatusesTemplateOnly"}}
+    </p>
+  {{/if}}
+
   <div class="la-statuses">
     {{#each statusPalette}}
       <button type="button"
@@ -25,6 +36,14 @@
         <span class="la-status__icon" aria-hidden="true"
                 style="--la-status-icon: url('{{this.img}}')"></span>
         <span class="la-status__name">{{this.label}}</span>
+        {{!-- A status applied more than once draws more than one token icon
+              but is otherwise indistinguishable from one copy (#47). Clicking
+              off removes them all. --}}
+        {{#if this.count}}
+          <span class="la-status__dupes"
+                data-tooltip="{{localize 'LASTARC.Note.StatusDuplicates'}}"
+                >&times;{{this.count}}</span>
+        {{/if}}
       </button>
     {{/each}}
   </div>
@@ -40,6 +59,14 @@
         <span class="la-status__icon" aria-hidden="true"
                 style="--la-status-icon: url('{{this.img}}')"></span>
         <span class="la-status__name">{{this.label}}</span>
+        {{!-- A status applied more than once draws more than one token icon
+              but is otherwise indistinguishable from one copy (#47). Clicking
+              off removes them all. --}}
+        {{#if this.count}}
+          <span class="la-status__dupes"
+                data-tooltip="{{localize 'LASTARC.Note.StatusDuplicates'}}"
+                >&times;{{this.count}}</span>
+        {{/if}}
       </button>
     {{/each}}
   </div>

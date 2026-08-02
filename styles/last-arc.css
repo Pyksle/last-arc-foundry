@@ -1555,6 +1555,28 @@
   border-left: 3px solid var(--la-oxblood);
   padding-left: 0.4rem;
 }
+/**
+ * "This is the shared statblock" (#47) is INFORMATION, not an error — the GM
+ * has done nothing wrong, they are just somewhere their clicks will not reach
+ * the board. Oxblood reads as a failure and, on a panel a GM opens constantly,
+ * an alarm that is never an alarm is one they stop seeing.
+ */
+.la-warning--template {
+  color: var(--la-bronze-bright);
+  border-left-color: var(--la-bronze);
+}
+
+/* A status applied more than once. Sits on the button, so it must not compete
+   with the glyph — the count is the whole message. */
+.la-status__dupes {
+  display: block;
+  margin-top: 0.05rem;
+  font-family: var(--la-font-num);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--la-oxblood);
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Action economy                                                             */
