@@ -15,6 +15,7 @@ import {
   canSpendHeroPoint, heroPointReroll, heroPointBonusRoll,
   heroPointPreventDeath, HERO_SPEND
 } from "./dice/hero-points.mjs";
+import { repostCheckAfterReroll } from "./dice/rolls.mjs";
 import { rollBlock, canBlock } from "./dice/block.mjs";
 import { describeDamage } from "./dice/breakdown.mjs";
 import { applyPerformanceEffect } from "./effects.mjs";
@@ -240,9 +241,16 @@ async function onHeroReroll(button, message) {
 
   const flags = message.flags?.["last-arc"] ?? {};
 
-  // The reroll carries the SAME modifier as the roll it replaces, or its total
-  // would be a bare die face and every comparison downstream would be wrong.
-  const result = await heroPointReroll(actor, original, { mod: flags.mods?.total ?? 0 });
+  /**
+   * The reroll carries the SAME modifier as the roll it replaces, or its total
+   * is a bare die face and every comparison downstream is wrong.
+   *
+   * An attack keeps its itemised `mods`; a check stores a plain `mod`. Reading
+   * both is what lets one reroll path serve every kind of d20 — the GM
+   * reported that attacks had been fixed and skill checks had not, which is
+   * precisely what a hard-coded `flags.mods` produces.
+   */
+  const result = await heroPointReroll(actor, original, { mod: rollModifier(flags) });
   if (!result) return;
 
   await message.setFlag("last-arc", "heroRerolled", true);
@@ -266,7 +274,27 @@ async function onHeroReroll(button, message) {
    * it. The rebuilt card re-resolves hit-or-miss against the same defence —
    * the outcome is the thing the reroll was bought to change.
    */
-  await repostAttackAfterReroll(actor, flags, result.keptRoll);
+  await rebuildAfterReroll(actor, flags, result.keptRoll);
+}
+
+/** The modifier a rolled message was made with, whatever kind it was. */
+function rollModifier(flags) {
+  return flags?.mods?.total ?? flags?.mod ?? 0;
+}
+
+/**
+ * Re-post whatever kind of card this roll came from.
+ *
+ * Each rebuilder refuses a message that is not its own type, so this is a list
+ * rather than a branch — a new rolled card gets rebuilt by adding one entry,
+ * instead of by remembering to extend an `if`. Forgetting that step is exactly
+ * how skill checks were left behind when attacks were fixed.
+ */
+async function rebuildAfterReroll(actor, flags, roll) {
+  for (const rebuild of [repostAttackAfterReroll, repostCheckAfterReroll]) {
+    if (await rebuild(actor, flags, roll)) return true;
+  }
+  return false;
 }
 
 /** Spend a hero point to add an exploding 1d6 to this roll's result. */

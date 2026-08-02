@@ -145,10 +145,72 @@ export async function evaluateCheck({
     // Tagged so the hero-point reroll button can find its actor. The speaker
     // alone is not enough: it may name a token rather than the actor, and an
     // unlinked token's actor is a different document.
-    flags: { "last-arc": { type: "check", actorId: actor.id, natural } }
+    flags: {
+      "last-arc": {
+        type: "check", actorId: actor.id, natural,
+        /**
+         * Everything needed to REBUILD this message after a reroll (#48).
+         *
+         * Attacks got their rebuilt card first and skill checks did not, so a
+         * player who spent a point on a Perception check was handed a bare die
+         * face and had to add their own modifier back — reported as slowing
+         * play, which it plainly does.
+         *
+         * `mod` is the load-bearing one. Without it the reroll is a naked
+         * `1d20`, and the number in the log is not the number that was rolled.
+         */
+        label, mod, dc: dc ?? null, isWeaponSkill: !!isWeaponSkill, flavourKey,
+        misfortuneApplies
+      }
+    }
   });
 
   return { roll, natural, total: roll.total, isWeaponSkill, autoSuccess, autoFail, success };
+}
+
+/**
+ * Re-post a skill or attribute check after a reroll (#48).
+ *
+ * The sibling of `repostAttackAfterReroll`. Both exist for the same reason: the
+ * plain "original 4, rerolled 17" card is a record of the dice, not a usable
+ * result. An attack needs its damage button back; a check needs its total and
+ * its success line, or the player is doing the arithmetic the system just did.
+ *
+ * Success is RE-RESOLVED against the same DC, and the nat-1/nat-20 rules are
+ * re-applied to the new die — for a weapon skill those override the totals
+ * entirely, so carrying the old verdict over would be wrong in exactly the case
+ * the reroll was bought for.
+ *
+ * Returns false when the message was not a check, so the caller can fall through.
+ */
+export async function repostCheckAfterReroll(actor, flags, roll) {
+  if (flags?.type !== "check") return false;
+
+  const natural = roll.dice?.[0]?.results?.[0]?.result ?? 0;
+  const isWeaponSkill = !!flags.isWeaponSkill;
+  const autoSuccess = isWeaponSkill && natural === 20;
+  const autoFail = isWeaponSkill && natural === 1;
+  const dc = flags.dc ?? null;
+
+  let success = null;
+  if (dc !== null) {
+    if (autoSuccess) success = true;
+    else if (autoFail) success = false;
+    else success = roll.total >= dc;
+  }
+
+  const flavour = game.i18n.format(
+    flags.flavourKey ?? "LASTARC.Roll.SkillCheck", { label: flags.label ?? "" }
+  );
+
+  await roll.toMessage({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    flavor: buildFlavour({ flavour, dc, success, autoSuccess, autoFail }),
+    // Carries the same flags, minus the reroll marker: the rebuilt card is a
+    // real check and anything that reads one must see it as such.
+    flags: { "last-arc": { ...flags, natural } }
+  });
+  return true;
 }
 
 function buildFlavour({ flavour, dc, success, autoSuccess, autoFail }) {

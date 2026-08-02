@@ -58,9 +58,19 @@ describe("§48 the reroll is rolled with the attack's modifier", () => {
   });
 
   test("the chat handler passes the original roll's modifier", () => {
-    assert.match(chat, /heroPointReroll\(actor, original, \{ mod: flags\.mods\?\.total \?\? 0 \}\)/,
-      "the reroll is made with no modifier, so an attack rebuilt from it would " +
-      "compare a bare die face against a defence");
+    assert.match(chat, /heroPointReroll\(actor, original, \{ mod: rollModifier\(flags\) \}\)/,
+      "the reroll is made with no modifier, so a card rebuilt from it would " +
+      "compare a bare die face against a defence or a DC");
+  });
+
+  /**
+   * An attack stores an itemised `mods`; a check stores a plain `mod`. Reading
+   * only the first is what left skill checks behind when attacks were fixed —
+   * reported on #48 as "fixed for attack rolls, but not for skill checks".
+   */
+  test("the modifier is read from whichever shape the card used", () => {
+    assert.match(chat, /flags\?\.mods\?\.total \?\? flags\?\.mod \?\? 0/,
+      "one card shape is being privileged over the other");
   });
 });
 
@@ -99,8 +109,43 @@ describe("§48 the rebuilt card is a real attack card", () => {
   });
 
   test("the chat handler actually calls it", () => {
-    assert.match(chat, /await repostAttackAfterReroll\(actor, flags, result\.keptRoll\);/,
+    assert.match(chat, /await rebuildAfterReroll\(actor, flags, result\.keptRoll\);/,
       "the rebuild exists and nothing invokes it — the exact defect shape " +
       "this project produces most");
+  });
+
+  /**
+   * A LIST, not a branch. Each rebuilder refuses a message that is not its own
+   * type, so a new rolled card is supported by adding an entry rather than by
+   * remembering to extend an `if` — and forgetting that step is how skill
+   * checks were left behind for an hour.
+   */
+  test("every rebuilder is in the chain", () => {
+    const fn = chat.slice(chat.indexOf("async function rebuildAfterReroll"));
+    for (const rebuilder of ["repostAttackAfterReroll", "repostCheckAfterReroll"]) {
+      assert.match(fn.slice(0, 500), new RegExp(rebuilder),
+        `${rebuilder} is not in the rebuild chain, so its cards are never rebuilt`);
+    }
+  });
+
+  test("a skill check stores what rebuilding it needs", () => {
+    const rolls = readFileSync(
+      fileURLToPath(new URL("../module/dice/rolls.mjs", import.meta.url)), "utf8");
+    const flags = rolls.slice(rolls.indexOf('type: "check"'), rolls.indexOf("return { roll, natural"));
+    for (const key of ["label", "mod", "dc", "isWeaponSkill", "flavourKey"]) {
+      assert.match(flags, new RegExp(`\\b${key}\\b`),
+        `a check does not store ${key}, so its rebuilt card cannot say what was rolled`);
+    }
+  });
+
+  test("the rebuilt check re-resolves success rather than carrying it", () => {
+    const rolls = readFileSync(
+      fileURLToPath(new URL("../module/dice/rolls.mjs", import.meta.url)), "utf8");
+    const fn = rolls.slice(rolls.indexOf("export async function repostCheckAfterReroll"));
+    assert.match(fn, /success = roll\.total >= dc/,
+      "the old verdict is carried over — the reroll was bought to change it");
+    assert.match(fn, /isWeaponSkill && natural === 20/,
+      "nat 20 must be re-applied to the NEW die; on a weapon skill it overrides " +
+      "the total entirely, which is the case the point was spent on");
   });
 });
