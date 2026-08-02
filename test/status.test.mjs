@@ -512,3 +512,64 @@ describe("aggregateStatuses defaults and writers agree", () => {
       `declared but never written — permanently neutral: ${inert.join(", ")}`);
   });
 });
+
+/**
+ * The arithmetic equivalent of the crash sweep above.
+ *
+ * `silence` threw because a status reached code that had not accounted for it.
+ * A NaN is the same failure with the volume turned down: it does not throw, it
+ * propagates, and it reaches the sheet as a defence of "NaN" or — worse —
+ * as a comparison that is silently always false, so every attack misses.
+ *
+ * `Math.min(x, undefined)` is the specific route this codebase has already hit,
+ * which is why `agiContributionToRef` defaults its armour cap to Infinity.
+ *
+ * Every status, through the whole defence chain, checked for finite numbers.
+ */
+describe("no status poisons the defence chain", () => {
+  const ids = [
+    ...Object.keys(LASTARC.statusEffects),
+    ...Object.keys(LASTARC.curses ?? {})
+  ];
+
+  const actor = {
+    level: 5, agiMod: 3, vitMod: 2, mndMod: 1,
+    classBonus: { ref: 2, fort: 2, will: 1 },
+    armour: { refBonus: 3, maxAgiBonus: 2 },
+    technicks: { ref: 1, fort: 0, will: 0 }
+  };
+
+  for (const id of ids) {
+    test(`${id} leaves every defence a real number`, () => {
+      const s = aggregateStatuses([id]);
+      const d = computeDefences({
+        ...actor,
+        misc: s.defences,
+        agiDenied: s.agiDenied,
+        agiOverride: s.agiOverride,
+        noEquipmentBenefit: s.noEquipmentBenefit
+      });
+
+      for (const key of ["ref", "fort", "will"]) {
+        assert.ok(Number.isFinite(d[key]),
+          `${id} makes ${key} ${d[key]} — a non-finite defence compares false ` +
+          "against every attack roll, so nothing can ever hit it");
+      }
+      assert.ok(Number.isFinite(breakThreshold({ fort: d.fort })));
+    });
+  }
+
+  test("and all of them together", () => {
+    const s = aggregateStatuses(ids);
+    const d = computeDefences({
+      ...actor,
+      misc: s.defences,
+      agiDenied: s.agiDenied,
+      agiOverride: s.agiOverride,
+      noEquipmentBenefit: s.noEquipmentBenefit
+    });
+    for (const key of ["ref", "fort", "will"]) {
+      assert.ok(Number.isFinite(d[key]), `${key} is ${d[key]}`);
+    }
+  });
+});

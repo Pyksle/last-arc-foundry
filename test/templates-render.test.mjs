@@ -133,6 +133,27 @@ describe("§ every template compiles and resolves what it references", () => {
  * eighteen item subtypes and five of the seven chat cards had never been
  * rendered outside a live Foundry at all.
  */
+/**
+ * Words a reader would see printed twice running.
+ *
+ * Only INLINE tags are dissolved. Anything block-level becomes a hard break, so
+ * a heading cannot pair with the paragraph beneath it — the distinction the
+ * first version of this missed.
+ */
+function doubledWords(html) {
+  const INLINE = /<\/?(?:span|em|strong|b|i|u|small|a|code|abbr|sub|sup)\b[^>]*>/gi;
+  const text = html
+    .replace(INLINE, "")
+    .replace(/<[^>]+>/g, "\u0000")      // every other tag is a boundary
+    .replace(/&[a-z]+;/gi, " ");
+
+  const out = [];
+  for (const chunk of text.split("\u0000")) {
+    for (const m of chunk.matchAll(/\b([A-Za-z]{2,})\s+\1\b/g)) out.push(m[1]);
+  }
+  return out;
+}
+
 describe("§ every sheet and card renders, for every subtype", () => {
   const subtypes = Object.keys(
     JSON.parse(read("system.json")).documentTypes.Item
@@ -206,6 +227,90 @@ describe("§ every sheet and card renders, for every subtype", () => {
     assert.deepEqual(bad, [],
       "these render `undefined` as literal text, which means a context value " +
       "is missing or the wrong shape:\n  " + bad.join("\n  "));
+  });
+
+  /**
+   * The rest of the family, added after a night in which every one of these
+   * shipped at least once somewhere in the project.
+   *
+   * `undefined` above is the loudest member and was already caught. These are
+   * the quiet ones: they look like content rather than like an error, so a
+   * reviewer's eye slides over them.
+   */
+  const surfaces = () => [
+    ...Object.entries(renderedItemSheets).map(([t, h]) => [`item/${t}`, h]),
+    ["character-sheet", renderedCharacterSheet],
+    ["npc-sheet", renderedNpcSheet],
+    ...Object.entries(renderedCards)
+  ];
+
+  test("nothing renders NaN", () => {
+    // A NaN reaches the page from one missing number in an arithmetic chain —
+    // `Math.min(x, undefined)` is the one this codebase has hit, which is why
+    // `agiContributionToRef` defaults its cap to Infinity.
+    const bad = surfaces().filter(([, html]) => /\bNaN\b/.test(html)).map(([l]) => l);
+    assert.deepEqual(bad, [], "these render NaN:\n  " + bad.join("\n  "));
+  });
+
+  test("nothing renders [object Object]", () => {
+    // An object where a scalar was expected. Prints as plausible-looking noise
+    // rather than as a crash.
+    const bad = surfaces().filter(([, html]) => html.includes("[object Object]")).map(([l]) => l);
+    assert.deepEqual(bad, [], "these interpolate an object:\n  " + bad.join("\n  "));
+  });
+
+  test("no separator is left holding nothing", () => {
+    // The armour row rendered "undefined · undefined · undefined"; with the
+    // undefineds fixed to empty strings it would have rendered " ·  · " and
+    // still been wrong. A separator with no operand is a missing value that
+    // has learned to hide.
+    const bad = [];
+    for (const [label, html] of surfaces()) {
+      const text = html.replace(/<[^>]+>/g, " ");
+      if (/(^|\s)·\s*·/.test(text) || /·\s*(<|$)/.test(text)) bad.push(label);
+    }
+    assert.deepEqual(bad, [],
+      "these render a separator with nothing either side of it:\n  " + bad.join("\n  "));
+  });
+
+  /**
+   * "9 vs vs Reflex 17" shipped on every targeted attack card in the game.
+   * `Card.Versus` was printed in front of `Card.VsReflex`, and both keys exist
+   * and resolve, so the localisation guard could not see it.
+   *
+   * Generalised here: any word repeated back-to-back in rendered TEXT. Checked
+   * on the output rather than on the templates, because the two halves came
+   * from different keys and only met once rendered.
+   */
+  test("no word is printed twice in a row", () => {
+    const bad = [];
+    for (const [label, html] of surfaces()) {
+      for (const word of doubledWords(html)) bad.push(`${label}: "${word} ${word}"`);
+    }
+    assert.deepEqual(bad, [],
+      "these print the same word twice running, which is how two correct " +
+      "strings concatenate into a wrong one:\n  " + bad.join("\n  "));
+  });
+
+  /**
+   * The detector, checked against both of its own failure modes.
+   *
+   * Its first version stripped every tag, so a panel headed "Shield" followed
+   * by a field labelled "Shield size" read as a duplication — three false
+   * positives, and a guard that cries wolf is one that gets deleted. It must
+   * only pair words that a READER sees run together.
+   */
+  test("the doubled-word detector is neither blind nor noisy", () => {
+    assert.deepEqual(
+      doubledWords(`<span>9 vs</span> <span>vs Reflex 17</span>`), ["vs"],
+      "the real defect — two inline strings meeting — must be caught");
+    assert.deepEqual(doubledWords(`<p>the the cat</p>`), ["the"]);
+
+    assert.deepEqual(doubledWords(`<h2>Shield</h2><label>Shield size</label>`), [],
+      "a heading and the next block's label are not run together on the page");
+    assert.deepEqual(doubledWords(`<h2>Statuses</h2><p>Statuses last until…</p>`), []);
+    assert.deepEqual(doubledWords(`<td>Fire</td><td>Fire</td>`), [],
+      "adjacent cells are separate fields, not a repeated word");
   });
 });
 
