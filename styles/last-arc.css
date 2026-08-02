@@ -838,22 +838,14 @@
 .la-skill input[type="number"] { font-size: 0.8rem; }
 .la-skill input[type="checkbox"] { justify-self: center; }
 
-.la-skill--sub { padding-left: 1.2rem; }
-.la-skill__subname {
-  background: transparent;
-  border: none;
-  border-bottom: 1px dotted var(--la-rule);
-  font-style: italic;
-  width: 100%;
-}
-.la-skill__remove {
-  background: none;
-  border: none;
-  color: var(--la-oxblood);
-  cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
-}
+/* The three subskill-row rules were removed with the subskill rows themselves
+   (issues #35/#36): Lore and Perform are five and three DISCRETE skills now,
+   not a parent with player-named children. The rules engine reads the discrete
+   keys, so the old markup cannot return without that change returning with it.
+
+   Deliberately not naming the classes here. A selector written in a comment is
+   indistinguishable from a definition to anything scanning this file, and that
+   is how a dead-CSS check gets told the rules still exist. */
 .la-skill__add {
   align-self: flex-start;
   background: none;

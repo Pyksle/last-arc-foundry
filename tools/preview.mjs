@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 import { LASTARC } from "../module/config.mjs";
 import * as D from "../module/derivation.mjs";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+export const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const lang = JSON.parse(readFileSync(join(root, "lang/en.json"), "utf8"));
 const css = readFileSync(join(root, "styles/last-arc.css"), "utf8");
 
@@ -40,6 +40,50 @@ Handlebars.registerHelper("lasignal", (n) => {
 Handlebars.registerHelper("laeq", (a, b) => a === b);
 Handlebars.registerHelper("lagte", (a, b) => Number(a) >= Number(b));
 
+/**
+ * Foundry's own Handlebars helpers, stubbed to the shape the templates need.
+ *
+ * `formInput` is the documented way to get a `<prose-mirror>` editor out of an
+ * HTMLField, so the biography and description panels use it. It belongs to
+ * Foundry, not to us, and a bare Handlebars has never heard of it.
+ *
+ * The stub emits a real `<prose-mirror name=…>` because the layout question
+ * this harness exists to answer is about that element specifically — see the
+ * warning in CLAUDE.md about restyling it.
+ */
+Handlebars.registerHelper("formInput", (field, options) => {
+  const name = options?.hash?.name ?? field?.fieldPath ?? "";
+  const value = options?.hash?.value ?? "";
+  return new Handlebars.SafeString(
+    `<prose-mirror name="${name}" toggled=""><div class="editor-content">${value}</div></prose-mirror>`
+  );
+});
+
+/**
+ * PARTIALS. `registerPartials()` in last-arc.mjs hands these to Foundry's
+ * template loader; Handlebars here knows nothing about them, and a missing
+ * partial is a THROW, not a blank.
+ *
+ * Their absence is why this tool stopped working. Nothing runs it in CI, so it
+ * broke silently the day the first partial was introduced and stayed broken —
+ * which is the whole reason every sheet change since has shipped with "not
+ * rendered in a live Foundry" attached to it. The one thing that could have
+ * checked was itself unchecked.
+ *
+ * Read from the same paths last-arc.mjs registers, so adding a partial there
+ * and forgetting it here fails loudly the next time anyone previews.
+ */
+export const PARTIALS = {
+  laItemOrder: "templates/actor/item-order.hbs",
+  laStatusPalette: "templates/actor/status-palette.hbs"
+};
+for (const [name, rel] of Object.entries(PARTIALS)) {
+  Handlebars.registerPartial(name, readFileSync(join(root, rel), "utf8"));
+}
+
+/** The configured Handlebars, so a test can compile templates the same way. */
+export { Handlebars };
+
 /* -------------------------------------------------------------------------- */
 /*  Synthetic actor                                                            */
 /* -------------------------------------------------------------------------- */
@@ -50,7 +94,7 @@ Handlebars.registerHelper("lagte", (a, b) => Number(a) >= Number(b));
  * exercises the multiclass path, the death spiral, the persistent floor, and
  * the armour check penalty all at once.
  */
-function buildContext() {
+export function buildContext() {
   const scores = { str: 16, vit: 14, agi: 13, int: 10, mnd: 8, chr: 12 };
   const level = 5;
   const breakStep = 2;
@@ -242,6 +286,30 @@ function buildContext() {
     ],
     bulkState: "encumbered",
     bulkStateLabel: "LASTARC.Status.encumbered",
+    /**
+     * These three were ABSENT, so the Proficiencies and Statuses panels
+     * rendered as empty boxes in every preview ever taken. That is the harness
+     * lying in the safe direction, which is still lying: a reviewer sees a
+     * blank panel and cannot tell "not wired up" from "not in this fixture".
+     *
+     * The keys are named to match `_prepareContext` exactly. There is no
+     * mechanism forcing that — the harness builds its own context by hand — and
+     * that is the same second-copy-of-a-decision problem that produced issue
+     * #40, sitting in the verification tool this time. Recorded on the board
+     * rather than fixed here.
+     */
+    weaponProficiencies: LASTARC.weaponCategories.map((key, i) => ({
+      key, label: LASTARC.weaponCategoryLabels?.[key] ?? `LASTARC.WeaponCategory.${key}`,
+      proficient: i < 3
+    })),
+    armourProficiencies: Object.keys(LASTARC.armourTypes).map((key, i) => ({
+      key, label: LASTARC.armourTypes[key].label, proficient: i === 0
+    })),
+    statuses: Object.keys(LASTARC.statusEffects ?? {}).slice(0, 6).map((id, i) => ({
+      id, label: `LASTARC.Status.${id}`,
+      img: `assets/status/${id}.svg`, active: i === 0, isCurse: false
+    })),
+
     classOptions: Object.entries(LASTARC.classes).map(([k, c]) => ({ value: k, label: c.label })),
     sizeOptions: LASTARC.sizeOrder.map((k) => ({ value: k, label: LASTARC.sizes[k].label })),
     ethosPurityOptions: LASTARC.ethosPurity.map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` })),
@@ -317,7 +385,7 @@ ${css}
     <div style="flex:1 1 560px;">
       <p class="preview-label">${theme} — character sheet</p>
       <div class="preview-frame">
-        <div class="last-arc sheet actor character" data-theme-scope>
+        <div class="last-arc sheet actor character themed theme-${theme}" data-theme-scope>
           <div class="window-content last-arc-sheet-body">${header}${body}</div>
         </div>
       </div>
@@ -334,7 +402,17 @@ ${css}
   </div>
 </body></html>`;
 
-// Positional outfile, ignoring any --flags so `--theme=` cannot be mistaken for a path.
-const out = process.argv.slice(2).find((a) => !a.startsWith("--")) ?? join(root, "preview.html");
-writeFileSync(out, page, "utf8");
-console.log(`Preview written to ${out}`);
+/**
+ * Only write a file when run as a command. Everything above still executes on
+ * import, and that is the point: `test/templates-render.test.mjs` imports this
+ * module purely to prove the templates compile, their partials resolve and
+ * their helpers exist. That test is what stops this tool breaking silently
+ * again — it had been throwing since the first partial was introduced, and
+ * nothing runs a dev tool, so every sheet change shipped unverified.
+ */
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  // Positional outfile, ignoring any --flags so `--theme=` cannot be mistaken for a path.
+  const out = process.argv.slice(2).find((a) => !a.startsWith("--")) ?? join(root, "preview.html");
+  writeFileSync(out, page, "utf8");
+  console.log(`Preview written to ${out}`);
+}
