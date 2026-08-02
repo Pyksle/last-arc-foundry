@@ -26,7 +26,8 @@ import { fileURLToPath } from "node:url";
 import { LASTARC } from "../module/config.mjs";
 import {
   effectTargets, supportedTargetPaths, scopeTargets, skillGroupTargets,
-  unsupportedChanges, skillTarget, defenceTarget, performanceEffectChanges
+  unsupportedChanges, skillTarget, defenceTarget, performanceEffectChanges,
+  performanceRiders, ridersToChanges, supportsSkillEffects
 } from "../module/effects.mjs";
 
 const read = (p) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.url)), "utf8");
@@ -333,5 +334,100 @@ describe("§ issue #20 slice B: a performance's tier becomes an effect", () => {
     for (const c of changes) {
       assert.ok(ok.has(c.key), `${c.key} is not a supported effect target`);
     }
+  });
+});
+
+/**
+ * Characters and statblocks are different shapes (CLAUDE.md rule 10), and this
+ * feature shipped ignoring that in 0.25.0.
+ *
+ * Enfeebling performances target ENEMIES. Enemies are usually NPCs. The riders
+ * were resolved once from the PERFORMER's side, so every debuff aimed at a
+ * monster wrote `system.skills.<key>.misc` and `system.defences.<k>.misc` onto
+ * a model that has neither, and did nothing at all — in the feature whose whole
+ * purpose is to stop effects failing silently.
+ *
+ * A statblock keeps skills as a flat printed array of `{key, value}` and
+ * defences as an authored `base`.
+ */
+describe("§ issue #20: an NPC is not a character", () => {
+  const written = writtenAfterEffects("module/data/npc.mjs");
+
+  test("the NPC extractor finds its writes", () => {
+    assert.ok(written.size >= 10, `only found ${written.size}`);
+    assert.ok(written.has("defences.ref.value") || written.has("ref.value"),
+      [...written].join(", "));
+  });
+
+  /**
+   * The same invariant as for characters, against the OTHER model. It was never
+   * run here, which is how the bug survived.
+   */
+  test("no NPC effect target is overwritten by NPC derivation", () => {
+    const clashes = effectTargets("npc")
+      .map((t) => t.path.replace(/^system\./, ""))
+      .filter((tail) => {
+        const leaf = tail.split(".").slice(-1)[0];
+        const container = tail.split(".").slice(-2).join(".");
+        return written.has(tail) || written.has(container) || written.has(leaf);
+      });
+    assert.deepEqual(clashes, [],
+      `derivation overwrites these on an NPC:\n  ${clashes.join("\n  ")}`);
+  });
+
+  test("a defence resolves to base on an NPC and misc on a character", () => {
+    assert.equal(defenceTarget("will", "npc"), "system.defences.will.base");
+    assert.equal(defenceTarget("will", "character"), "system.defences.will.misc");
+    assert.deepEqual(scopeTargets("will", "npc").paths, ["system.defences.will.base"]);
+  });
+
+  test("an NPC is not offered skill targets at all", () => {
+    assert.equal(supportsSkillEffects("npc"), false);
+    assert.ok(!effectTargets("npc").some((t) => t.group === "skill"),
+      "a statblock's skills are an array; an effect can only address it by index");
+  });
+
+  /**
+   * The specific failure. A skill-scoped rider on a statblock must REPORT, not
+   * quietly resolve to nothing, or the GM sees a monster shrug off a debuff for
+   * no stated reason.
+   */
+  test("a skill scope on an NPC is reported, not silently dropped", () => {
+    for (const scope of ["spellcraft", "weaponSkills", "generalSkills", "attacksAndSkills"]) {
+      const { paths, reason } = scopeTargets(scope, "npc");
+      assert.deepEqual(paths, [], `${scope} must not resolve on a statblock`);
+      assert.equal(reason, "LASTARC.EffectTarget.noStatblockSkills", scope);
+    }
+  });
+
+  test("riders travel unresolved and resolve per target", () => {
+    // The card is written before any target is chosen, so it cannot carry
+    // paths — that was the bug.
+    const riders = performanceRiders({
+      skillBonus: 2, bonusScope: "weaponSkills",
+      penalty: 1, penaltyScope: "will"
+    });
+    assert.deepEqual(riders, [
+      { scope: "weaponSkills", value: 2 },
+      { scope: "will", value: -1 }
+    ]);
+
+    const asCharacter = ridersToChanges(riders, "character");
+    assert.equal(asCharacter.changes.length, 6, "five weapon skills plus Will");
+    assert.deepEqual(asCharacter.skipped, []);
+
+    const asNpc = ridersToChanges(riders, "npc");
+    assert.deepEqual(asNpc.changes.map((c) => c.key), ["system.defences.will.base"],
+      "the defence half must still land on a statblock");
+    assert.equal(asNpc.skipped.length, 1, "the skill half must be reported");
+  });
+
+  test("every NPC change targets a path the NPC whitelist allows", () => {
+    const ok = supportedTargetPaths("npc");
+    const { changes } = ridersToChanges(
+      [{ scope: "allDefences", value: -2 }], "npc"
+    );
+    assert.equal(changes.length, 3);
+    for (const c of changes) assert.ok(ok.has(c.key), `${c.key} not allowed on an NPC`);
   });
 });

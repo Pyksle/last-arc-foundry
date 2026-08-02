@@ -167,6 +167,7 @@
   "LASTARC.EffectTarget.allSkills": "All skills",
   "LASTARC.EffectTarget.conditionalOnly": "This applies only in a specific situation, so it cannot become a standing effect — a bonus written to the defence itself would also apply when the condition does not hold. Alt-click the roll to add it by hand.",
   "LASTARC.EffectTarget.noDamageField": "Damage is assembled at roll time from the weapon and the wielder's attribute, so there is no field for an effect to modify. Alt-click the damage roll to add it by hand.",
+  "LASTARC.EffectTarget.noStatblockSkills": "A statblock keeps its skills as printed values rather than as slots an effect can modify, so a skill bonus or penalty cannot be applied to an NPC automatically — adjust the printed number, or apply it by hand at the roll.",
   "LASTARC.EffectTarget.unknownScope": "This system does not recognise that scope, so nothing was applied.",
   "LASTARC.Section.Description": "Description",
   "LASTARC.Section.DamageMods": "Weaknesses, Resistances & Immunities",

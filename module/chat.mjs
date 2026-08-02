@@ -419,9 +419,9 @@ async function onComboAttack(button, message) {
  */
 async function onApplyPerformance(message) {
   const flags = message.flags?.["last-arc"] ?? {};
-  const changes = flags.effectChanges ?? [];
+  const riders = flags.effectRiders ?? [];
 
-  if (!changes.length) {
+  if (!riders.length) {
     ui.notifications?.warn(game.i18n.localize("LASTARC.Warning.NoEffectToApply"));
     return;
   }
@@ -432,11 +432,11 @@ async function onApplyPerformance(message) {
     return;
   }
 
-  const { applied, failed } = await applyPerformanceEffect(targets, {
+  const { applied, failed, partial } = await applyPerformanceEffect(targets, {
     name: flags.performanceName ?? game.i18n.localize("LASTARC.Card.Performance"),
     img: flags.performanceImg ?? null,
     sourceId: flags.performanceId ?? null,
-    changes
+    riders
   });
 
   // Reported to the log rather than a toast: who is buffed is table
@@ -447,6 +447,16 @@ async function onApplyPerformance(message) {
     lines.push(`<p>${game.i18n.format("LASTARC.Card.PerformanceApplied", {
       name: flags.performanceName ?? "", targets: names
     })}</p>`);
+  }
+  /**
+   * Riders a given target could not take — a statblock has no per-skill slot,
+   * so an enfeebling performance does less to a monster than to a player. Said
+   * out loud, because the alternative is a GM wondering why the number moved
+   * for one target and not another.
+   */
+  for (const p of partial) {
+    const what = p.skipped.map((s) => game.i18n.localize(s.reason)).join(" ");
+    lines.push(`<p class="lastarc-note">${p.actor?.name}: ${what}</p>`);
   }
   for (const f of failed) {
     lines.push(`<p class="lastarc-note">${f.actor?.name}: ${f.error}</p>`);

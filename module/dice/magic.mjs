@@ -23,7 +23,7 @@ import { rollDamageDice } from "./explode.mjs";
 import { rollHealing } from "./healing.mjs";
 import { describeCheck, describeDamage } from "./breakdown.mjs";
 import { situationalLabel } from "./situational.mjs";
-import { performanceEffectChanges } from "../effects.mjs";
+import { performanceEffectChanges, performanceRiders } from "../effects.mjs";
 import * as CB from "../combat.mjs";
 
 /** Re-exported: it is a derived value and lives with the other derived values. */
@@ -468,7 +468,7 @@ export async function performItem(actor, performance, options = {}) {
         performanceId: performance.id,
         performanceName: performance.name,
         performanceImg: performance.img,
-        effectChanges: effectChanges.changes
+        effectRiders: performanceRiders(outcome ?? {})
       }
     }
   });

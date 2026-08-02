@@ -27,11 +27,41 @@ import { LASTARC } from "./config.mjs";
 /*  Pure                                                                       */
 /* -------------------------------------------------------------------------- */
 
-/** `system.skills.athletics.misc` — the slot derivation reads and never writes. */
+/**
+ * CHARACTERS AND NPCS DO NOT HAVE THE SAME SHAPE, and an effect written for one
+ * silently does nothing on the other.
+ *
+ * A character keeps skills as a keyed object of derived rows, each with a `misc`
+ * input slot, and defences with a `misc` alongside the derived total. A
+ * statblock keeps skills as a FLAT PRINTED ARRAY of `{key, value}` and defences
+ * as an authored `base`. There is no `system.skills.athletics.misc` on an NPC to
+ * write to.
+ *
+ * This shipped wrong in 0.25.0: enfeebling performances target ENEMIES, enemies
+ * are usually NPCs, and every debuff wrote character paths onto a statblock and
+ * did nothing at all — in the feature whose entire purpose is to stop effects
+ * doing nothing silently. CLAUDE.md warns about exactly this and it still
+ * happened, because the paths were resolved once from the performer's side
+ * rather than per target.
+ */
 export const skillTarget = (key) => `system.skills.${key}.misc`;
 
-/** `system.defences.ref.misc`. */
-export const defenceTarget = (key) => `system.defences.${key}.misc`;
+/** A defence's writable slot, which is named differently on the two models. */
+export const defenceTarget = (key, actorType = "character") =>
+  actorType === "npc"
+    ? `system.defences.${key}.base`
+    : `system.defences.${key}.misc`;
+
+/**
+ * Can this actor type take a per-skill effect at all?
+ *
+ * A statblock's skills are printed values in an array. An Active Effect can
+ * only address an array by INDEX, and an index shifts whenever the GM reorders
+ * or inserts a row — so a "+2 to Athletics" effect would silently become "+2 to
+ * whatever is third now". Refusing is the honest answer; the GM edits the
+ * printed number.
+ */
+export const supportsSkillEffects = (actorType) => actorType !== "npc";
 
 /**
  * Every path an effect may write, as flat rows for a picker.
@@ -40,9 +70,10 @@ export const defenceTarget = (key) => `system.defences.${key}.misc`;
  * added to `allSkills` becomes targetable without a second edit — the class of
  * omission that leaves a mechanic half-wired.
  */
-export function effectTargets() {
+export function effectTargets(actorType = "character") {
   const out = [];
 
+  // Both models keep an attribute's `value` as the authored input.
   for (const [key, cfg] of Object.entries(LASTARC.attributes)) {
     out.push({
       path: `system.attributes.${key}.value`,
@@ -52,21 +83,33 @@ export function effectTargets() {
 
   for (const key of LASTARC.opposableDefences) {
     out.push({
-      path: defenceTarget(key),
+      path: defenceTarget(key, actorType),
       label: `LASTARC.Defence.${key}`, group: "defence"
     });
   }
 
-  for (const [key, cfg] of Object.entries(LASTARC.allSkills)) {
-    out.push({ path: skillTarget(key), label: cfg.label, group: "skill" });
+  if (supportsSkillEffects(actorType)) {
+    for (const [key, cfg] of Object.entries(LASTARC.allSkills)) {
+      out.push({ path: skillTarget(key), label: cfg.label, group: "skill" });
+    }
   }
 
   return out;
 }
 
-/** The set of writable paths, for membership tests. */
-export function supportedTargetPaths() {
-  return new Set(effectTargets().map((t) => t.path));
+/**
+ * The set of writable paths, for membership tests.
+ *
+ * Unioned across both actor types by default, because the create-time warning
+ * fires on an ActiveEffect document that may be embedded in either and should
+ * not cry wolf about a legitimate statblock path.
+ */
+export function supportedTargetPaths(actorType = null) {
+  if (actorType) return new Set(effectTargets(actorType).map((t) => t.path));
+  return new Set([
+    ...effectTargets("character").map((t) => t.path),
+    ...effectTargets("npc").map((t) => t.path)
+  ]);
 }
 
 /**
@@ -93,18 +136,35 @@ export function skillGroupTargets(groupKey) {
  *
  * @returns {{paths: string[], reason: string|null}}
  */
-export function scopeTargets(scope) {
+export function scopeTargets(scope, actorType = "character") {
   if (!scope) return { paths: [], reason: null };
 
   const unmappable = LASTARC.unmappableEffectScopes[scope];
   if (unmappable) return { paths: [], reason: unmappable };
 
-  // Defence scopes.
+  // Defence scopes. The slot is named differently per model.
   if (scope === "allDefences") {
-    return { paths: LASTARC.opposableDefences.map(defenceTarget), reason: null };
+    return {
+      paths: LASTARC.opposableDefences.map((k) => defenceTarget(k, actorType)),
+      reason: null
+    };
   }
   if (LASTARC.opposableDefences.includes(scope)) {
-    return { paths: [defenceTarget(scope)], reason: null };
+    return { paths: [defenceTarget(scope, actorType)], reason: null };
+  }
+
+  /**
+   * Every remaining scope is skill-shaped, and a statblock cannot take one —
+   * its skills are printed values in an array with no per-skill slot to write.
+   * Reported rather than resolved to nothing, so the card can say why an
+   * enfeebling performance did less to a monster than to a player.
+   */
+  const skillish = LASTARC.allSkills[scope]
+    || scope === "attacksAndSkills"
+    || LASTARC.effectSkillGroups[scope];
+
+  if (skillish && !supportsSkillEffects(actorType)) {
+    return { paths: [], reason: "LASTARC.EffectTarget.noStatblockSkills" };
   }
 
   // A single named skill, e.g. `spellcraft`.
@@ -156,13 +216,13 @@ export function unsupportedChanges(changes = []) {
  * @returns {{changes: Array<{key:string,mode:number,value:number,priority:number}>,
  *            skipped: Array<{scope:string, reason:string, value:number}>}}
  */
-export function performanceEffectChanges(outcome = {}) {
+export function performanceEffectChanges(outcome = {}, actorType = "character") {
   const changes = [];
   const skipped = [];
 
   const add = (scope, value) => {
     if (!scope || !value) return;
-    const { paths, reason } = scopeTargets(scope);
+    const { paths, reason } = scopeTargets(scope, actorType);
     if (reason || !paths.length) {
       skipped.push({ scope, reason: reason ?? "LASTARC.EffectTarget.unknownScope", value });
       return;
@@ -180,7 +240,7 @@ export function performanceEffectChanges(outcome = {}) {
   add(outcome.penaltyScope, -(Number(outcome.penalty) || 0));
   // Bonus damage has no field to land on; report it rather than lose it.
   if (outcome.bonusDamage && outcome.bonusDamageScope) {
-    const { reason } = scopeTargets(outcome.bonusDamageScope);
+    const { reason } = scopeTargets(outcome.bonusDamageScope, actorType);
     skipped.push({
       scope: outcome.bonusDamageScope,
       reason: reason ?? "LASTARC.EffectTarget.noDamageField",
@@ -188,6 +248,41 @@ export function performanceEffectChanges(outcome = {}) {
     });
   }
 
+  return { changes, skipped };
+}
+
+/**
+ * The riders a performance granted, as scope/value pairs.
+ *
+ * Kept SEPARATE from the resolved changes and carried on the card, because
+ * resolution depends on the TARGET's shape and the card is written before any
+ * target is chosen. 0.25.0 resolved once from the performer's side and put the
+ * paths on the card, which meant every debuff aimed at an NPC wrote character
+ * paths and did nothing.
+ */
+export function performanceRiders(outcome = {}) {
+  const out = [];
+  if (outcome.bonusScope && Number(outcome.skillBonus)) {
+    out.push({ scope: outcome.bonusScope, value: Number(outcome.skillBonus) });
+  }
+  if (outcome.penaltyScope && Number(outcome.penalty)) {
+    out.push({ scope: outcome.penaltyScope, value: -Number(outcome.penalty) });
+  }
+  return out;
+}
+
+/** Resolve carried riders against one actor's shape. */
+export function ridersToChanges(riders = [], actorType = "character") {
+  const changes = [];
+  const skipped = [];
+  for (const { scope, value } of riders) {
+    const { paths, reason } = scopeTargets(scope, actorType);
+    if (reason || !paths.length) {
+      skipped.push({ scope, reason: reason ?? "LASTARC.EffectTarget.unknownScope", value });
+      continue;
+    }
+    for (const key of paths) changes.push({ key, mode: 2, value, priority: 20 });
+  }
   return { changes, skipped };
 }
 
@@ -262,17 +357,28 @@ function buildDuration(rounds) {
  * place. That is the honest behaviour rather than a bug: "until your next turn"
  * has no meaning when nobody is taking turns, so it stays until removed.
  *
- * @returns {Promise<{applied: Actor[], failed: Array<{actor: Actor, error: string}>}>}
+ * @returns {Promise<{applied: Actor[], failed: Array<{actor: Actor, error: string}>,
+ *                     partial: Array<{actor: Actor, skipped: Array}>}>}
  */
 export async function applyPerformanceEffect(actors, {
-  name, img = null, sourceId = null, changes = [], rounds = 1
+  name, img = null, sourceId = null, riders = [], rounds = 1
 } = {}) {
   const applied = [];
   const failed = [];
-  if (!changes.length) return { applied, failed };
+  const partial = [];
+  if (!riders.length) return { applied, failed, partial };
 
   for (const actor of actors ?? []) {
     try {
+      /**
+       * Resolved PER ACTOR. A character takes a skill bonus on
+       * `skills.<key>.misc`; a statblock has no such slot, so the same rider
+       * resolves to nothing there and is reported instead of vanishing.
+       */
+      const { changes, skipped } = ridersToChanges(riders, actor.type);
+      if (skipped.length) partial.push({ actor, skipped });
+      if (!changes.length) continue;
+
       const stale = actor.effects
         .filter((e) => e.getFlag?.(FLAG, "performanceId") === sourceId)
         .map((e) => e.id);
@@ -295,5 +401,5 @@ export async function applyPerformanceEffect(actors, {
     }
   }
 
-  return { applied, failed };
+  return { applied, failed, partial };
 }
