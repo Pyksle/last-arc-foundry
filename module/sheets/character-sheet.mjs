@@ -26,6 +26,7 @@ import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
 import { markStatuses, toggleStatus } from "./status-palette.mjs";
 import { situationalOptions } from "../dice/situational.mjs";
+import * as ROWS from "../sheet-rows.mjs";
 import { applyHealing } from "../dice/healing.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -101,6 +102,17 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const src = this.document.system._source;
 
     /**
+     * Foundry's i18n, handed to the shared row builders (#44).
+     *
+     * Injected rather than imported by them: `game.i18n` was the single reason
+     * those builders could not be Foundry-free, and the preview harness — which
+     * cannot instantiate a sheet at all — passes its own stub to the very same
+     * functions. That is what stops the two drifting.
+     */
+    const localize = (key) => game.i18n.localize(key);
+    const format = (key, data) => game.i18n.format(key, data);
+
+    /**
      * Flight and hover are ZEROED by derivation when the character is
      * overencumbered or speed-locked (§4.6). Rendering the prepared value into
      * the input meant that, while encumbered, any submit wrote those zeros to
@@ -139,108 +151,14 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
      * three, and asking a player to type `bludgeons` correctly to stop losing
      * 5 from their attacks is a trap. Repacked in _prepareSubmitData.
      */
-    const weaponProf = sys.proficiencies.weapons ?? [];
-    context.weaponProficiencies = LASTARC.weaponCategories.map((key) => ({
-      key,
-      label: `LASTARC.WeaponCategory.${key}`,
-      active: weaponProf.includes(key)
-    }));
+    Object.assign(context, ROWS.proficiencyRows(sys));
 
-    const armourProf = sys.proficiencies.armour ?? [];
-    context.armourProficiencies = Object.keys(LASTARC.armourTypes).map((key) => ({
-      key,
-      label: `LASTARC.ArmourType.${key}`,
-      active: armourProf.includes(key)
-    }));
+    context.attributes = ROWS.attributeRows(sys, src);
 
-    // Attributes in PRINTED order, not object-key order (§2 rev2).
-    context.attributes = LASTARC.attributeOrder.map((key) => ({
-      key,
-      label: LASTARC.attributes[key].label,
-      abbr: LASTARC.attributes[key].abbr,
-      ...sys.attributes[key],
-      // Attributes are the commonest Active Effect target of all.
-      valueInput: src.attributes[key]?.value ?? 0,
-      racialModInput: src.attributes[key]?.racialMod ?? 0,
-      capInput: src.attributes[key]?.cap ?? null
-    }));
-
-    // Skills, standard then weapon, each carrying the five printed columns.
-    //
-    // The printed columns do NOT account for everything in the total: the Break
-    // Gauge penalty, the armour check penalty, technick bonuses and granted
-    // training/focus all land in the score without a column of their own. That
-    // made the sheet look broken — a row could show 2 + 1 and total +1 — so
-    // everything unprinted is gathered into a single `adjustment` column with
-    // an itemised tooltip. The invariant is now:
-    //
-    //   total = halfLevel + attrMod + trainedShown + focus + misc + adjustment
-    //
-    // `skillBreakdown` asserts exactly that, and a unit test pins it.
-    const halfLevel = D.rd(sys.details.level / 2);
-    const breakPenalty = sys.breakGauge.penalty;
-
-
-    const toRow = (key, cfg) => {
-      const s = sys.skills[key];
-      const parts = D.skillAdjustmentParts(s, breakPenalty);
-      const adjustment = parts.reduce((sum, p) => sum + p.value, 0);
-
-      return {
-        key,
-        label: cfg.label,
-        attr: cfg.attr,
-        attrAbbr: LASTARC.attributes[cfg.attr].abbr,
-        isWeaponSkill: !!cfg.weapon,
-        /**
-         * `trained` stays the PLAYER's own value, because the checkbox writes
-         * it. Binding a control to a derived value is CLAUDE.md rule 4 and has
-         * shipped twice; a box that stores one number and shows another is
-         * worse than no box.
-         *
-         * `grantedTrained` rides alongside so the row can SAY the skill is
-         * trained without the checkbox lying about what it holds (issue #43).
-         * The maths was always right and even explained — in the ADJ column's
-         * tooltip, which nobody hovers. A player looked at an empty box and
-         * concluded they had no access to the skill.
-         */
-        trained: s.trained,
-        grantedTrained: !!s.grantedTrained,
-        grantedFocus: s.grantedFocus ?? 0,
-        grantedBonus: s.technicks ?? 0,
-        focus: s.focus,
-        misc: s.misc,
-        miscInput: src.skills[key]?.misc ?? 0,
-        total: s.total,
-        appliesArmourPenalty: s.appliesArmourPenalty,
-        halfLevel,
-        attrMod: sys.attributes[cfg.attr].mod,
-        adjustment,
-        hasAdjustment: adjustment !== 0,
-        adjustmentTooltip: parts.length
-          ? parts.map((p) => `${game.i18n.localize(p.label)} ${D.signed(p.value)}`).join(" · ")
-          : game.i18n.localize("LASTARC.Tooltip.NoAdjustments"),
-      };
-    };
-
-    context.skills = Object.entries(LASTARC.skills).map(([k, c]) => toRow(k, c));
-    context.weaponSkills = Object.entries(LASTARC.weaponSkills).map(([k, c]) => toRow(k, c));
+    Object.assign(context, ROWS.skillRows(sys, src, localize));
     context.passivePerception = sys.skills.perception.passive;
 
-    // Break Gauge track: one cell per step, 0..5.
-    context.breakTrack = LASTARC.breakPenalties.map((penalty, step) => ({
-      step,
-      penalty,
-      isCurrent: step === sys.breakGauge.step,
-      isPassed: step < sys.breakGauge.step,
-      isPersistent: step > 0 && step <= sys.breakGauge.persistentSteps,
-      isTerminal: penalty === null,
-      label: penalty === null
-        ? game.i18n.localize("LASTARC.Break.Unconscious")
-        : penalty === 0
-          ? game.i18n.localize("LASTARC.Break.Normal")
-          : `−${Math.abs(penalty)}`
-    }));
+    context.breakTrack = ROWS.breakTrackRows(sys, localize);
 
     // Shake it Off can lower this, so read the derived value rather than the
     // config constant.
@@ -249,35 +167,17 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.persistentSources = sys.breakGauge.persistentSources
       .map((s, index) => ({ ...s, index }));
 
-    // One checkbox per Second Wind use (issue #10). `max` is derived — Extra
-    // Second Wind grants more — so the row grows and shrinks with the build
-    // rather than being a fixed pair of boxes.
-    const wind = sys.resources.secondWind;
-    context.secondWindPips = Array.from({ length: wind.max }, (_, index) => ({
-      index,
-      spent: index < wind.used,
-      label: game.i18n.format("LASTARC.Resource.SecondWindUseN", { n: index + 1 })
-    }));
+    context.secondWindPips = ROWS.secondWindPips(sys, format);
 
-    // Gauge fills. Computed here rather than in CSS because both need a
-    // divide-by-zero guard and a clamp — a character with 0 max MP must not
-    // produce NaN%, and temp HP can push the current value above max.
-    const pct = (value, max) =>
-      max > 0 ? Math.max(0, Math.min(100, Math.round((value / max) * 100))) : 0;
-    context.hpPercent = pct(sys.resources.hp.value, sys.resources.hp.max);
-    context.mpPercent = pct(sys.resources.mp.value, sys.resources.mp.max);
+    context.hpPercent = ROWS.gaugePercent(sys.resources.hp.value, sys.resources.hp.max);
+    context.mpPercent = ROWS.gaugePercent(sys.resources.mp.value, sys.resources.mp.max);
 
     context.canSpendHero = (sys.resources.heroPoints.value ?? 0) > 0;
     // Surfaced explicitly because §12 flags this interaction: misfortune forbids
     // rerolling d20s, which silently removes one of the four hero point spends.
     context.misfortuneBlocksReroll = !!sys.statuses?.blocksD20Reroll;
 
-    context.defenceRows = ["ref", "fort", "will"].map((key) => ({
-      key,
-      label: `LASTARC.Defence.${key}`,
-      ...sys.defences[key],
-      miscInput: src.defences[key]?.misc ?? 0
-    }));
+    context.defenceRows = ROWS.defenceRows(sys, src);
 
     context.classOptions = Object.entries(LASTARC.classes)
       .map(([k, c]) => ({ value: k, label: c.label }));

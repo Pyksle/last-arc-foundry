@@ -885,10 +885,14 @@ describe("issue #21 — every proficiency is reachable", () => {
   }
 
   test("a control is generated for every configured category", () => {
-    assert.match(sheetSource, /LASTARC\.weaponCategories\.map\(/,
-      "weapon proficiency rows must come from the config list, not a hand-typed one");
-    assert.match(sheetSource, /Object\.keys\(LASTARC\.armourTypes\)\.map\(/,
-      "armour proficiency rows must come from the config list");
+    /**
+     * The row-building half moved to `sheet-rows.mjs` in #44 so the preview
+     * harness could call it instead of keeping a second copy. The behavioural
+     * assertion — one row per configured category, in config order — now lives
+     * in test/sheet-rows.test.mjs, where it can call the function rather than
+     * grep for it. What is left here is the TEMPLATE half, which is what this
+     * test was really about: a toggle the player can click.
+     */
 
     for (const prof of ["weapons", "armour", "shields"]) {
       assert.match(body, new RegExp(`data-prof="${prof}"`),
@@ -965,10 +969,16 @@ describe("issue #28 — inputs must render stored values", () => {
 
   test("the source values come from _source, not the prepared model", () => {
     assert.match(sheetSource, /this\.document\.system\._source/,
-      "the *Input values must be read off _source or they are not stored values");
-    for (const field of ["valueInput", "miscInput"]) {
-      assert.ok(sheetSource.includes(`${field}: src.`),
-        `${field} must be read from the source snapshot`);
-    }
+      "the sheet must still take a source snapshot to hand to the row builders");
+    /**
+     * The `*Input: src.…` assignments moved to `sheet-rows.mjs` (#44), and are
+     * now checked by CALLING them: test/sheet-rows.test.mjs builds a fixture
+     * whose stored and prepared values differ and asserts each input carries
+     * the stored one. That catches `sys.` where `src.` was meant, which this
+     * substring scan could only ever catch by spelling.
+     */
+    assert.match(readFileSync(join(root, "module/sheet-rows.mjs"), "utf8"),
+      /valueInput: src\?\./,
+      "attribute inputs no longer read the source snapshot");
   });
 });

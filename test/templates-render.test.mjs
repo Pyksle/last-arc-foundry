@@ -332,6 +332,67 @@ describe("§ every sheet and card renders, for every subtype", () => {
  * durable answer is lifting the pure half of `_prepareContext` into a
  * Foundry-free module, which is what #44 is still open for.
  */
+/**
+ * The durable half of #44: ONE implementation, not two that agree today.
+ *
+ * The guard below catches a key the fixture is MISSING. It cannot catch a key
+ * whose value is built differently in the two places, and that was the original
+ * defect — the fixture's rows were built by hand, agreed with the sheet on the
+ * day each was typed, and diverged silently afterwards.
+ *
+ * So the row builders moved to `sheet-rows.mjs` and both callers use them. This
+ * asserts that they still do. A hand-rolled row in either file is the bug
+ * coming back.
+ */
+describe("§44 the sheet and the harness build rows from the same code", () => {
+  const sheet = read("module/sheets/character-sheet.mjs");
+  const harness = read("tools/preview.mjs");
+
+  const SHARED = [
+    "proficiencyRows", "attributeRows", "skillRows",
+    "breakTrackRows", "secondWindPips", "defenceRows", "gaugePercent"
+  ];
+
+  for (const fn of SHARED) {
+    test(`both call ${fn}`, () => {
+      assert.match(sheet, new RegExp(`ROWS\\.${fn}\\(`),
+        `character-sheet.mjs no longer uses ${fn} — it has its own copy again`);
+      assert.match(harness, new RegExp(`ROWS\\.${fn}\\(`),
+        `tools/preview.mjs no longer uses ${fn}, so the preview can drift from ` +
+        "the sheet exactly as it did before");
+    });
+  }
+
+  test("neither rebuilds a row from the config lists by hand", () => {
+    // The specific shapes that were duplicated. Matching either outside
+    // sheet-rows.mjs means a second copy has grown back.
+    const REBUILT = [
+      /LASTARC\.weaponCategories\.map\(/,
+      /Object\.keys\(LASTARC\.armourTypes\)\.map\(/,
+      /LASTARC\.breakPenalties\.map\(/,
+      /LASTARC\.attributeOrder\.map\(\(key\) => \(\{\s*key,\s*label/
+    ];
+    for (const [label, src] of [["character-sheet.mjs", sheet], ["preview.mjs", harness]]) {
+      for (const re of REBUILT) {
+        assert.ok(!re.test(src),
+          `${label} builds a row from ${re} itself instead of calling sheet-rows.mjs`);
+      }
+    }
+  });
+
+  test("the shared module stays Foundry-free", () => {
+    // The whole point: the harness cannot instantiate Foundry, so a `game.` or
+    // `CONFIG.` reference here would put the two callers back on separate code.
+    const rows = read("module/sheet-rows.mjs");
+    const body = rows.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    for (const global of ["game.", "CONFIG.", "foundry.", "ui."]) {
+      assert.ok(!body.includes(global),
+        `sheet-rows.mjs references ${global} — it can no longer run outside Foundry, ` +
+        "which is the one property that makes it shareable");
+    }
+  });
+});
+
 describe("§ issue #44: the preview fixture tracks what the sheets assign", () => {
   const assignedBy = (file) =>
     new Set([...read(file).matchAll(/context\.(\w+)\s*=/g)].map((m) => m[1]));

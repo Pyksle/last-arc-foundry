@@ -30,9 +30,13 @@ const model = read("module/data/character.mjs");
 describe("§43 granted training is visible", () => {
   test("the row is given the granted values at all", () => {
     // `toRow` passed none of these, so the template could not have shown them
-    // even if it wanted to.
+    // even if it wanted to. It became `skillRow` in `sheet-rows.mjs` (#44), and
+    // the assertion is now made by calling it — see test/sheet-rows.test.mjs,
+    // "every skill row has all three keys". Kept here as a pointer so the
+    // #43 story stays readable in one place.
     for (const key of ["grantedTrained", "grantedFocus", "grantedBonus"]) {
-      assert.match(sheet, new RegExp(`${key}:`), `toRow does not pass ${key}`);
+      assert.match(read("module/sheet-rows.mjs"), new RegExp(`${key}:`),
+        `skillRow does not pass ${key}`);
     }
   });
 

@@ -21,6 +21,7 @@ import { fileURLToPath } from "node:url";
 
 import { LASTARC } from "../module/config.mjs";
 import * as D from "../module/derivation.mjs";
+import * as ROWS from "../module/sheet-rows.mjs";
 
 export const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const lang = JSON.parse(readFileSync(join(root, "lang/en.json"), "utf8"));
@@ -31,6 +32,9 @@ const css = readFileSync(join(root, "styles/last-arc.css"), "utf8");
 /* -------------------------------------------------------------------------- */
 
 const localize = (key) => lang[key] ?? key;
+/** Foundry's `i18n.format`, for the row builders that interpolate (#44). */
+const format = (key, data = {}) =>
+  Object.entries(data).reduce((out, [k, v]) => out.replaceAll(`{${k}}`, v), localize(key));
 
 /**
  * Foundry's `localize` also FORMATS: `{{localize "X" n=2 scope="Will"}}`
@@ -151,12 +155,17 @@ export function buildContext() {
       appliesArmourPenalty: !!cfg.acp,      // not proficient with heavy
       breakStep
     });
+    /**
+     * The SYSTEM half only. The display half — labels, the gathered adjustment
+     * column, the tooltip — comes from `ROWS.skillRows`, which is the same code
+     * the sheet runs (#44). This function stands in for `prepareDerivedData`,
+     * not for `_prepareContext`.
+     */
     return {
-      key, label: cfg.label, attr: cfg.attr,
-      attrAbbr: LASTARC.attributes[cfg.attr].abbr,
-      subskilled: !!cfg.subskilled,
-      isWeaponSkill: !!cfg.weapon,
+      key,
       trained, focus: key === "athletics" ? 2 : 0, misc: 0, total,
+      /** Read by `skillRow` as the granted-bonus column. */
+      technicks: key === "perception" ? 2 : 0,
       /**
        * A technick-granted training and a granted focus, so the markers added
        * for issue #43 are actually exercised. Stealth is trained by a technick
@@ -185,6 +194,37 @@ export function buildContext() {
   const perception = skills.find((s) => s.key === "perception");
 
   const hpMax = D.hpMax(classes, attrs.vit.mod);
+
+  /**
+   * The two arguments the shared row builders take (#44).
+   *
+   * `sysForRows` is the shape a prepared actor's `system` has; `sourceForRows`
+   * stands in for `_source`, the STORED values behind the editable inputs. They
+   * are deliberately allowed to differ — that is the distinction the builders
+   * exist to preserve, and a fixture where they are the same object could not
+   * catch an input bound to the post-effect value.
+   */
+  const sysForRows = {
+    details: { level },
+    breakGauge: { penalty: D.breakPenaltyOrZero(breakStep), step: breakStep, persistentSteps },
+    proficiencies: { weapons: LASTARC.weaponCategories.slice(0, 3), armour: ["light"] },
+    attributes: attrs,
+    skills: Object.fromEntries([...skills, ...weaponSkills].map((s) => [s.key, s])),
+    defences: Object.fromEntries(LASTARC.opposableDefences.map((key) => [key, {
+      value: defs[key],
+      beforeBreak: defs[key] - defs.breakPenalty,
+      classBonus: classBonus[key],
+      technicks: 0,
+      misc: 0,
+      flatFooted: defs.ref
+    }])),
+    resources: { secondWind: { max: 2, used: 1 } }
+  };
+  const sourceForRows = {
+    attributes: Object.fromEntries(Object.entries(attrs).map(([k, v]) => [k, { ...v }])),
+    skills: Object.fromEntries([...skills, ...weaponSkills].map((s) => [s.key, { misc: s.misc }])),
+    defences: Object.fromEntries(LASTARC.opposableDefences.map((k) => [k, { misc: 0 }]))
+  };
 
   return {
     document: { name: "Vashti Corvale", img: "" },
@@ -218,22 +258,19 @@ export function buildContext() {
       damageMods: { dr: armour.dr },
       skills: Object.fromEntries(skills.map((s) => [s.key, s]))
     },
-    attributes: LASTARC.attributeOrder.map((key) => ({
-      key, label: LASTARC.attributes[key].label, abbr: LASTARC.attributes[key].abbr, ...attrs[key]
-    })),
-    skills,
-    weaponSkills,
+    /**
+     * Built by the SHEET'S OWN row builders from here down (#44).
+     *
+     * These were hand-written copies. They agreed with the sheet on the day
+     * each was typed and diverged silently afterwards — the attack rows lost a
+     * column, three whole panels rendered as empty boxes. A copy that fails in
+     * the safe direction is the worst kind, because an empty panel is exactly
+     * what "not wired up" looks like.
+     */
+    attributes: ROWS.attributeRows(sysForRows, sourceForRows),
+    ...ROWS.skillRows(sysForRows, sourceForRows, localize),
     passivePerception: D.passivePerception(perception.total),
-    breakTrack: LASTARC.breakPenalties.map((penalty, step) => ({
-      step, penalty,
-      isCurrent: step === breakStep,
-      isPassed: step < breakStep,
-      isPersistent: step > 0 && step <= persistentSteps,
-      isTerminal: penalty === null,
-      label: penalty === null ? localize("LASTARC.Break.Unconscious")
-           : penalty === 0 ? localize("LASTARC.Break.Normal")
-           : `−${Math.abs(penalty)}`
-    })),
+    breakTrack: ROWS.breakTrackRows(sysForRows, localize),
     recoveryTarget: LASTARC.recoveryMinorActions,
 
     // One poison step (blocks natural healing) and one injury step (does not),
@@ -245,8 +282,8 @@ export function buildContext() {
     // Mirrors the sheet's own computation; without these the gauges render
     // empty here while working in Foundry, which is exactly the kind of
     // divergence that makes an offline preview untrustworthy.
-    hpPercent: Math.round((21 / hpMax) * 100),
-    mpPercent: Math.round((6 / D.mpMax(classes, attrs.mnd.mod)) * 100),
+    hpPercent: ROWS.gaugePercent(21, hpMax),
+    mpPercent: ROWS.gaugePercent(6, D.mpMax(classes, attrs.mnd.mod)),
 
     canSpendHero: true,
     misfortuneBlocksReroll: true,
@@ -270,12 +307,7 @@ export function buildContext() {
       reactionUsed: false,
       reactionsBlocked: false
     },
-    defenceRows: ["ref", "fort", "will"].map((key) => ({
-      key, label: `LASTARC.Defence.${key}`,
-      value: defs[key],
-      beforeBreak: defs[key] - defs.breakPenalty,
-      classBonus: classBonus[key], technicks: 0, misc: 0
-    })),
+    defenceRows: ROWS.defenceRows(sysForRows, sourceForRows),
     classes: classes.map((c, index) => ({
       ...c, advanced: "", index, isFirst: index === 0, isOnly: classes.length === 1
     })),
@@ -340,12 +372,7 @@ export function buildContext() {
      * open: matching key NAMES is checkable, matching the shape behind them is
      * not, and only rendering it and looking caught this.
      */
-    weaponProficiencies: LASTARC.weaponCategories.map((key, i) => ({
-      key, label: `LASTARC.WeaponCategory.${key}`, active: i < 3
-    })),
-    armourProficiencies: Object.keys(LASTARC.armourTypes).map((key, i) => ({
-      key, label: `LASTARC.ArmourType.${key}`, active: i === 0
-    })),
+    ...ROWS.proficiencyRows(sysForRows),
     statuses: LASTARC.allStatusIds.slice(0, 6).map((id, i) => ({
       id, label: `LASTARC.Status.${id}`,
       img: `assets/status/${id}.svg`, active: i === 0, isCurse: false
@@ -369,10 +396,7 @@ export function buildContext() {
     enrichedBiography: "<p>A synthetic biography, for layout only.</p>",
     languagesText: "ZZ trade cant, ZZ high tongue",
     movementInput: { fly: 0, hover: false },
-    secondWindPips: [
-      { index: 0, spent: true, label: "Second Wind 1" },
-      { index: 1, spent: false, label: "Second Wind 2" }
-    ],
+    secondWindPips: ROWS.secondWindPips(sysForRows, format),
     spells: [
       { id: "s1", name: "ZZ probe", img: "", school: "black", schoolLabel: "Black",
         mpCost: 3, castingTimeLabel: "Primary", isArea: false }
