@@ -537,7 +537,22 @@ export function npcContext() {
     npcSkills: [], drops: [], loot: [], steal: [], items: [],
     // Damage modifiers are arrays in the schema and comma lists in the UI.
     weaknessText: "fire", resistanceText: "cold, electric", immunityText: "",
-    damageTypeOptions: [], statusOptions: [], skillOptions: [],
+    // From config, not stubbed. Stubbed as `[]` these rendered the NPC attack
+    // rows' damage-type and on-hit pickers EMPTY — the fixture lie again, in
+    // the rows I had just added.
+    // PRE-LOCALISED, because the NPC sheet localises these at build time while
+    // the item sheet leaves its labels as keys for the template to resolve.
+    // Copying the item sheet's convention here rendered raw keys in the picker
+    // — two sheets, two conventions, and a fixture can only mirror one of them
+    // correctly. Caught by the untranslated-key guard.
+    damageTypeOptions: LASTARC.allDamageTypes
+      .map((k) => ({ value: k, label: localize(`LASTARC.DamageType.${k}`) })),
+    statusOptions: [
+      { value: "", label: localize("LASTARC.Attack.NoStatus") },
+      ...LASTARC.allStatusIds.map((id) => ({ value: id, label: localize(`LASTARC.Status.${id}`) }))
+    ],
+    skillOptions: Object.entries(LASTARC.allSkills)
+      .map(([k, c]) => ({ value: k, label: c.label })),
     /**
      * A cursed statblock, so the "adjust by hand" note (#45) is actually in the
      * render rather than being a branch the preview never enters.
