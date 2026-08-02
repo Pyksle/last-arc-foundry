@@ -89,6 +89,24 @@
       </div>
       <div class="la-gauge" style="--fill: {{mpPercent}}%"><span></span></div>
     </div>
+
+    {{!-- Curses whose payload a statblock cannot apply to itself (#45). The
+          maxima are printed inputs, not derived values, so derivation must not
+          touch them — but an icon that lights up and moves no number reads as a
+          bug, especially since the same curse on a player IS automatic. --}}
+    {{#if manualAdjustments}}
+      <div class="la-manual-note">
+        <span class="la-manual-note__tag">{{localize "LASTARC.NpcManual.title"}}</span>
+        <ul>
+          {{#each manualAdjustments}}
+            <li>{{localize this.hint}}</li>
+          {{/each}}
+        </ul>
+        {{!-- The reason, once. It was on every line and read as boilerplate the
+              second time, which is how a note stops being read at all. --}}
+        <p class="la-manual-note__why">{{localize "LASTARC.NpcManual.why"}}</p>
+      </div>
+    {{/if}}
     <div class="la-vital">
       <h3>{{localize "LASTARC.Resource.Initiative"}}</h3>
       <div class="la-vital__single">{{system.initiative.effectiveDie}}</div>

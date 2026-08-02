@@ -772,6 +772,47 @@ LASTARC.statusFamilyColours = {
 LASTARC.statusFamilyOf = (id) =>
   Object.keys(LASTARC.statusFamilies).find((f) => LASTARC.statusFamilies[f].includes(id)) ?? null;
 
+/* -------------------------------------------------------------------------- */
+/*  Payloads a statblock cannot apply for itself (#45)                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Status payloads that work on a character and CANNOT work on an NPC, with the
+ * schema path each one would have had to write.
+ *
+ * The asymmetry is structural, not an oversight. On a character
+ * `resources.hp.max` is derived, so halving it is just another term. On a
+ * statblock it is a printed number with an input on the sheet, and writing it
+ * in `prepareDerivedData` would store the GM's value and show a different one
+ * back — CLAUDE.md rule 4, which has already shipped twice.
+ *
+ * The GM's call on #45 was that halving by hand is fine: curses are rare and
+ * GM-applied. That decision stands. What this table is for is making the
+ * omission SAY something. Applying Withering to a monster lights an icon and
+ * changes no number, which from the GM's seat is indistinguishable from the
+ * "declared and does nothing" defect this project keeps producing — and the
+ * confusion is sharper because cursing a PLAYER does halve it, automatically.
+ *
+ * Keyed by payload rather than by status id so a third carrier of
+ * `maxHpMultiplier` is covered the day it is added, instead of being missed
+ * because a hardcoded list of two names went stale.
+ */
+LASTARC.npcUnappliedPayloads = {
+  maxHpMultiplier: { path: "resources.hp.max", hint: "LASTARC.NpcManual.halveMaxHp" },
+  maxMpMultiplier: { path: "resources.mp.max", hint: "LASTARC.NpcManual.halveMaxMp" }
+};
+
+/**
+ * Which of the above are live on a statblock right now.
+ *
+ * Takes an aggregated payload rather than an actor so it stays Foundry-free.
+ * A multiplier of exactly 1 changes nothing and is not worth a note.
+ */
+LASTARC.npcManualAdjustments = (statuses = {}) =>
+  Object.entries(LASTARC.npcUnappliedPayloads)
+    .filter(([key]) => (statuses[key] ?? 1) !== 1)
+    .map(([key, meta]) => ({ key, ...meta, factor: statuses[key] }));
+
 /**
  * The three reroll kinds (§12), which must not be conflated:
  *   1. `second`  — reroll and keep the second result even if worse (a gamble)

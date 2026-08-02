@@ -452,7 +452,16 @@ export function npcContext() {
       defences: {}, details: {}, damageMods: {}
     },
     attacks: [], npcSkills: [], drops: [],
-    damageTypeOptions: [], statusOptions: [], skillOptions: []
+    damageTypeOptions: [], statusOptions: [], skillOptions: [],
+    /**
+     * A cursed statblock, so the "adjust by hand" note (#45) is actually in the
+     * render rather than being a branch the preview never enters.
+     *
+     * COMPUTED from the real config function rather than written out here. This
+     * fixture is hand-built and can drift from the sheet (#44); anything taken
+     * straight from the source it is meant to mirror cannot.
+     */
+    manualAdjustments: LASTARC.npcManualAdjustments(D.aggregateStatuses(["withering", "dim"]))
   };
 }
 

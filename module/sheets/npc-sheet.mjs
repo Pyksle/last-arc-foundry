@@ -119,6 +119,16 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.hpPercent = pct(sys.resources.hp.value, sys.resources.hp.max);
     context.mpPercent = pct(sys.resources.mp.value, sys.resources.mp.max);
 
+    /**
+     * Curses a statblock cannot apply to itself (#45).
+     *
+     * The GM's decision was to halve these by hand, and that stands. This only
+     * makes the omission visible: the icon lights up and no number moves, which
+     * is exactly what a bug looks like — the more so because the same curse on
+     * a PLAYER halves their maximum automatically.
+     */
+    context.manualAdjustments = LASTARC.npcManualAdjustments(sys.statuses);
+
     context.attributes = LASTARC.attributeOrder.map((key) => ({
       key,
       label: LASTARC.attributes[key].label,

@@ -399,6 +399,9 @@
   "LASTARC.Info.RecoveryBanked": "Recovery: {banked} of {required} consecutive minor actions banked.",
   "LASTARC.Warning.Incapacitated": "{name} is at the bottom of the Break Gauge and cannot act.",
   "LASTARC.Warning.SkillBlocked": "{name} cannot use {skill} — a status is blocking it.",
+  "LASTARC.NpcManual.title": "Adjust by hand",
+  "LASTARC.NpcManual.halveMaxHp": "Withering: halve this statblock's maximum HP.",
+  "LASTARC.NpcManual.halveMaxMp": "Dim: halve this statblock's maximum MP.",
   "LASTARC.Warning.WeaponSkillTakeN": "Weapon skills cannot Take 10 or Take 20.",
   "LASTARC.Warning.PersistentFloor": "Recovery cannot clear persistent steps. This character is held at step {steps} until the underlying condition is cured.",
   "LASTARC.Warning.RecoveryBlocked": "Already at the persistent floor — recovery cannot improve the gauge further.",
@@ -651,7 +654,6 @@
   "LASTARC.Field.NoOpposedDefence": "— not opposed —",
   "LASTARC.Field.Status": "Status",
   "LASTARC.Field.Turns": "Turns",
-  "LASTARC.Field.Notes": "Notes",
   "LASTARC.Field.OnFailDamage": "On fail ×",
   "LASTARC.Field.OnFailThreshold": "On fail Thr.",
   "LASTARC.Action.AddOutcome": "+ Add outcome",
@@ -836,5 +838,6 @@
   "LASTARC.Action.AddSteal": "+ Add steal",
   "LASTARC.Field.DropItem": "Item",
   "LASTARC.Tooltip.DropChance": "Percentage chance, 0–100.",
-  "LASTARC.Tooltip.DeleteDrop": "Remove this row"
+  "LASTARC.Tooltip.DeleteDrop": "Remove this row",
+  "LASTARC.NpcManual.why": "A printed maximum is an authored number, so the system will not overwrite what you typed. The same curse on a player character is applied automatically."
 }

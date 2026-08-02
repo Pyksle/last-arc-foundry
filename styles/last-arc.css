@@ -1507,6 +1507,40 @@
 /*  Notes & warnings                                                           */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * "Adjust by hand" — curses a statblock cannot apply to itself (#45).
+ *
+ * Inside `.last-arc`, so the palette variables DO reach it. Deliberately not
+ * styled as a warning: nothing is wrong, the GM simply has a number to change,
+ * and a red alarm on every cursed monster would train them to ignore it.
+ */
+.la-manual-note {
+  grid-column: 1 / -1;
+  margin: 0.35rem 0 0;
+  padding: 0.35rem 0.5rem;
+  border-left: 3px solid var(--la-bronze);
+  background: color-mix(in srgb, var(--la-bronze) 8%, transparent);
+  border-radius: 0 var(--la-radius) var(--la-radius) 0;
+  font-size: 0.68rem;
+}
+.la-manual-note__tag {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-family: var(--la-font-display);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--la-bronze-bright);
+}
+.la-manual-note ul { margin: 0; padding-left: 1rem; }
+.la-manual-note li { margin: 0.1rem 0; }
+.la-manual-note__why {
+  margin: 0.3rem 0 0;
+  font-size: 0.62rem;
+  font-style: italic;
+  color: var(--la-ink-faint);
+}
+
 .la-note {
   margin: 0 0 0.5rem;
   font-size: 0.65rem;
