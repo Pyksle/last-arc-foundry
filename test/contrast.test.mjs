@@ -141,6 +141,47 @@ describe("chat card readability", () => {
   });
 
   /**
+   * The OTHER half of §9, and the half that was missing.
+   *
+   * The rule above stops a card being repainted by the viewer's theme. This one
+   * stops a card asking for a colour that never arrives: the palette variables
+   * are declared under `.last-arc`, and a chat message is not inside it. A bare
+   * `var(--la-bronze)` in a `.lastarc-*` rule is not a wrong colour, it is an
+   * INVALID VALUE — the whole declaration is dropped and the element silently
+   * inherits.
+   *
+   * Five rules were doing this. Mostly it looked like nothing much: the hero
+   * point button rendered as a bare browser default, the MP cost lost its
+   * figures font. One was worse. `.lastarc-prereq.is-unmet` is how a posted
+   * item card marks a prerequisite the character does not meet — struck
+   * through AND red. The strike-through is plain CSS and survived; the red came
+   * from `--la-oxblood` and did not. So the warning rendered in ordinary black
+   * ink, and the only thing distinguishing "you cannot use this" was a line.
+   *
+   * The per-selector contrast checks below could not catch any of it: they test
+   * a hand-written list, and every one of these was absent from it. A guard
+   * that tests the examples its author thought of tests the author.
+   */
+  test("no chat rule depends on a palette variable that cannot reach it", () => {
+    const offenders = [];
+    for (const rule of css.matchAll(/(^|\n)([^{}\n][^{}]*?)\{([^}]*)\}/g)) {
+      // Drop any comment sitting between the previous rule and this selector,
+      // or the failure message quotes the whole explanation back at you.
+      const selector = rule[2].replace(/\/\*[\s\S]*?\*\//g, "").trim();
+      if (!/\.lastarc-/.test(selector)) continue;
+      for (const v of rule[3].matchAll(/var\(\s*(--la-[\w-]+)\s*\)/g)) {
+        offenders.push(`${selector.replace(/\s+/g, " ")} { …${v[1]} }`);
+      }
+    }
+
+    assert.deepEqual(offenders, [],
+      "a .lastarc-* rule used a palette variable with no fallback. Chat renders " +
+      "outside .last-arc, so --la-* is undefined there and the declaration is " +
+      "dropped. Use a literal hex chosen against the card's cream:\n  " +
+      offenders.join("\n  "));
+  });
+
+  /**
    * Text over a tinted plate. The plate is translucent over the card, so both
    * halves have to be composited before the comparison — measuring the text
    * against the raw card would flatter every one of these.

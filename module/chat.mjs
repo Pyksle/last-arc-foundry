@@ -38,10 +38,19 @@ export function registerChatListeners() {
  * checks, attribute checks, attacks and spells from one place — and so a future
  * roll type gets it for free instead of silently missing it.
  *
- * Deliberately NOT shown when it cannot be used: no hero points, the misfortune
- * curse forbidding d20 rerolls, or the roll already having been rerolled. A
- * button that explains its own refusal is better than one that lies, but a
- * button that cannot ever work is just noise.
+ * Hidden entirely only when the actor has NO hero points — an affordance that
+ * can never work is noise on every card for the rest of the campaign.
+ *
+ * A TEMPORARY refusal is different, and getting that wrong cost a playtest
+ * report (#46). Misfortune forbids d20 rerolls, and this used to respond by
+ * removing the reroll button silently. The GM tested Misfortune, saw no reroll
+ * option anywhere, and reported the whole feature as unbuilt — which was a
+ * reasonable conclusion, because a rule enforced by making its own UI vanish is
+ * indistinguishable from a rule nobody implemented.
+ *
+ * So a spend the actor could normally make is now SHOWN, disabled, with the
+ * reason on it. Same idiom as `offerBlock` below: silent for "you own no
+ * shield", explained for "you are flat-footed".
  */
 function offerHeroReroll(message, element) {
   const flags = message.flags?.["last-arc"] ?? {};
@@ -50,37 +59,37 @@ function offerHeroReroll(message, element) {
   if (flags.heroRerolled) return;
   if (!message.rolls?.[0]?.dice?.some((d) => d.faces === 20)) return;
 
-  // Offer the panel if EITHER spend is available; misfortune blocks the reroll
-  // but not the bonus roll, and suppressing both would quietly remove a legal
-  // option from a cursed character.
-  const canReroll = canSpendHeroPoint(actor, HERO_SPEND.REROLL).allowed;
-  const canBonus = canSpendHeroPoint(actor, HERO_SPEND.BONUS_ROLL).allowed;
-  if (!canReroll && !canBonus) return;
+  const reroll = canSpendHeroPoint(actor, HERO_SPEND.REROLL);
+  const bonus = canSpendHeroPoint(actor, HERO_SPEND.BONUS_ROLL);
+
+  // No points at all: nothing to offer and nothing to explain.
+  if (!reroll.allowed && !bonus.allowed && reroll.reason === "LASTARC.HeroPoint.None") return;
 
   const wrap = document.createElement("div");
   wrap.className = "lastarc-hero-spends";
 
-  const make = (action, labelKey, tipKey) => {
+  const make = (action, labelKey, tipKey, check) => {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "lastarc-hero-reroll";
     b.dataset.action = action;
     b.dataset.actorId = actor.id;
     b.textContent = game.i18n.localize(labelKey);
-    b.dataset.tooltip = game.i18n.localize(tipKey);
+    b.disabled = !check.allowed;
+    // The refusal outranks the description: a player looking at a dead button
+    // wants to know why, not what it would have done.
+    b.dataset.tooltip = game.i18n.localize(check.allowed ? tipKey : check.reason);
     return b;
   };
 
-  if (canReroll) {
-    wrap.appendChild(make("lastarcHeroReroll",
-      "LASTARC.HeroPoint.Reroll", "LASTARC.HeroPoint.RerollTooltip"));
-  }
+  wrap.appendChild(make("lastarcHeroReroll",
+    "LASTARC.HeroPoint.Reroll", "LASTARC.HeroPoint.RerollTooltip", reroll));
 
   // The bonus roll is NOT blocked by misfortune — that curse forbids rerolling
   // a d20, and this keeps the die and adds to it.
-  if (canBonus) {
+  if (bonus.allowed) {
     wrap.appendChild(make("lastarcHeroBonus",
-      "LASTARC.HeroPoint.BonusRoll", "LASTARC.HeroPoint.BonusRollTooltip"));
+      "LASTARC.HeroPoint.BonusRoll", "LASTARC.HeroPoint.BonusRollTooltip", bonus));
   }
 
   element.querySelector(".message-content")?.appendChild(wrap);

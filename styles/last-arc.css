@@ -1175,8 +1175,13 @@
 
 /* An unmet prerequisite on a shared item card. */
 .lastarc-prereq { margin-right: 0.4rem; }
+/* A chat card is not inside `.last-arc`, so the palette variables do not reach
+   it (CLAUDE.md §9). These were `var(--la-*)` with no fallback — invalid, so
+   the declaration was dropped and the element fell back to the card's ink. The
+   line-through survived, the RED did not, so an unmet prerequisite was struck
+   out in ordinary black. Literal hex, chosen against cream. */
 .lastarc-prereq.is-unmet {
-  color: var(--la-oxblood);
+  color: #7a2e2e;
   text-decoration: line-through;
 }
 .lastarc-card__description { margin-top: 0.4rem; font-size: 0.85em; }
@@ -2187,39 +2192,69 @@
 
 .la-note.is-warning { color: var(--la-oxblood); font-weight: 600; }
 
+/* Same as the prerequisite above: literal hex, because a card is paper. The MP
+   cost used `--la-bronze-bright`, which is #b08d4f — 2.73:1 on cream, so it
+   would have failed the contrast suite had it ever resolved at all. */
 .lastarc-mana {
-  font-family: var(--la-font-num);
+  font-family: var(--la-font-num, "Iowan Old Style", Georgia, serif);
   font-size: 0.8rem;
-  color: var(--la-bronze-bright);
+  color: #6f5628;
 }
 .lastarc-decay {
   margin: 0.15rem 0 0;
   font-size: 0.72rem;
-  color: var(--la-ink-faint);
+  color: #6f6455;
 }
 
 /* Hero point reroll, injected into any d20 message the viewer can spend on.
    Deliberately understated: it appears on a lot of cards, and a loud button on
    every roll would read as the primary action rather than a rare resource. */
+/**
+ * Hero-point spends. LITERAL HEX, chosen against the card's cream — every
+ * colour here previously came from `--la-bronze`, which is defined under
+ * `.last-arc` and a chat message is not inside `.last-arc` (see §9 of
+ * CLAUDE.md). So `color-mix(in srgb, var(--la-bronze) 12%, transparent)` was
+ * an invalid value, every declaration using one was dropped, and the button
+ * rendered as a bare browser default at the foot of a themed card.
+ *
+ * It worked, which is why nobody noticed: it just did not look like part of
+ * the system, and a plain grey button under a card reads as an artefact rather
+ * than an offer. `--la-bronze-bright` at #b08d4f is 2.4:1 on cream and would
+ * have failed the contrast suite anyway; the darker #6f5628 is the value that
+ * belongs on paper.
+ */
 .lastarc-hero-reroll {
   display: block;
   width: 100%;
   margin-top: 0.4rem;
   padding: 0.2rem;
-  background: color-mix(in srgb, var(--la-bronze) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--la-bronze) 50%, transparent);
-  border-radius: var(--la-radius);
-  color: var(--la-bronze-bright);
-  font-family: var(--la-font-body);
+  background: #efe6d2;
+  border: 1px solid #8b6f3f;
+  border-radius: 3px;
+  color: #6f5628;
+  font-family: var(--la-font-body, Georgia, serif);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
   cursor: pointer;
 }
-.lastarc-hero-reroll:hover {
-  background: color-mix(in srgb, var(--la-bronze) 22%, transparent);
+.lastarc-hero-reroll:hover:not(:disabled) {
+  background: #e4d7ba;
+}
+/**
+ * A blocked spend — Misfortune forbidding a reroll — is shown rather than
+ * removed (#46), so it needs to read as unavailable WITHOUT becoming
+ * unreadable. `opacity` alone at the usual 0.55 puts this text under 3:1 on
+ * cream, so the ink is darkened as it fades rather than only faded.
+ */
+.lastarc-hero-reroll:disabled {
+  cursor: not-allowed;
+  background: #e8e2d4;
+  border-style: dashed;
+  border-color: #9a8a6c;
+  color: #5c554a;
 }
 
-.lastarc-card--hero .lastarc-verdict { color: var(--la-bronze-bright); }
+.lastarc-card--hero .lastarc-verdict { color: #6f5628; }
 
 /* -------------------------------------------------------------------------- */
 /*  Resource gauges                                                            */
