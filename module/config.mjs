@@ -705,6 +705,73 @@ LASTARC.allStatusIds = [
   ...Object.keys(LASTARC.curses)
 ];
 
+/* -------------------------------------------------------------------------- */
+/*  Status icon families (issue #43)                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Which colour family each status badge is drawn in.
+ *
+ * The GROUPINGS are the GM's, from #43 — they reflect how the table actually
+ * reads the board, which is not something to invent from the outside. Only the
+ * three below were unassigned and are my calls, easily moved:
+ *
+ *   - `unconscious` joins prone/helpless because §5.6 applies all three at once
+ *   - `flatFooted` joins grabbed/pinned: you have lost control of your position
+ *   - `incorporeal` joins oil/slow/petrify: your body is made of something else
+ *
+ * Colour is the SECOND channel, never the first. Two of the players it is for
+ * are colour-blind, so the glyph shape carries the meaning and the filled disc
+ * carries the visibility; hue only helps a group stand out from its neighbours.
+ * See `LASTARC.statusFamilyColours` for why these particular hexes.
+ */
+LASTARC.statusFamilies = {
+  injury:     ["blind", "severedLeg", "severedArm"],
+  mind:       ["confusion", "charmed"],
+  affliction: ["disease", "poison", "toad", "zombified"],
+  material:   ["oil", "slowed", "petrify", "incorporeal"],
+  dampened:   ["drench", "silence", "sleep"],
+  shock:      ["paralysis"],
+  downed:     ["prone", "helpless", "encumbered", "overencumbered", "unconscious"],
+  restrained: ["grabbed", "pinned", "flatFooted"],
+  curse:      Object.keys(LASTARC.curses)
+};
+
+/**
+ * One colour per family, and the choice of hex is load-bearing.
+ *
+ * The obvious reading of the GM's colour names — a textbook red, green, pink
+ * and so on — collides badly. Simulated against the three dichromacies
+ * (Viénot–Brettel–Mollon), pink/green and red/green and yellow/orange all land
+ * within ΔE 16 of each other under deuteranopia, and pink/grey within ΔE 10
+ * under protanopia. That is two of this table's players unable to tell four of
+ * the nine families apart.
+ *
+ * So each family keeps the colour it was NAMED but takes a specific lightness,
+ * and the set forms a monotonic ladder from `downed` (L 95) to `material`
+ * (L 21). Lightness is the one channel every kind of colour vision retains,
+ * including the player who is losing theirs. Worst-case separation went from
+ * ΔE 9.6 to ΔE 16.0 across all three dichromacies.
+ *
+ * `ink` is the glyph drawn on top, chosen per family for contrast against its
+ * own disc — never below 4.5:1, checked in test/status-icons.test.mjs.
+ */
+LASTARC.statusFamilyColours = {
+  downed:     { disc: "#f3f3f0", ink: "#12100e" },   // white   L 96
+  shock:      { disc: "#f4db9c", ink: "#12100e" },   // yellow  L 88
+  affliction: { disc: "#77c592", ink: "#12100e" },   // green   L 73
+  restrained: { disc: "#e1895d", ink: "#12100e" },   // orange  L 66
+  mind:       { disc: "#ea4169", ink: "#12100e" },   // pink    L 54
+  dampened:   { disc: "#1b67bc", ink: "#ffffff" },   // blue    L 44
+  injury:     { disc: "#952a19", ink: "#ffffff" },   // red     L 34
+  curse:      { disc: "#5a216e", ink: "#ffffff" },   // purple  L 25
+  material:   { disc: "#232a33", ink: "#ffffff" }    // grey    L 17
+};
+
+/** The family a status belongs to, or null. */
+LASTARC.statusFamilyOf = (id) =>
+  Object.keys(LASTARC.statusFamilies).find((f) => LASTARC.statusFamilies[f].includes(id)) ?? null;
+
 /**
  * The three reroll kinds (§12), which must not be conflated:
  *   1. `second`  — reroll and keep the second result even if worse (a gamble)

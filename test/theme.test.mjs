@@ -81,27 +81,28 @@ describe("§ issue #41: token status icons are visible on a token", () => {
       "own, so they rasterise BLACK on the token:\n  " + bad.join("\n  "));
   });
 
-  test("every icon carries a contrasting outline", () => {
-    // A light glyph alone fails on a light map exactly as a dark one fails on a
-    // dark map. The halo is what makes the set background-independent.
-    const bad = icons.filter((f) => !readFileSync(`${ICON_DIR}/${f}`, "utf8").includes("feMorphology"));
-
-    assert.deepEqual(bad, [],
-      "these icons have no halo, so they are legible only against backgrounds " +
-      "that happen to contrast with them:\n  " + bad.join("\n  "));
-  });
-
-  test("the halo does not swallow the glyph's interior detail", () => {
-    // Dilating the alpha closes small gaps. At radius 4 the skull's eye sockets
-    // and the target's pips start filling in; 3.2 was the largest that held.
-    for (const f of icons) {
-      const radii = [...readFileSync(`${ICON_DIR}/${f}`, "utf8")
-        .matchAll(/feMorphology[^>]*radius="([\d.]+)"/g)].map((m) => Number(m[1]));
-      assert.ok(radii.length > 0, `${f}: no halo radius found`);
-      for (const r of radii) {
-        assert.ok(r <= 3.5, `${f}: halo radius ${r} fills in interior detail`);
-      }
-    }
+  /**
+   * The requirement here — legible against ANY map, not just a lucky one —
+   * still stands. The mechanism changed in #43 and the assertions moved with
+   * it, to test/status-icons.test.mjs.
+   *
+   * A dilated alpha halo outlines the glyph but leaves the map showing between
+   * its strokes, so at the ~24px a token actually draws it is still competing
+   * with grass or masonry. The GM's report was that telling the badges apart
+   * needed zooming in. A filled disc replaces the background outright, which is
+   * a stronger form of the same idea, and the double ring handles the light and
+   * dark map edges the halo was there for.
+   *
+   * These two tests are NOT deleted-because-red: `status-icons.test.mjs` now
+   * asserts the disc and both rings on every one of the 33 badges, which is the
+   * same guarantee against a mechanism that survives being shrunk.
+   */
+  test("the background-independence guarantee has a home", () => {
+    // Cheap tripwire so the guarantee cannot be lost by deleting a file.
+    const src = readFileSync(new URL("./status-icons.test.mjs", import.meta.url), "utf8");
+    assert.match(src, /has a filled disc and both rings/,
+      "the disc/ring assertions have gone missing — token badges are only " +
+      "legible against backgrounds that happen to contrast with them");
   });
 
   test("the icons are still valid, self-contained SVG", () => {

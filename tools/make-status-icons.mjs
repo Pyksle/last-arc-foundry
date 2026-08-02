@@ -6,8 +6,19 @@
  *
  * These are ORIGINAL glyphs built from primitive shapes — deliberately not
  * traced or derived from the rulebook, which would be exactly the kind of asset
- * §17 says must never ship. They are monochrome and use `currentColor` so
- * Foundry's token badge tinting works.
+ * §17 says must never ship.
+ *
+ * They are no longer monochrome. Issue #43 gave each status a colour family and
+ * a filled disc; the badge now carries its own colours rather than inheriting
+ * one, because a token badge is a texture with no cascade to inherit from.
+ *
+ * ⚠ The output is COMMITTED. Run this after any change to the glyph table or to
+ * `LASTARC.statusFamilies` / `statusFamilyColours`, or the shipped icons will
+ * describe a palette that no longer exists. `test/status-icons.test.mjs`
+ * regenerates and diffs, so the suite will tell you — it was added because the
+ * committed assets had already drifted once: they carried an `feMorphology`
+ * halo this generator never emitted, so running it would have silently undone
+ * the fix for issue #41.
  *
  *   node tools/make-status-icons.mjs
  */
@@ -21,11 +32,52 @@ import { LASTARC } from "../module/config.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(root, "assets/status");
 
-/** Wrap glyph body in a consistent 64×64 frame. */
-const svg = (body) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" ` +
-  `fill="none" stroke="currentColor" stroke-width="3.5" ` +
-  `stroke-linecap="round" stroke-linejoin="round">\n${body}\n</svg>\n`;
+/**
+ * Wrap a glyph in a consistent 64×64 frame, on a filled disc (issue #43).
+ *
+ * The old badge was a bare stroked glyph with a halo. It read fine at 44px in
+ * my own test harness and poorly on an actual token, because a token badge is
+ * drawn at roughly 24–32px — the GM's report was that telling them apart at a
+ * glance needed zooming in.
+ *
+ * A stroked outline against an arbitrary battlemap is the weakest possible
+ * figure-ground: every one of those strokes competes with whatever texture is
+ * behind it. A FILLED DISC replaces the background entirely inside the badge,
+ * so the glyph is read against a known colour instead of against grass, stone
+ * or water. That single change is what helps all three of the players named on
+ * #43 — it is not a colour fix, and it works for the player losing their sight
+ * and for both colour-blind players equally.
+ *
+ * The two rings matter as much as the disc. A light disc on a light map and a
+ * dark disc on a dark map both vanish at the edge, so every badge carries a
+ * dark ring OUTSIDE a light one: whichever way the map goes, one of the two
+ * separates the badge from it. This is the same reason road signs are outlined
+ * twice.
+ *
+ * `currentColor` is gone. Foundry tints a badge by the effect's own tint, and
+ * these now carry their own meaning-bearing colour — see LASTARC.statusFamilies.
+ */
+const svg = (body, { disc, ink }) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">\n` +
+  `<circle cx="32" cy="32" r="31" fill="#12100e" opacity="0.55"/>\n` +
+  `<circle cx="32" cy="32" r="29.5" fill="none" stroke="#f7f5ef" stroke-width="2.5" opacity="0.9"/>\n` +
+  `<circle cx="32" cy="32" r="27" fill="${disc}"/>\n` +
+  `<g fill="none" stroke="${ink}" stroke-width="3.5" ` +
+  // Eight glyphs fill an interior detail — an eye, a pupil, a die pip — with
+  // `currentColor`. Inherited stroke does not reach `fill`, and `currentColor`
+  // in a texture rasterised outside the document resolves to plain black. On
+  // the four dark discs that put a black pip on a near-black ground: the
+  // incorporeal ghost lost both its eyes. Substituted, not inherited.
+  `stroke-linecap="round" stroke-linejoin="round">\n` +
+  `${body.replaceAll("currentColor", ink)}\n</g>\n</svg>\n`;
+
+/**
+ * Glyphs are drawn to a 64-wide frame but now sit inside a disc of radius 27,
+ * so anything reaching the old edges would be clipped by it. Scaling about the
+ * centre keeps every existing glyph's proportions and simply insets it.
+ */
+const inset = (body, k = 0.78) =>
+  `<g transform="translate(32 32) scale(${k}) translate(-32 -32)">\n${body}\n</g>`;
 
 /**
  * An Archimedean spiral as a polyline, for `unconscious`.
@@ -196,10 +248,22 @@ if (extra.length) {
   console.warn(`Glyphs with no matching status: ${extra.join(", ")}`);
 }
 
+// Every status must land in exactly one colour family, or its badge would be
+// drawn in a default nobody chose — the silent-fallback failure this project
+// keeps producing. Loud, and before anything is written.
+const unfamilied = expected.filter((id) => !LASTARC.statusFamilyOf(id));
+if (unfamilied.length) {
+  console.error(`No colour family for: ${unfamilied.join(", ")}`);
+  process.exitCode = 1;
+}
+
 let written = 0;
 for (const [id, body] of Object.entries(GLYPHS)) {
   if (!expected.includes(id)) continue;
-  writeFileSync(join(outDir, `${id}.svg`), svg(body.trim()), "utf8");
+  const family = LASTARC.statusFamilyOf(id);
+  const colours = LASTARC.statusFamilyColours[family];
+  if (!colours) continue;
+  writeFileSync(join(outDir, `${id}.svg`), svg(inset(body.trim()), colours), "utf8");
   written++;
 }
 

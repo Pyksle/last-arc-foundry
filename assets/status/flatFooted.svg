@@ -1,10 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-<defs><filter id="h" x="-35%" y="-35%" width="170%" height="170%" color-interpolation-filters="sRGB">
-<feMorphology in="SourceAlpha" operator="dilate" radius="3.2" result="d"/>
-<feFlood flood-color="#0c0b09" flood-opacity="0.92"/>
-<feComposite in2="d" operator="in" result="h"/>
-<feMerge><feMergeNode in="h"/><feMergeNode in="SourceGraphic"/></feMerge>
-</filter></defs>
-<g style="color:#f6f1e5" filter="url(#h)"><path d="M32 6v22M32 40v4"/><circle cx="32" cy="32" r="24"/>
-<circle cx="32" cy="46" r="2.5" fill="currentColor" stroke="none"/></g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<circle cx="32" cy="32" r="31" fill="#12100e" opacity="0.55"/>
+<circle cx="32" cy="32" r="29.5" fill="none" stroke="#f7f5ef" stroke-width="2.5" opacity="0.9"/>
+<circle cx="32" cy="32" r="27" fill="#e1895d"/>
+<g fill="none" stroke="#12100e" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+<g transform="translate(32 32) scale(0.78) translate(-32 -32)">
+<path d="M32 6v22M32 40v4"/><circle cx="32" cy="32" r="24"/>
+<circle cx="32" cy="46" r="2.5" fill="#12100e" stroke="none"/>
+</g>
+</g>
 </svg>
