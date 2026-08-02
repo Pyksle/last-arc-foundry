@@ -198,6 +198,25 @@ describe("§20 what a change says it does", () => {
     }
   });
 
+  /**
+   * `ActiveEffect#sourceName` returns a LOCALISED string — `localize("None")`
+   * with no origin, "Unknown" when the origin cannot be resolved. Comparing it
+   * to an English literal is right in English by coincidence and wrong
+   * everywhere else, where the panel prints the word "None" as a source. The
+   * field it is derived FROM is the thing to test.
+   */
+  test("the panel does not compare a localised string to English", () => {
+    const src = read("module/sheets/effect-panel.mjs")
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .replace(/(^|[^:])\/\/.*$/gm, "$1 ");
+    for (const word of ["None", "Unknown"]) {
+      assert.ok(!new RegExp(`sourceName[^\\n]*["']${word}["']`).test(src),
+        `sourceName is being compared against the English "${word}"`);
+    }
+    assert.match(src, /source:\s*e\.origin\s*\?/,
+      "the source should come off `origin`, which is not localised");
+  });
+
   test("the panel hands the actor's own type down", () => {
     assert.match(read("module/sheets/effect-panel.mjs"),
       /actorType:\s*actor\?\.type/,

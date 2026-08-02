@@ -50,9 +50,28 @@ export function effectPanelRows(actor, localize = (k) => k) {
      * Foundry's own duration wording, not ours. It knows the combat, the round
      * it started, and how many turns are left; a second implementation here
      * would be a second opinion about when a buff ends.
+     *
+     * Keyed off `type`, which `_prepareDuration` always sets. A round-counted
+     * effect with no combat to measure against returns `{type: "turns"}` and no
+     * label at all — the honest state, and the one a performance buff is in
+     * outside combat — while `type: "none"` labels itself the localised
+     * "None", which is a word this panel should not print in the space where a
+     * duration goes.
      */
-    durationLabel: e.duration?.duration ? e.duration.label : null,
-    source: e.sourceName && e.sourceName !== "None" ? e.sourceName : null
+    durationLabel: (e.duration?.type && e.duration.type !== "none" && e.duration.label)
+      ? e.duration.label
+      : null,
+    /**
+     * `origin`, not a comparison against `sourceName`.
+     *
+     * `sourceName` returns a LOCALISED string — `game.i18n.localize("None")`
+     * when there is no origin, "Unknown" when it cannot be resolved. This read
+     * `sourceName !== "None"`, which is a raw English literal doing a job that
+     * belongs to the field it is derived from: correct in English by
+     * coincidence and wrong in every other language, where the panel would
+     * print the word "None" as an effect's source.
+     */
+    source: e.origin ? e.sourceName : null
   }));
 
   return effectRows(snapshots, { localize, actorType: actor?.type ?? null });
