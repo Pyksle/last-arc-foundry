@@ -283,15 +283,22 @@ describe("no decoy technick flags", () => {
    * condition, so the player switches the technick off — and every consumer
    * has to honour that, or the switch is decoration.
    *
-   * Source-level assertions because `hasFlag` is module-private and
-   * `#aggregateGrants` needs a live Foundry document to call.
+   * Source-level assertions because the flag reader needs a live Foundry
+   * document, as does `#aggregateGrants`.
+   *
+   * The name is matched loosely on purpose. This test failed when `hasFlag`
+   * became `hasTechnickFlag`, which is the right outcome — but a regex that
+   * silently matched NOTHING would have passed while asserting nothing at all,
+   * so the match is asserted before it is read.
    */
   test("a switched-off technick contributes neither flags nor grants", () => {
     for (const file of ["module/dice/attack.mjs", "module/dice/magic.mjs"]) {
-      const body = read(file).match(/function hasFlag\([\s\S]*?\n\}/)[0];
-      assert.match(body, /active\s*!==\s*false/,
-        `${file}: hasFlag ignores the suspend switch, so switching a technick ` +
-        "off on the sheet would not stop its flag applying");
+      const found = read(file).match(/function has\w*Flag\([\s\S]*?\n\}/);
+      assert.ok(found, `${file}: no flag-reading helper found — this test has ` +
+        "lost its target and is asserting nothing");
+      assert.match(found[0], /active\s*!==\s*false/,
+        `${file}: the flag reader ignores the suspend switch, so switching a ` +
+        "technick off on the sheet would not stop its flag applying");
     }
 
     // Anchored on the DEFINITION: `#aggregateGrants()` also appears as a call

@@ -62,8 +62,23 @@
   font-family: var(--la-font-body);
 }
 
-/* Dark theme. Foundry v13 stamps a theme onto the root; support both the OS
-   signal and the explicit toggle so neither can strand the sheet mid-palette. */
+/* -- Themes ------------------------------------------------------------------
+   THE OS SIGNAL IS THE FALLBACK, NOT THE ANSWER. It is listed first and carries
+   the lowest specificity on purpose: whatever Foundry says must be able to beat
+   it, in BOTH directions.
+
+   Reported as "both settings only appear as dark mode for me" (issue #41), on a
+   machine whose OS is in dark mode. The explicit rules below only matched
+   `:root[data-theme="…"]`, which nothing was setting, so the media query was
+   deciding the palette on its own and the in-app toggle appeared inert.
+
+   Foundry v13 themes an application by putting `themed theme-light` /
+   `theme-dark` CLASSES on the window element — the sheet's own ancestor, not
+   the document root. `data-theme` is kept alongside because it is what earlier
+   versions used and it costs nothing to honour both.
+
+   `.last-arc.theme-*` covers the case where the themed element IS our root
+   node rather than an ancestor of it. */
 @media (prefers-color-scheme: dark) {
   .last-arc {
     --la-paper: #1d1a17;
@@ -81,7 +96,9 @@
     --la-good: #6b9c73;
   }
 }
-:root[data-theme="dark"] .last-arc {
+:root[data-theme="dark"] .last-arc,
+.theme-dark .last-arc,
+.last-arc.theme-dark {
   --la-paper: #1d1a17;
   --la-paper-2: #262220;
   --la-paper-3: #322c28;
@@ -95,7 +112,9 @@
   --la-oxblood-bright: #c25555;
   --la-good: #6b9c73;
 }
-:root[data-theme="light"] .last-arc {
+:root[data-theme="light"] .last-arc,
+.theme-light .last-arc,
+.last-arc.theme-light {
   --la-paper: #f5f0e4;
   --la-paper-2: #ece4d2;
   --la-paper-3: #e0d5bd;
@@ -1600,6 +1619,20 @@
   font-size: 1.05rem;
   font-weight: 700;
   text-align: center;
+}
+/* The skill name sits UNDER the total rather than beside it: the column is
+   sized for a two-character bonus, and "Spellcraft" on the same line would
+   push the damage and type chips off the row. */
+.la-attack__skill {
+  display: block;
+  font-family: var(--la-font-body);
+  font-size: 0.5rem;
+  font-style: normal;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--la-ink-faint);
+  line-height: 1.1;
 }
 .la-attack__damage { font-family: var(--la-font-num); font-size: 0.85rem; white-space: nowrap; }
 .la-attack.is-unusable { opacity: 0.55; }

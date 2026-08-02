@@ -273,6 +273,15 @@
                  {{#if system.drAppliesToInitialOnly}}checked{{/if}}>
           {{localize "LASTARC.Field.DrInitialOnly"}}
         </label>
+        {{!-- Unconditional, so it is a property of the spell rather than a
+              switch the caster flips. The conditional sources live on the
+              caster as the `doubledSpellExplosions` technick flag. --}}
+        <label class="la-checkfield"
+               data-tooltip="{{localize 'LASTARC.Tooltip.SpellDoubledExplosions'}}">
+          <input type="checkbox" name="system.doubledExplosions"
+                 {{#if system.doubledExplosions}}checked{{/if}}>
+          {{localize "LASTARC.Field.DoubledExplosions"}}
+        </label>
       </div>
 
       <div class="la-field">

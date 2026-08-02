@@ -15,7 +15,7 @@
 import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollSkill, rollAttribute } from "../dice/rolls.mjs";
-import { rollAttack, defenceToBeat } from "../dice/attack.mjs";
+import { rollAttack, defenceToBeat, weaponProfileFor } from "../dice/attack.mjs";
 import { castSpell, performItem, performancesDisplacedBy } from "../dice/magic.mjs";
 import { heroPointDefenceBoost } from "../dice/hero-points.mjs";
 import * as AE from "../action-economy.mjs";
@@ -536,29 +536,18 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     for (const item of orderBySort([...this.document.items])) {
       if (item.type !== "weapon" || !item.system.equipped) continue;
 
-      const wield = D.wieldCategory(sys.details.size, item.system.size, item.system.category);
-      const unusable = wield === "unusable";
-      const isMelee = !LASTARC.rangedWeaponCategories.has(item.system.category);
-
-      // Light weapons may use either 1-Handed or Light Weapon; show the better.
-      let skillKey = wield;
-      if (wield === "light" && D.lightWeaponAllowsChoice(sys.details.size, item.system.size)) {
-        const light = sys.skills.lightWeapon?.total ?? -Infinity;
-        const oneH = sys.skills.oneHanded?.total ?? -Infinity;
-        skillKey = light >= oneH ? "lightWeapon" : "oneHanded";
-      } else if (wield === "light") {
-        skillKey = "lightWeapon";
-      }
-
-      const skillMod = unusable ? 0 : (sys.skills[skillKey]?.total ?? 0);
-      const proficient = sys.proficiencies.weapons.includes(item.system.category);
-
-      const damageTerms = D.rd(sys.details.level / 2)
-        + (isMelee
-          ? sys.attributes.str.mod * D.strDamageMultiplier(wield)
-          : 0)
-        + (item.system.damageBonus ?? 0)
-        + (item.system.breakGauge?.penalty ?? 0);
+      /**
+       * The SAME profile `rollAttack` uses. This row used to compute its own
+       * skill choice and its own damage terms, and had drifted from the dice in
+       * four places at once (issue #40) — most visibly a Spellcraft wand
+       * advertising the ranged skill's +2 against the +13 it actually rolled.
+       *
+       * Nothing about the numbers below may be computed here. If the row needs
+       * a term the dice do not have, it belongs in `weaponAttackProfile` where
+       * both halves can see it.
+       */
+      const profile = weaponProfileFor(this.document, item);
+      const { wield, unusable } = profile;
 
       out.push({
         id: item.id,
@@ -567,9 +556,12 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
         unusable,
         wieldLabel: LASTARC.wieldLabels[wield],
         wieldTooltip: unusable ? "LASTARC.Tooltip.WeaponUnusable" : "LASTARC.Tooltip.WieldDerived",
-        atkTotal: skillMod + (item.system.atkBonus ?? 0) + (proficient ? 0 : -5),
+        atkTotal: profile.attack.total,
+        // Which skill the row's number came from, so a player can see WHY a
+        // wand reads +13 rather than being asked to take it on trust.
+        skillLabel: profile.skillKey ? `LASTARC.Skill.${profile.skillKey}` : "",
         damage: item.system.damage,
-        damageFlat: damageTerms,
+        damageFlat: profile.damage.flat,
         /**
          * ALL of them, not the first. A weapon may carry several and the row
          * showed only `[0]`, so a "Piercing or Slashing" polearm advertised

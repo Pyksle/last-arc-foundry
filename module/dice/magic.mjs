@@ -573,10 +573,28 @@ export async function castSpell(actor, spell, options = {}) {
       ? doubleDiceCount(outcome.damage)
       : outcome.damage;
 
-    // Spells are not attacks: no crit multiplier, and explosion stays at 1
-    // regardless of any `doubledExplosions` the caster may have.
+    /**
+     * Spells are not attacks, so there is no crit multiplier here. Explosions
+     * are a different question, and the answer used to be a hardcoded 1 with a
+     * comment asserting spells never double. That was wrong (issue #42).
+     *
+     * Two sources, deliberately separate:
+     *
+     *   - the SPELL itself always doubles — a fixed property of a handful of
+     *     the book's spells, needing no switch;
+     *   - the CASTER carries `doubledSpellExplosions`, which is how the
+     *     conditional equipment sources are modelled. It is a different flag
+     *     from the weapon technicks' `doubledExplosions` precisely so that a
+     *     melee doubling technick cannot leak onto a fireball.
+     *
+     * They do not stack. The book doubles; nothing in it doubles twice, and
+     * inventing a ×4 because two sources happened to overlap would be a
+     * house rule the system imposed rather than the table chose.
+     */
+    const doubles = !!sp.doubledExplosions || hasFlag(actor, "doubledSpellExplosions");
+
     const rolled = await rollDamageDice({
-      diceFormula: dice, critMultiplier: 1, explosionMultiplier: 1, flat: 0
+      diceFormula: dice, critMultiplier: 1, explosionMultiplier: doubles ? 2 : 1, flat: 0
     });
 
     const multiplier = opposed.opposed && !opposed.beat

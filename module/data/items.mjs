@@ -338,6 +338,20 @@ export class LastArcSpellData extends foundry.abstract.TypeDataModel {
       }),
 
       /**
+       * This spell's damage dice always double their explosions (issue #42).
+       *
+       * A property of the SPELL, not of the caster, and unconditional — the
+       * book has spells that simply do this whenever they deal damage. They
+       * need no on/off switch, unlike the wielder-held `doubledSpellExplosions`
+       * technick flag, whose sources are all conditional.
+       *
+       * Spell damage used to hardcode a multiplier of 1 with a comment saying
+       * spells never double. That was wrong, and wrong in the direction that
+       * quietly costs the player dice they were owed.
+       */
+      doubledExplosions: new fields.BooleanField({ initial: false }),
+
+      /**
        * The outcome table (§18.6).
        *
        * This replaces a flat `spellcraftDC` + `damage` + `damageScaling` +

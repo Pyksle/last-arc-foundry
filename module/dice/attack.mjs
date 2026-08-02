@@ -247,9 +247,143 @@ export function buildDamageTerms({
   return { flat: parts.reduce((s, p) => s + p.value, 0), parts, attribute };
 }
 
+/**
+ * Which SKILL a weapon attacks with.
+ *
+ * Staves are checked first and on the CATEGORY, because the wield category is
+ * derived from size and would otherwise route a staff to One-Handed or
+ * Two-Handed — the sizing question the book does not ask of them (issue #36).
+ *
+ * The light-weapon choice resolves to whichever skill is HIGHER. §5.4 gives the
+ * choice to the wielder and attaches no rider to either answer, so there is
+ * nothing to weigh and no reason to make the player state it every swing. It is
+ * decided here rather than at two call sites because the sheet row promising one
+ * skill while the dice used another is exactly the defect this function exists
+ * to close (issue #40).
+ */
+export function attackSkillKey({
+  wield, category = "", actorSize = "medium", weaponSize = "medium", skills = {}
+} = {}) {
+  if (LASTARC.spellcraftWeaponCategories.has(category)) return "spellcraft";
+
+  if (wield === "light" && D.lightWeaponAllowsChoice(actorSize, weaponSize)) {
+    const light = skills.lightWeapon?.total ?? -Infinity;
+    const oneH = skills.oneHanded?.total ?? -Infinity;
+    return light >= oneH ? "lightWeapon" : "oneHanded";
+  }
+
+  return D.weaponSkillFor(wield);
+}
+
+/**
+ * Everything about an attack that depends only on the ATTACKER and the WEAPON.
+ *
+ * This is the one place that answers "what does this weapon do at rest". The
+ * character sheet's Attacks row and `rollAttack` both read it, and that is the
+ * entire point: they used to answer independently and had drifted apart in four
+ * places at once (issue #40) —
+ *
+ *   - staves rolled Spellcraft but the row showed the ranged skill, which is
+ *     how a +13 wand advertised itself as +2;
+ *   - bows added Strength to damage but the row did not, so every bow in play
+ *     under-reported itself by its wielder's Strength modifier;
+ *   - Weapon Finesse substituted Agility in the dice and never in the row;
+ *   - the light-weapon choice took the better skill in the row and the worse
+ *     one in the dice.
+ *
+ * Each was individually small and all four were invisible to the unit suite,
+ * because every function involved was correct — it was the second copy of the
+ * decision that was wrong. A displayed number that is not the rolled number is
+ * worse than no number: the player budgets against it.
+ *
+ * SITUATION IS DELIBERATELY ABSENT. Cover, flanking, range band and two-weapon
+ * fighting belong to a moment, not to a weapon, and the row would be lying in a
+ * different way if it folded them in. `rollAttack` layers those on top.
+ *
+ * @returns {{wield:string, unusable:boolean, isMelee:boolean, skillKey:string|null,
+ *            skillMod:number, proficient:boolean,
+ *            attack:{total:number, parts:Array}, damage:{flat:number, parts:Array, attribute:string|null}}}
+ */
+export function weaponAttackProfile({
+  actorSize = "medium",
+  level = 1,
+  strMod = 0,
+  agiMod = 0,
+  skills = {},
+  proficientCategories = [],
+  category = "",
+  weaponSize = "medium",
+  atkBonus = 0,
+  damageBonus = 0,
+  breakPenalty = 0,
+  weaponFinesse = false,
+  isThrown = false
+} = {}) {
+  const wield = D.wieldCategory(actorSize, weaponSize, category);
+  const unusable = wield === "unusable";
+  const isMelee = !LASTARC.rangedWeaponCategories.has(category);
+
+  // `weaponSkillFor` throws on an unmapped category rather than returning a
+  // default, so an unusable weapon must not reach it.
+  const skillKey = unusable
+    ? null
+    : attackSkillKey({ wield, category, actorSize, weaponSize, skills });
+
+  const skillMod = skillKey ? (skills[skillKey]?.total ?? 0) : 0;
+  const proficient = proficientCategories.includes(category);
+
+  return {
+    wield,
+    unusable,
+    isMelee,
+    skillKey,
+    skillMod,
+    proficient,
+    attack: attackModifiers({ skillMod, weaponAtkBonus: atkBonus, proficient }),
+    damage: buildDamageTerms({
+      level,
+      strMod,
+      agiMod,
+      wieldCategory: wield,
+      isRanged: !isMelee,
+      isThrown,
+      weaponFinesse,
+      // Bows only — crossbows and staves add no attribute at all (issue #36).
+      rangedUsesStrength: LASTARC.strengthRangedCategories.has(category),
+      damageBonus,
+      breakPenalty
+    })
+  };
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Foundry-facing                                                             */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Read a live actor and weapon into `weaponAttackProfile`'s pure inputs.
+ *
+ * The adapter exists so there is exactly one mapping from document shape to
+ * profile inputs. A second reader is how the divergence started.
+ */
+export function weaponProfileFor(actor, weapon, { isThrown = false } = {}) {
+  const sys = actor.system;
+  return weaponAttackProfile({
+    actorSize: sys.details.size,
+    level: sys.details.level,
+    strMod: sys.attributes.str.mod,
+    agiMod: sys.attributes.agi.mod,
+    skills: sys.skills,
+    proficientCategories: sys.proficiencies?.weapons ?? [],
+    category: weapon.system.category,
+    weaponSize: weapon.system.size,
+    atkBonus: weapon.system.atkBonus ?? 0,
+    damageBonus: weapon.system.damageBonus ?? 0,
+    breakPenalty: weapon.system.breakGauge?.penalty ?? 0,
+    weaponFinesse: hasTechnickFlag(actor, "weaponFinesse"),
+    isThrown
+  });
+}
 
 /**
  * Roll an attack with a weapon.
@@ -268,8 +402,12 @@ export async function rollAttack(actor, weapon, options = {}) {
     return null;
   }
 
-  const wield = D.wieldCategory(sys.details.size, weapon.system.size, weapon.system.category);
-  if (wield === "unusable") {
+  // The SAME profile the sheet's Attacks row displays. Deciding the skill and
+  // the attribute here as well is what let the two drift (issue #40).
+  const profile = weaponProfileFor(actor, weapon, { isThrown: !!options.isThrown });
+  const { wield, skillKey, isMelee } = profile;
+
+  if (profile.unusable) {
     ui.notifications?.warn(
       game.i18n.format("LASTARC.Warning.WeaponUnusable", {
         weapon: weapon.name, actor: actor.name
@@ -278,31 +416,16 @@ export async function rollAttack(actor, weapon, options = {}) {
     return null;
   }
 
-  // A light weapon one size down may use 1-Handed instead, at the wielder's
-  // choice (§5.4). Everything else maps straight through — via weaponSkillFor,
-  // because the wield vocabulary and the skill vocabulary differ.
-  /**
-   * Staves are resolved with Spellcraft, not a weapon skill (issue #36). The
-   * check is on the CATEGORY and comes first, because the wield category is
-   * derived from size and would otherwise route a staff to One-Handed or
-   * Two-Handed — the sizing question the book explicitly does not ask of them.
-   */
-  const skillKey = LASTARC.spellcraftWeaponCategories.has(weapon.system.category)
-    ? "spellcraft"
-    : wield === "light" && options.useOneHanded
-      ? "oneHanded"
-      : D.weaponSkillFor(wield);
-
-  const skill = sys.skills[skillKey];
-  if (!skill) throw new Error(`Actor has no "${skillKey}" skill for a ${wield} attack.`);
-  const isMelee = !LASTARC.rangedWeaponCategories.has(weapon.system.category);
+  if (!sys.skills[skillKey]) {
+    throw new Error(`Actor has no "${skillKey}" skill for a ${wield} attack.`);
+  }
 
   const mods = attackModifiers({
-    skillMod: skill?.total ?? 0,
+    skillMod: profile.skillMod,
     weaponAtkBonus: weapon.system.atkBonus ?? 0,
-    proficient: sys.proficiencies.weapons.includes(weapon.system.category),
+    proficient: profile.proficient,
     isMelee,
-    preciseShot: hasFlag(actor, "preciseShot"),
+    preciseShot: hasTechnickFlag(actor, "preciseShot"),
     dualWieldRank: dualWieldRank(actor),
     ...options
   });
@@ -348,24 +471,35 @@ export async function rollDamage(
   if (type === null) return null;
 
   const critMultiplier = outcome?.critical
-    ? (hasFlag(actor, "tripleCrit") ? 3 : 2)
+    ? (hasTechnickFlag(actor, "tripleCrit") ? 3 : 2)
     : 1;
 
-  const explosionMultiplier = hasFlag(actor, "doubledExplosions") ? 2 : 1;
+  const explosionMultiplier = hasTechnickFlag(actor, "doubledExplosions") ? 2 : 1;
 
-  const terms = buildDamageTerms({
-    level: sys.details.level,
-    strMod: sys.attributes.str.mod,
-    agiMod: sys.attributes.agi.mod,
-    wieldCategory: wield,
-    isRanged: !isMelee,
-    isThrown,
-    weaponFinesse: hasFlag(actor, "weaponFinesse"),
-    // Bows only — crossbows and staves add no attribute at all (issue #36).
-    rangedUsesStrength: LASTARC.strengthRangedCategories.has(weapon.system.category),
-    damageBonus: weapon.system.damageBonus ?? 0,
-    breakPenalty: weapon.system.breakGauge?.penalty ?? 0
-  });
+  /**
+   * Derived, not defaulted. `wield` and `isMelee` arrive from the attack card's
+   * flags so the damage half reproduces what the ATTACK decided (0.18.1); the
+   * profile answers the same question from the actor and weapon themselves,
+   * which is strictly better than the `?? "oneHanded"` that made 0.18.1
+   * necessary — an absent flag can no longer become plausible arithmetic.
+   *
+   * They are still checked. A disagreement means the actor or the weapon
+   * changed between the attack and the damage click, and the table should know
+   * rather than have it silently resolved either way.
+   */
+  const profile = weaponProfileFor(actor, weapon, { isThrown });
+
+  if ((wield !== null && wield !== profile.wield)
+    || (isMelee !== null && isMelee !== profile.isMelee)) {
+    console.warn(
+      `Last Arc | ${actor.name}'s ${weapon.name} was attacked with as `
+      + `${wield}/${isMelee ? "melee" : "ranged"} but now profiles as `
+      + `${profile.wield}/${profile.isMelee ? "melee" : "ranged"}. `
+      + "Something changed between the attack and the damage; using the current profile."
+    );
+  }
+
+  const terms = profile.damage;
 
   const result = await rollDamageDice({
     diceFormula: weapon.system.damage,
@@ -590,7 +724,7 @@ export async function applyDamage(target, { total, type = "blunt", faces = null 
   };
 
   if (breaks) {
-    const steps = hasFlag(target, "debilitatingInjury") ? 2 : 1;
+    const steps = hasTechnickFlag(target, "debilitatingInjury") ? 2 : 1;
     updates["system.breakGauge.step"] = D.worsenStep(sys.breakGauge.step, steps);
     // Any action interrupts a banked Recovery (§9).
     updates["system.breakGauge.recoveryProgress"] = 0;
@@ -618,7 +752,7 @@ export async function applyDamage(target, { total, type = "blunt", faces = null 
 /*  Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
-function hasFlag(actor, flag) {
+export function hasTechnickFlag(actor, flag) {
   return actor?.items?.some(
     (i) => (i.type === "technick" || i.type === "talent")
       // Switched-off technicks do not contribute. Most of the book's flags are

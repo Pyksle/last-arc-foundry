@@ -414,13 +414,37 @@ describe("status assets", () => {
     assert.deepEqual(orphans, [], `icons with no status: ${orphans.join(", ")}`);
   });
 
+  /**
+   * This test used to require `currentColor` in every icon, on the stated
+   * grounds that "currentColor lets Foundry tint the badge". That premise was
+   * false and it is what produced issue #41: these files are fetched BY PATH as
+   * token overlay images, so there is no cascade around them, no inherited
+   * `color`, and nothing to tint. `currentColor` resolved to its initial value
+   * — black — and black line art on a dark token cannot be seen.
+   *
+   * A test asserting the cause of a bug is worse than no test, because it
+   * defends the bug. The colour rule now lives in test/theme.test.mjs, which
+   * requires each file to state a colour of its own.
+   *
+   * What remains here is the part that was always right: an icon must not
+   * depend on anything outside itself. `url(#…)` is an INTERNAL reference to
+   * the file's own halo filter and is explicitly allowed — the old pattern
+   * banned every `url(` and would have failed the fix.
+   */
   test("icons are self-contained SVG with no external references", () => {
     for (const file of readdirSync(join(root, "assets/status"))) {
       const svg = readFileSync(join(root, "assets/status", file), "utf8");
       assert.ok(svg.startsWith("<svg"), `${file} is not an SVG`);
-      assert.ok(!/<image|href=|url\(/i.test(svg), `${file} references an external asset`);
-      // currentColor lets Foundry tint the badge; a hardcoded fill would not.
-      assert.ok(svg.includes("currentColor"), `${file} should use currentColor`);
+
+      for (const m of svg.matchAll(/\burl\(\s*['"]?([^'")]+)/gi)) {
+        assert.ok(m[1].startsWith("#"),
+          `${file} references an external asset: url(${m[1]})`);
+      }
+      for (const m of svg.matchAll(/\b(?:href|xlink:href|src)\s*=\s*"([^"]*)"/gi)) {
+        assert.ok(m[1].startsWith("#"),
+          `${file} references an external asset: ${m[1]}`);
+      }
+      assert.doesNotMatch(svg, /<image\b/i, `${file} embeds a raster image`);
     }
   });
 

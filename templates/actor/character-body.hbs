@@ -499,7 +499,14 @@
           <span class="la-attack__wield" data-tooltip="{{localize this.wieldTooltip}}">
             {{localize this.wieldLabel}}
           </span>
-          <span class="la-attack__bonus">{{lasignal this.atkTotal}}</span>
+          {{!-- The skill is named, not just totalled. A staff rolls Spellcraft
+                rather than a weapon skill, and a bare "+13" next to a wand
+                looks like a bug unless the row says where it came from. --}}
+          <span class="la-attack__bonus"
+                {{#if this.skillLabel}}data-tooltip="{{localize this.skillLabel}}"{{/if}}>
+            {{lasignal this.atkTotal}}
+            {{#if this.skillLabel}}<em class="la-attack__skill">{{localize this.skillLabel}}</em>{{/if}}
+          </span>
           <span class="la-attack__damage">
             {{this.damage}}{{#if this.damageFlat}} {{lasignal this.damageFlat}}{{/if}}
           </span>

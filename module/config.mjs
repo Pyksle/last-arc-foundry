@@ -364,6 +364,20 @@ LASTARC.technickFlags = [
   "preciseShot",          // negates the -5 for shooting into melee
   "tripleCrit",           // ranged crit multiplier x3 instead of x2
   "doubledExplosions",    // each exploding die generates 2 rather than 1 (Backstab)
+  /**
+   * The same doubling, but on SPELL damage (issue #42). A separate flag on
+   * purpose: `doubledExplosions` is carried by weapon technicks, and merging
+   * the two would have a backstab doubling a fireball.
+   *
+   * Held by the WIELDER rather than the spell, because the book's sources for
+   * it are equipment whose trigger is conditional — one wants the weapon and
+   * the spell to damage in the same instant, two others want a particular
+   * school. None of those is a condition the system can evaluate, so this uses
+   * the same switch every conditional flag uses: the player turns it on when it
+   * applies. Spells that ALWAYS double carry `system.doubledExplosions`
+   * instead and need no switching.
+   */
+  "doubledSpellExplosions",
   "combatCasting",        // multi-threat casting reduced to a single -5
   "debilitatingInjury",   // damage over Threshold worsens the gauge by 2, not 1
   /**

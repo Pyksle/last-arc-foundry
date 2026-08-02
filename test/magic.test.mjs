@@ -252,17 +252,96 @@ describe("spells are NOT attacks", () => {
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/^\s*\/\/.*$/gm, "");
 
+    /**
+     * `doubledExplosions` is the WEAPON flag and must not reach a spell. The
+     * spell-side doubling added for issue #42 is a deliberately different flag,
+     * `doubledSpellExplosions`, so this exact-match assertion still holds and
+     * still means what it says: a backstab technick cannot double a fireball.
+     */
     for (const flag of ["tripleCrit", "doubledExplosions", "weaponFinesse", "preciseShot"]) {
       assert.doesNotMatch(src, new RegExp(`["'\`]${flag}["'\`]`),
         `${flag} interacts with attacks and must not reach a spell`);
     }
   });
 
-  test("explosion and crit multipliers are pinned to 1 at the call site", async () => {
+  /**
+   * This test used to assert `explosionMultiplier: 1` appeared in the file and
+   * call spell explosions "pinned". That claim became FALSE when issue #42
+   * landed, and the test carried on passing — the literal still occurs on the
+   * performance and mana-loss rolls, so the assertion was satisfied by lines
+   * that had nothing to do with what it was vouching for.
+   *
+   * A guard that keeps passing after the thing it guards stops being true is
+   * worse than no guard. It is rewritten to name the call site.
+   */
+  test("crits never apply to a spell, and doubling is opt-in per spell", async () => {
     const { readFileSync } = await import("node:fs");
-    const src = readFileSync(new URL("../module/dice/magic.mjs", import.meta.url), "utf8");
-    assert.match(src, /critMultiplier:\s*1/);
-    assert.match(src, /explosionMultiplier:\s*1/);
+    const raw = readFileSync(new URL("../module/dice/magic.mjs", import.meta.url), "utf8");
+    const src = raw
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+
+    /**
+     * A spell has no critical hit anywhere in the module.
+     *
+     * The values are extracted and compared rather than matched with a negative
+     * lookahead: `/critMultiplier:\s*(?!1\b)/` looks correct and is not, because
+     * `\s*` backtracks to zero width and the lookahead then tests the SPACE,
+     * which is not a `1`, so it matches every well-formed line in the file.
+     */
+    const crits = [...src.matchAll(/critMultiplier:\s*([^,\s}]+)/g)].map((m) => m[1]);
+    assert.ok(crits.length > 0, "no critMultiplier call sites found — lost target");
+    assert.deepEqual([...new Set(crits)], ["1"],
+      `a spell must never take a critical multiplier other than 1; found ${crits}`);
+
+    // The damage roll's multiplier is a decision, not a constant.
+    assert.match(src, /explosionMultiplier:\s*doubles\s*\?\s*2\s*:\s*1/,
+      "the spell damage roll no longer decides its explosion multiplier from " +
+      "the spell and the caster (issue #42)");
+
+    assert.match(src, /const doubles\s*=[\s\S]{0,160}?sp\.doubledExplosions/,
+      "the per-spell always-doubles property is not consulted");
+    assert.match(src, /const doubles\s*=[\s\S]{0,160}?doubledSpellExplosions/,
+      "the caster-held conditional flag is not consulted");
+
+    // Not multiplicative. Two sources overlapping must not produce x4.
+    assert.doesNotMatch(src, /explosionMultiplier:\s*\w+\s*\*/,
+      "explosion doubling must not stack into a x4 the book never grants");
+  });
+
+  /**
+   * Both halves of issue #42 must be REACHABLE, not merely implemented. This is
+   * the project's most-repeated defect: correct code wired to no input.
+   */
+  test("both routes to a doubled spell explosion can be switched on", async () => {
+    const { readFileSync } = await import("node:fs");
+    const at = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+
+    assert.match(at("templates/item/item-sheet.hbs"),
+      /name="system\.doubledExplosions"/,
+      "a spell that always doubles has no checkbox, so the schema field can be " +
+      "stored and never entered");
+
+    const { LASTARC } = await import("../module/config.mjs");
+    assert.ok(LASTARC.technickFlags.includes("doubledSpellExplosions"),
+      "the caster-held flag is not offered in the technick flag picker");
+  });
+
+  /**
+   * Healing is static. Confirmed by the playtester against the book on issue
+   * #42: printed numbers, with at most a level term. Nothing explodes, so the
+   * doubling above must not have leaked into the healing path.
+   */
+  test("healing does not explode, doubled or otherwise", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync(new URL("../module/dice/healing.mjs", import.meta.url), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+
+    const mults = [...src.matchAll(/explosionMultiplier:\s*([^,\s}]+)/g)].map((m) => m[1]);
+    assert.ok(mults.length > 0, "no healing roll found — lost target");
+    assert.deepEqual([...new Set(mults)], ["1"],
+      `healing must roll flat; found explosion multipliers ${mults}`);
   });
 });
 

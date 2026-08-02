@@ -1,3 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-<path d="M14 22 30 8l22 8 4 22-16 18-20-4z"/><path d="M30 8l4 26 22 4M34 34 22 54"/>
+<defs><filter id="h" x="-35%" y="-35%" width="170%" height="170%" color-interpolation-filters="sRGB">
+<feMorphology in="SourceAlpha" operator="dilate" radius="3.2" result="d"/>
+<feFlood flood-color="#0c0b09" flood-opacity="0.92"/>
+<feComposite in2="d" operator="in" result="h"/>
+<feMerge><feMergeNode in="h"/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter></defs>
+<g style="color:#f6f1e5" filter="url(#h)"><path d="M14 22 30 8l22 8 4 22-16 18-20-4z"/><path d="M30 8l4 26 22 4M34 34 22 54"/></g>
 </svg>
