@@ -339,7 +339,12 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     };
 
     // 7. Defences -----------------------------------------------------------
-    const sizeMod = LASTARC.sizes[this.details.size]?.mod ?? 0;
+    // Toad replaces the creature's size outright rather than modifying it, so
+    // the size read here is the EFFECTIVE one. `details.size` is left alone —
+    // it is the character's real size and comes straight back when the status
+    // clears.
+    const effSize = D.effectiveSize(this.details.size, statuses.treatedAsSize);
+    const sizeMod = LASTARC.sizes[effSize]?.mod ?? 0;
     const computed = D.computeDefences({
       level,
       agiMod: this.attributes.agi.mod,
@@ -356,7 +361,9 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       misc: miscWithStatus,
       breakStep: step,
       agiDenied,
-      incapacitated
+      incapacitated,
+      agiOverride: statuses.agiOverride,
+      noEquipmentBenefit: statuses.noEquipmentBenefit
     });
 
     this.defences.ref.value = computed.ref;
@@ -375,7 +382,9 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       misc: { ref: miscWithStatus.ref },
       breakStep: step,
       agiDenied: true,
-      incapacitated
+      incapacitated,
+      agiOverride: statuses.agiOverride,
+      noEquipmentBenefit: statuses.noEquipmentBenefit
     }).ref;
 
     // Subtotal WITHOUT the break penalty, so the sheet tooltip reconciles
@@ -407,7 +416,9 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       fort: settings.breakGaugeAffectsThreshold
         ? this.defences.fort.value
         : this.defences.fort.beforeBreak,
-      size: this.details.size,
+      // Effective, for the same reason as the Reflex size mod above: a Large
+      // character turned into a toad no longer has a Large creature's Threshold.
+      size: effSize,
       technicks: grants.breakThreshold,
       itemBonus: this.breakGauge.thresholdBonus
     });

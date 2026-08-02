@@ -324,7 +324,12 @@ describe("§12 status payloads verified against the book (p.188-189)", () => {
   test("toad exists and is as sweeping as the book says", () => {
     const t = LASTARC.statusEffects.toad;
     assert.ok(t, "toad was missing from the table entirely");
-    assert.deepEqual(t.defences, { ref: -10, fort: -10, will: -10 });
+    // Reflex is absent by design — it is REBUILT from agiOverride,
+    // noEquipmentBenefit and treatedAsSize to the GM's formula on #46 rather
+    // than penalised, so a −10 here as well would charge it twice. Asserted in
+    // full in toad-defences.test.mjs.
+    assert.deepEqual(t.defences, { fort: -10, will: -10 });
+    assert.equal(t.agiOverride, -5);
     assert.equal(t.attackPenalty, -10);
     assert.equal(t.skillCheckPenalty, -10);
     assert.equal(t.damageRollPenalty, -10);

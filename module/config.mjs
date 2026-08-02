@@ -575,7 +575,20 @@ LASTARC.statusEffects = {
    * fight without removing their turn.
    */
   toad: {
-    defences: { ref: -10, fort: -10, will: -10 },
+    /**
+     * Reflex is deliberately NOT in this list, and removing it was the GM's
+     * call on #46. Under Toad, Reflex is rebuilt from the three keys below
+     * rather than penalised: base 10 with Agi treated as −5 gives 5, the toad's
+     * own Tiny size adds +2 (p.163), and the armour bonus goes because the
+     * armour is not on a toad. That reaches
+     *
+     *     7 + level + class bonus + technicks
+     *
+     * which is the GM's formula exactly. Leaving the −10 here as well would
+     * charge the same transformation twice.
+     */
+    defences: { fort: -10, will: -10 },
+    agiOverride: -5,
     attackPenalty: -10,
     skillCheckPenalty: -10,
     damageRollPenalty: -10,

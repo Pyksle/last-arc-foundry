@@ -229,21 +229,31 @@ export class LastArcNpcData extends foundry.abstract.TypeDataModel {
     // Printed values are unbroken; the gauge and any status penalties ride on
     // top. Statuses are added here rather than subtracted from the finished
     // total for the same reason as on a character: Threshold reads Fortitude.
-    this.defences.ref.value = this.defences.ref.base + bp + statuses.defences.ref;
     this.defences.fort.value = this.defences.fort.base + bp + statuses.defences.fort;
     this.defences.will.value = this.defences.will.base + bp + statuses.defences.will;
 
-    this.defences.ref.flatFooted =
-      (this.defences.ref.flatFootedBase ?? (this.defences.ref.base - Math.max(0, this.attributes.agi.mod)))
-      + bp + statuses.defences.ref;
-
     /**
-     * A status that denies Agility means the creature IS flat-footed, so its
-     * live Reflex becomes the flat-footed one. `defenceToBeat` already checks
-     * the `flatFooted` status by name; this covers the others that deny
-     * Agility — asleep, petrified, pinned, helpless, unconscious.
+     * Reflex has three interacting status rules and is therefore computed
+     * whole, in the Foundry-free module, rather than by a sequence of `if`s
+     * here — see `printedReflex`.
+     *
+     * That is not tidiness. The first version of this lived inline with an
+     * `if (statuses.agiOverride != null)` around it, and the guard meant to
+     * protect it was a source scan for the helper's name. Mutating the
+     * condition to `if (false)` left the name in place and the suite stayed
+     * green. A branch a test cannot reach is a branch a test cannot defend.
      */
-    if (statuses.agiDenied) this.defences.ref.value = this.defences.ref.flatFooted;
+    const ref = D.printedReflex({
+      printed: this.defences.ref.base,
+      flatFootedBase: this.defences.ref.flatFootedBase,
+      agiMod: this.attributes.agi.mod,
+      breakPenalty: bp,
+      statusDefence: statuses.defences.ref,
+      agiDenied: statuses.agiDenied,
+      agiOverride: statuses.agiOverride
+    });
+    this.defences.ref.value = ref.value;
+    this.defences.ref.flatFooted = ref.flatFooted;
 
     /**
      * Threshold: the printed value when present, else derived from the

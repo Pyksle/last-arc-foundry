@@ -57,11 +57,18 @@ describe("§ statuses reach a statblock, not just a character", () => {
   test("status defence penalties reach an NPC's defences", () => {
     const body = derived(npc);
     for (const key of LASTARC.opposableDefences) {
-      assert.match(
-        body,
-        new RegExp(`defences\\.${key}\\.value\\s*=[^;]*statuses\\.defences\\.${key}`),
-        `an NPC's ${key} ignores status penalties — Exhaustion's −10 does nothing`
-      );
+      // Reflex is the exception and deliberately so: it has three interacting
+      // status rules (agiDenied, agiOverride, and the rider below) and is
+      // computed whole by `printedReflex` so that every branch is reachable
+      // from a test. An inline `if` here could be mutated to `if (false)` with
+      // this scan none the wiser — that happened, see toad-defences.test.mjs.
+      // What is checked instead is that the aggregate is handed to the helper.
+      const pattern = key === "ref"
+        ? /printedReflex\(\{[^}]*statusDefence:\s*statuses\.defences\.ref/
+        : new RegExp(`defences\\.${key}\\.value\\s*=[^;]*statuses\\.defences\\.${key}`);
+
+      assert.match(body, pattern,
+        `an NPC's ${key} ignores status penalties — Exhaustion's −10 does nothing`);
     }
   });
 

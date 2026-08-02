@@ -139,6 +139,109 @@ export function applyIncapacitationOverride(mod, incapacitated) {
 }
 
 /**
+ * Apply a status-driven Agility override (`agiOverride`) to the Reflex input.
+ *
+ * A FLOOR, not an assignment: `Math.min`. A creature whose Agi is already −8
+ * does not improve to −5 by being knocked out, and applying two sources of the
+ * override does not reach −10.
+ *
+ * This exists because `applyIncapacitationOverride` only fires when the actor
+ * is at the bottom of the Break Gauge or on 0 HP. A GM ticking **helpless** by
+ * hand on an otherwise upright creature got `agiDenied` alone, which merely
+ * zeroes a positive bonus — so a helpless character with Agi +3 lost 3 points
+ * of Reflex instead of 8. The status has carried `agiOverride: -5` since it was
+ * written; nothing read it.
+ *
+ * Derived only. The stored Agility is untouched and returns the moment the
+ * status clears — the requirement the GM stated on #46.
+ */
+export function applyAgiOverride(mod, agiOverride) {
+  return agiOverride == null ? mod : Math.min(mod, agiOverride);
+}
+
+/**
+ * Reflex for a PRINTED statblock under an `agiOverride`.
+ *
+ * A character's Reflex is a sum, so an override just changes one term. A
+ * statblock prints a total, so the Agility baked into it has to be backed out
+ * and replaced: `printed − agiMod + override`.
+ *
+ * That inherits the assumption `flatFootedBase` already makes — that the
+ * printed number was built from the creature's own Agility. A statblock where
+ * that is not true will be off by the discrepancy, which is a limit of printed
+ * totals rather than of this function.
+ *
+ * Exported and tested rather than inlined in the NPC model, because a source
+ * scan cannot tell a live branch from a dead one — the first version of this
+ * guard passed against `if (false)`.
+ */
+export function printedRefWithAgiOverride(printed, agiMod, agiOverride) {
+  if (agiOverride == null) return printed;
+  return printed - agiMod + agiOverride;
+}
+
+/**
+ * A statblock's live and flat-footed Reflex, statuses included.
+ *
+ * Whole rather than piecewise, so every branch is reachable from a test. Three
+ * rules interact and their ORDER is the substance:
+ *
+ *   1. the Break penalty and any status defence modifier ride on the printed
+ *      value, which is itself unbroken;
+ *   2. `agiDenied` (flat-footed, asleep, pinned…) means the creature IS
+ *      flat-footed, so its live Reflex becomes the flat-footed one;
+ *   3. `agiOverride` (helpless, toad) is a bigger drop than being denied — Agi
+ *      is treated as a fixed −5 rather than merely stripped of its bonus — so
+ *      it applies AFTER (2), never instead of it. Getting this backwards makes
+ *      a helpless monster easier to hit than a merely flat-footed one by
+ *      exactly its Agility bonus, in the wrong direction.
+ *
+ * Deliberately NOT handled: `noEquipmentBenefit` and `treatedAsSize`. Both need
+ * the armour bonus and size modifier as separable terms, and a printed total
+ * has no terms — there is no honest way to subtract a component from a number
+ * that never had components. Toad on a MONSTER is therefore partial, and Toad
+ * on a CHARACTER is exact. Said plainly rather than approximated silently.
+ *
+ * @returns {{value: number, flatFooted: number}}
+ */
+export function printedReflex({
+  printed = 10,
+  flatFootedBase = null,
+  agiMod = 0,
+  breakPenalty = 0,
+  statusDefence = 0,
+  agiDenied = false,
+  agiOverride = null
+} = {}) {
+  const rider = breakPenalty + statusDefence;
+
+  let value = printed + rider;
+  let flatFooted = (flatFootedBase ?? (printed - Math.max(0, agiMod))) + rider;
+
+  if (agiDenied) value = flatFooted;
+
+  if (agiOverride != null) {
+    value = printedRefWithAgiOverride(printed + rider, agiMod, agiOverride);
+    // A printed flatFootedBase can be higher than the overridden value; the
+    // creature cannot be harder to hit flat-footed than it is upright.
+    flatFooted = Math.min(flatFooted, value);
+  }
+
+  return { value, flatFooted };
+}
+
+/**
+ * The size a creature counts as for defences and Break Threshold.
+ *
+ * Toad and its kin replace the creature's size outright (`treatedAsSize`)
+ * rather than modifying it — a Large character turned into a toad is Tiny, not
+ * "Large minus some". Falls back to the actor's own size.
+ */
+export function effectiveSize(baseSize, treatedAsSize = null) {
+  return LASTARC.sizes[treatedAsSize] ? treatedAsSize : baseSize;
+}
+
+/**
  * Compute all three defences.
  *
  * Order matters and is fixed here: attribute mods → incapacitation override →
@@ -159,23 +262,43 @@ export function computeDefences({
   misc = { ref: 0, fort: 0, will: 0 },
   breakStep = 0,
   agiDenied = false,
-  incapacitated = false
+  incapacitated = false,
+  agiOverride = null,
+  noEquipmentBenefit = false
 } = {}) {
-  const effAgi = applyIncapacitationOverride(agiMod, incapacitated);
+  // Agi takes both floors. They are the same operation with different
+  // triggers, and both are `Math.min`, so the order between them is irrelevant
+  // and applying both twice is still harmless.
+  //
+  // Mnd takes only the incapacitation floor: the status key is `agiOverride`
+  // and it means what it says. Nothing in the table overrides Mnd on its own.
+  const effAgi = applyAgiOverride(
+    applyIncapacitationOverride(agiMod, incapacitated), agiOverride
+  );
   const effMnd = applyIncapacitationOverride(mndMod, incapacitated);
+
+  // `noEquipmentBenefit` (toad) removes the armour entirely, not just its
+  // bonus — the Agi cap goes too, because a cap that exists only by virtue of
+  // wearing armour cannot outlive the armour. Under toad this is moot (Agi is
+  // floored to −5, and a negative always applies in full past any cap), but a
+  // future carrier of the key without an override would otherwise keep a
+  // restriction from equipment it is no longer benefiting from.
+  const effArmour = noEquipmentBenefit
+    ? { refBonus: 0, maxAgiBonus: Infinity }
+    : armour;
 
   // At step 5 the creature is not rolling; use the step-4 penalty for display so
   // the sheet shows a coherent number rather than NaN.
   const bp = breakPenalty(breakStep) ?? LASTARC.breakPenalties[LASTARC.BREAK_STEP_MAX - 1];
 
   const agiToRef = agiContributionToRef(effAgi, {
-    maxAgiBonus: armour?.maxAgiBonus ?? Infinity,
+    maxAgiBonus: effArmour?.maxAgiBonus ?? Infinity,
     agiDenied
   });
 
   return {
     breakPenalty: bp,
-    ref:  10 + level + agiToRef + (classBonus.ref  ?? 0) + (armour?.refBonus ?? 0)
+    ref:  10 + level + agiToRef + (classBonus.ref  ?? 0) + (effArmour?.refBonus ?? 0)
              + sizeMod + (technicks.ref  ?? 0) + (misc.ref  ?? 0) + bp,
     // Fortitude takes NO incapacitation override — §4.1 applies the −5 floor to
     // Agi (Reflex) and Mnd (Will) only. Vitality is used as-is.
