@@ -892,14 +892,16 @@ export async function repostAttackAfterReroll(actor, flags, roll) {
     outcome,
     options,
     wield: flags.wield ?? null,
-    isMelee: flags.isMelee ?? null
+    isMelee: flags.isMelee ?? null,
+    // This card came FROM a reroll, so it does not get to offer another.
+    rerolled: true
   });
   return true;
 }
 
 async function postAttackCard({
   actor, weapon, attack, attackIndex = null, roll, mods, outcome, options,
-  wield = null, isMelee = null, discardedNatural = null
+  wield = null, isMelee = null, discardedNatural = null, rerolled = false
 }) {
   const isNpc = attack != null;
 
@@ -984,6 +986,17 @@ async function postAttackCard({
          */
         wield,
         isMelee,
+        /**
+         * Set when this card IS the product of a reroll, so no further reroll
+         * is offered on it (#48).
+         *
+         * Without it the gate protected only the original message: the rebuilt
+         * card carried no marker, so every reroll button reappeared on it and a
+         * player could reroll indefinitely by hopping from card to card. The
+         * GM's ruling is one reroll per attempted check, and I reported this as
+         * already enforced when it was not.
+         */
+        ...(rerolled ? { rerolled: true } : {}),
         /**
          * The modifier total and its itemised parts.
          *

@@ -77,7 +77,7 @@ describe("§48 the reroll is rolled with the attack's modifier", () => {
 describe("§48 the rebuilt card is a real attack card", () => {
   test("the attack card stores its modifiers so one can be rebuilt", () => {
     const flagBlock = attack.slice(attack.indexOf('type: "attack"'));
-    assert.match(flagBlock.slice(0, 2000), /^[\s\S]*?\bmods,/,
+    assert.match(flagBlock.slice(0, 3000), /\n\s*mods,\n/,
       "mods is not on the attack card's flags, so a reroll has no modifier " +
       "total and no itemised parts to rebuild with");
   });
@@ -147,5 +147,65 @@ describe("§48 the rebuilt card is a real attack card", () => {
     assert.match(fn, /isWeaponSkill && natural === 20/,
       "nat 20 must be re-applied to the NEW die; on a weapon skill it overrides " +
       "the total entirely, which is the case the point was spent on");
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * ONE reroll per attempted check — the GM's ruling on #48, and the thing I
+ * reported as already working when it was not.
+ *
+ * The gate lives in the two `offer*` functions and reads `flags.rerolled` /
+ * `flags.heroRerolled` off the message being rendered. Both were stamped onto
+ * the ORIGINAL message and neither reached the REBUILT one:
+ *
+ *   - `postAttackCard` builds fresh flags and never carried a marker at all;
+ *   - `repostCheckAfterReroll` spread a `flags` snapshot captured BEFORE the
+ *     caller stamped it, so the marker was missing by one line of ordering.
+ *
+ * So the rebuilt card — the one now at the bottom of the log — offered every
+ * button again, and a player could reroll indefinitely by working forward from
+ * card to card. The gate protected only the message nobody was looking at any
+ * more.
+ */
+describe("§48 a rebuilt card cannot itself be rerolled", () => {
+  test("the rebuilt ATTACK card is stamped", () => {
+    const fn = attack.slice(
+      attack.indexOf("export async function repostAttackAfterReroll"),
+      attack.indexOf("async function postAttackCard")
+    );
+    assert.match(fn, /rerolled: true/,
+      "the rebuilt attack card carries no reroll marker, so every reroll " +
+      "button reappears on it");
+    assert.match(attack, /\.\.\.\(rerolled \? \{ rerolled: true \} : \{\}\)/,
+      "postAttackCard has no way to record that it came from a reroll");
+  });
+
+  test("the rebuilt CHECK card is stamped", () => {
+    const rolls = read("module/dice/rolls.mjs");
+    const fn = rolls.slice(rolls.indexOf("export async function repostCheckAfterReroll"));
+    assert.match(fn, /\.\.\.flags, natural, rerolled: true/,
+      "the rebuilt check card carries no reroll marker — and it cannot inherit " +
+      "one, because the snapshot it spreads was taken before the original was " +
+      "stamped");
+  });
+
+  test("an ordinary card is NOT stamped", () => {
+    // The marker must mean "this came from a reroll". A card that always
+    // carried it would retire the buttons on every first roll, which is the
+    // opposite failure and just as wrong.
+    assert.ok(!/rerolled: true/.test(
+      attack.slice(attack.indexOf("export async function rollAttack"),
+        attack.indexOf("export async function rollDamage"))),
+      "a normal attack roll is marking itself as already rerolled");
+  });
+
+  test("both offers read the marker", () => {
+    for (const fn of ["offerHeroReroll", "offerGrantedRerolls"]) {
+      const body = chat.slice(chat.indexOf(`function ${fn}(`));
+      assert.match(body.slice(0, 900), /flags\.(heroRerolled \|\| flags\.rerolled|rerolled \|\| flags\.heroRerolled)/,
+        `${fn} does not check both markers, so one kind of reroll can follow the other`);
+    }
   });
 });

@@ -214,9 +214,16 @@ export async function repostCheckAfterReroll(actor, flags, roll) {
   await roll.toMessage({
     speaker: ChatMessage.getSpeaker({ actor }),
     flavor: buildFlavour({ flavour, dc, success, autoSuccess, autoFail }),
-    // Carries the same flags, minus the reroll marker: the rebuilt card is a
-    // real check and anything that reads one must see it as such.
-    flags: { "last-arc": { ...flags, natural } }
+    /**
+     * The same flags, plus the reroll marker — the rebuilt card is a real
+     * check, and it is also a check that has already been rerolled.
+     *
+     * `flags` is a snapshot taken BEFORE the caller stamped the original
+     * message, so `rerolled` has to be set here rather than inherited. Without
+     * it every reroll button reappears on this card and one reroll per check
+     * becomes as many as the player has patience for.
+     */
+    flags: { "last-arc": { ...flags, natural, rerolled: true } }
   });
   return true;
 }
