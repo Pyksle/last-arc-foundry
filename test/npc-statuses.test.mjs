@@ -146,3 +146,40 @@ describe("§ statuses reach a statblock, not just a character", () => {
     assert.equal(D.aggregateStatuses(["sleep"]).agiDenied, true);
   });
 });
+
+/**
+ * Magic reads skills through the shape-aware helper (#49).
+ *
+ * `castSpell` read `sys.skills.spellcraft.total` and the perform path read
+ * `sys.skills[key].total` — both the CHARACTER shape. An NPC keeps skills as a
+ * flat printed `{key, value}` array, so both resolved to `undefined` and became
+ * 0: every monster would have cast and performed at +0.
+ *
+ * It was not a live bug only because a statblock had no way to cast at all,
+ * which is what #49 asked for. Adding the button without this would have
+ * shipped the arithmetic error the same hour.
+ */
+describe("§49 a statblock casts with its own Spellcraft", () => {
+  const magic = read("module/dice/magic.mjs");
+
+  test("no character-shaped skill read survives in the magic pipeline", () => {
+    assert.ok(!/sys\.skills\?\.spellcraft/.test(magic),
+      "castSpell reads the character shape, so an NPC casts at Spellcraft +0");
+    assert.ok(!/sys\.skills\?\.\[skillKey\]\?\.total/.test(magic),
+      "the perform path reads the character shape, so an NPC performs at +0");
+  });
+
+  test("both go through skillTotalOf", () => {
+    assert.match(magic, /D\.skillTotalOf\(sys\.skills, "spellcraft"\)/);
+    assert.match(magic, /D\.skillTotalOf\(sys\.skills, skillKey\)/);
+  });
+
+  test("the helper really does understand both shapes", () => {
+    assert.equal(D.skillTotalOf({ spellcraft: { total: 9 } }, "spellcraft"), 9,
+      "character: keyed object with a derived total");
+    assert.equal(D.skillTotalOf([{ key: "spellcraft", value: 9 }], "spellcraft"), 9,
+      "statblock: flat printed array");
+    assert.equal(D.skillTotalOf([{ key: "stealth", value: 4 }], "spellcraft"), 0,
+      "a skill the statblock does not have is 0, not undefined");
+  });
+});

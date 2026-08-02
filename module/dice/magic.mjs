@@ -284,7 +284,8 @@ export async function performItem(actor, performance, options = {}) {
    * untrained parent silently, and there was no way to tell from the card.
    */
   const skillKey = LASTARC.performSkillFor[perf.specialisation];
-  add("LASTARC.Mod.perform", sys.skills?.[skillKey]?.total ?? 0);
+  // Shape-aware, for the same reason as the Spellcraft read above.
+  add("LASTARC.Mod.perform", D.skillTotalOf(sys.skills, skillKey));
 
   const defensive = options.performDefensively
     ? defensivePerformPenalty(options.threatCount ?? 0, perf.specialisation)
@@ -548,8 +549,17 @@ export async function castSpell(actor, spell, options = {}) {
   const parts = [];
   const add = (label, value) => { if (value) parts.push({ label, value }); };
 
-  const skill = sys.skills?.spellcraft;
-  add("LASTARC.Mod.spellcraft", skill?.total ?? 0);
+  /**
+   * Shape-aware (CLAUDE.md §10). A character keys skills by name with a
+   * derived `total`; a statblock keeps a flat printed `{key, value}` array. The
+   * character path read `sys.skills.spellcraft.total`, which on an NPC is
+   * `undefined` and became 0 — so every monster cast at Spellcraft +0.
+   *
+   * Nobody hit it because the NPC sheet had no way to cast at all (#49), which
+   * is the only reason this was not a live bug. `skillTotalOf` was written for
+   * exactly this and had not been applied here.
+   */
+  add("LASTARC.Mod.spellcraft", D.skillTotalOf(sys.skills, "spellcraft"));
 
   // Adamant Spell ignores Break Gauge penalties to the check. The skill total
   // already includes the penalty, so it is added back rather than re-derived.

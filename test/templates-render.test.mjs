@@ -370,6 +370,68 @@ describe("§ every sheet and card renders, for every subtype", () => {
  * asserts that they still do. A hand-rolled row in either file is the bug
  * coming back.
  */
+/**
+ * The deepest layer of #44: a fixture ROW whose keys differ from the sheet's.
+ *
+ * The key-level guard above catches a context key the fixture is MISSING. It
+ * cannot see inside an array — and the rows are where the shapes live.
+ *
+ * The performance row carried `kindLabel`/`specLabel` where the sheet builds
+ * `mpCost`/`specialisation`/`affordable`, so the preview showed a performance
+ * with no cost and no specialisation. Every `undefined`, `NaN` and empty-picker
+ * guard passed it, because Handlebars renders a MISSING key as an empty string.
+ * Nothing looks wrong; the value is simply absent.
+ *
+ * So: read the keys the sheet puts on each row, and require the fixture's rows
+ * to carry them.
+ */
+describe("§44 fixture rows carry the keys the sheets put on them", () => {
+  const sheet = read("module/sheets/character-sheet.mjs");
+
+  /** Keys from the object literal in `NAME.push({ ... })`. */
+  const pushedKeys = (name) => {
+    const at = sheet.indexOf(`${name}.push({`);
+    if (at === -1) return null;
+    let depth = 0, i = sheet.indexOf("{", at);
+    const start = i;
+    do {
+      if (sheet[i] === "{") depth++;
+      else if (sheet[i] === "}") depth--;
+      i++;
+    } while (depth > 0 && i < sheet.length);
+
+    const body = sheet.slice(start + 1, i - 1).replace(/\/\*[\s\S]*?\*\//g, "");
+    const keys = new Set();
+    let d = 0;
+    for (const line of body.split("\n")) {
+      const m = d === 0 && line.match(/^\s*([A-Za-z_$][\w$]*)\s*:/);
+      if (m) keys.add(m[1]);
+      d += (line.match(/[{[(]/g) ?? []).length - (line.match(/[}\])]/g) ?? []).length;
+    }
+    return keys;
+  };
+
+  const fixture = buildContext();
+
+  for (const name of ["spells", "performances"]) {
+    test(`the ${name} fixture row matches the sheet's`, () => {
+      const built = pushedKeys(name);
+      assert.ok(built && built.size >= 4,
+        `could not read the keys ${name}.push assigns — the extractor has ` +
+        "drifted, and a guard that reads nothing reports nothing");
+
+      const row = (fixture[name] ?? [])[0];
+      assert.ok(row, `the fixture has no ${name} row to check`);
+
+      const missing = [...built].filter((k) => !(k in row)).sort();
+      assert.deepEqual(missing, [],
+        `the ${name} preview renders these as EMPTY, which looks like a value ` +
+        `the sheet chose not to show rather than one the fixture forgot:\n  ` +
+        missing.join("\n  "));
+    });
+  }
+});
+
 describe("§44 the sheet and the harness build rows from the same code", () => {
   const sheet = read("module/sheets/character-sheet.mjs");
   const harness = read("tools/preview.mjs");

@@ -397,13 +397,21 @@ export function buildContext() {
     languagesText: "ZZ trade cant, ZZ high tongue",
     movementInput: { fly: 0, hover: false },
     secondWindPips: ROWS.secondWindPips(sysForRows, format),
+    /**
+     * Row shapes copied from `character-sheet.mjs`, not invented. The
+     * performance row previously carried `kindLabel`/`specLabel` where the
+     * sheet builds `mpCost`/`specialisation`/`affordable`, so the preview
+     * rendered blanks where the real sheet shows a cost — and NO guard caught
+     * it, because a missing key renders as empty rather than as `undefined`.
+     */
     spells: [
       { id: "s1", name: "ZZ probe", img: "", school: "black", schoolLabel: "Black",
-        mpCost: 3, castingTimeLabel: "Primary", isArea: false }
+        mpCost: 3, castingTimeLabel: "Primary", target: "one creature",
+        affordable: true }
     ],
     performances: [
-      { id: "p1", name: "ZZ cadence", img: "", kindLabel: "Enhancing",
-        specLabel: "Instrument" }
+      { id: "p1", name: "ZZ cadence", img: "", mpCost: 2,
+        specialisation: "instrument", affordable: true }
     ],
     features: [
       { id: "f1", name: "ZZ trait", img: "", typeLabel: "Feature", summary: "" }

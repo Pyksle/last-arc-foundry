@@ -22,6 +22,7 @@ import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
 import { markStatuses, toggleStatus } from "./status-palette.mjs";
 import { situationalOptions } from "../dice/situational.mjs";
+import { castSpell, performItem } from "../dice/magic.mjs";
 import * as ROWS from "../sheet-rows.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -73,6 +74,8 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     actions: {
       rollAttribute: LastArcNpcSheet.#onRollAttribute,
       rollNpcAttack: LastArcNpcSheet.#onRollNpcAttack,
+      castSpell: LastArcNpcSheet.#onCastSpell,
+      performItem: LastArcNpcSheet.#onPerformItem,
       addAttack: LastArcNpcSheet.#onAddAttack,
       deleteAttack: LastArcNpcSheet.#onDeleteAttack,
       setBreakStep: LastArcNpcSheet.#onSetBreakStep,
@@ -205,6 +208,10 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // distinguish them.
     const technicks = [];
     const items = [];
+    const spells = [];
+    const performances = [];
+    // Affordability is decided once, against the statblock's current mana.
+    const mp = sys.resources?.mp?.value ?? 0;
     for (const i of orderBySort([...this.document.items])) {
       const row = {
         id: i.id,
@@ -214,12 +221,44 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       };
       if (i.type === "technick" || i.type === "talent") {
         technicks.push({ ...row, summary: grantSummary(i.system.grants) });
+      } else if (i.type === "spell") {
+        spells.push({
+          ...row,
+          school: i.system.school,
+          schoolLabel: game.i18n.localize(`LASTARC.School.${i.system.school}`),
+          mpCost: i.system.mpCost,
+          castingTimeLabel: game.i18n.localize(
+            LASTARC.castingTimes[i.system.castingTime]?.label ?? ""
+          ),
+          isArea: !!i.system.isArea,
+          affordable: mp >= i.system.mpCost
+        });
+      } else if (i.type === "performance") {
+        performances.push({
+          ...row,
+          mpCost: i.system.mpCost,
+          specialisation: i.system.specialisation,
+          affordable: mp >= i.system.mpCost
+        });
       } else {
         items.push(row);
       }
     }
     context.technicks = technicks;
     context.items = items;
+    /**
+     * Spells and performances a statblock owns (#49).
+     *
+     * They were falling into the generic Items list: visible, but with no MP
+     * cost, no school and no way to cast them. The GM's report is that "many
+     * NPCs will need to cast Spells and Performances", and the answer had been
+     * "drop the item on them and roll it by hand".
+     *
+     * Same row shape as the character sheet's, because the same partial renders
+     * both and a second shape would be a second thing to keep in step.
+     */
+    context.spells = spells;
+    context.performances = performances;
     markOrder(this, { technicks, items });
     markStatuses(context, this.document);
 
@@ -263,6 +302,50 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (extra === null) return;
 
     await rollAttribute(this.document, target.dataset.attribute, extra);
+  }
+
+  /**
+   * Cast a spell from a statblock (#49).
+   *
+   * The same pipeline the character sheet uses, deliberately — a monster's
+   * fireball and a player's are the same spell, and a second casting path would
+   * be a second thing to keep in step with §18.
+   *
+   * `castSpell` reads Spellcraft through `skillTotalOf`, which understands both
+   * actor shapes. Before that it read the character shape only, so a statblock
+   * would have cast at +0 the moment this button existed.
+   */
+  static async #onCastSpell(event, target) {
+    const spell = this.document.items.get(target.dataset.itemId);
+    if (!spell) return;
+
+    const extra = await situationalOptions(event);
+    if (extra === null) return;
+
+    const targeted = [...(game.user.targets ?? [])][0]?.actor;
+
+    await castSpell(this.document, spell, {
+      ...extra,
+      target: targeted,
+      castDefensively: !!event.shiftKey,
+      threatCount: event.shiftKey ? 1 : 0
+    });
+  }
+
+  /** Perform from a statblock. Same pipeline as the character sheet's. */
+  static async #onPerformItem(event, target) {
+    const performance = this.document.items.get(target.dataset.itemId);
+    if (!performance) return;
+
+    const extra = await situationalOptions(event);
+    if (extra === null) return;
+
+    await performItem(this.document, performance, {
+      ...extra,
+      target: [...(game.user.targets ?? [])][0]?.actor,
+      performDefensively: !!event.shiftKey,
+      threatCount: event.shiftKey ? 1 : 0
+    });
   }
 
   static async #onRollNpcAttack(event, target) {
