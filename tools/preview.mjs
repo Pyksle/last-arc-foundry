@@ -138,11 +138,14 @@ export function buildContext() {
   const threshold = D.breakThreshold({ fort: defs.fort, size: "medium" });
 
   const mkSkill = (key, cfg) => {
-    const trained = ["athletics", "perception", "stealth", "oneHanded"].includes(key);
+    const trained = ["athletics", "perception", "oneHanded"].includes(key);
+    // Stealth is trained BY A TECHNICK, so it counts as trained in the maths
+    // while the player's own box stays unticked — the reported case.
+    const grantedTrained = key === "stealth";
     const total = D.skillModifier({
       level,
       attrMod: attrs[cfg.attr].mod,
-      trained,
+      trained: trained || grantedTrained,
       focus: key === "athletics" ? 2 : 0,
       armourCheckPenalty: armour.checkPenalty,
       appliesArmourPenalty: !!cfg.acp,      // not proficient with heavy
@@ -154,6 +157,19 @@ export function buildContext() {
       subskilled: !!cfg.subskilled,
       isWeaponSkill: !!cfg.weapon,
       trained, focus: key === "athletics" ? 2 : 0, misc: 0, total,
+      /**
+       * A technick-granted training and a granted focus, so the markers added
+       * for issue #43 are actually exercised. Stealth is trained by a technick
+       * the player never ticked — the case the GM reported, where an empty box
+       * read as "you do not have this skill".
+       */
+      // Granted and NOT hand-trained — the case the GM reported.
+      grantedTrained,
+      grantedFocus: key === "perception" ? 1 : 0,
+      grantedBonus: key === "perception" ? 2 : 0,
+      adjustment: key === "stealth" ? 2 : (key === "perception" ? 3 : 0),
+      hasAdjustment: ["stealth", "perception"].includes(key),
+      adjustmentTooltip: key === "stealth" ? "Granted training +2" : "Technick +2 · Granted focus +1",
       appliesArmourPenalty: !!cfg.acp,
       halfLevel: D.rd(level / 2),
       attrMod: attrs[cfg.attr].mod,

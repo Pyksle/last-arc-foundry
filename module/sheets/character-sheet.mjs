@@ -192,7 +192,22 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
         attr: cfg.attr,
         attrAbbr: LASTARC.attributes[cfg.attr].abbr,
         isWeaponSkill: !!cfg.weapon,
+        /**
+         * `trained` stays the PLAYER's own value, because the checkbox writes
+         * it. Binding a control to a derived value is CLAUDE.md rule 4 and has
+         * shipped twice; a box that stores one number and shows another is
+         * worse than no box.
+         *
+         * `grantedTrained` rides alongside so the row can SAY the skill is
+         * trained without the checkbox lying about what it holds (issue #43).
+         * The maths was always right and even explained — in the ADJ column's
+         * tooltip, which nobody hovers. A player looked at an empty box and
+         * concluded they had no access to the skill.
+         */
         trained: s.trained,
+        grantedTrained: !!s.grantedTrained,
+        grantedFocus: s.grantedFocus ?? 0,
+        grantedBonus: s.technicks ?? 0,
         focus: s.focus,
         misc: s.misc,
         miscInput: src.skills[key]?.misc ?? 0,

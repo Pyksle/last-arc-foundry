@@ -281,7 +281,7 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     // Intelligence, and the count derives from the items actually on the actor.
     // Neither may be bound to an input — see the class docstring.
     this.study = this.#studyLimits();
-    this.trainedSkills = this.#trainedSkillLimits();
+    this.trainedSkills = this.#trainedSkillLimits(grants);
 
     // 4. Equipped armour ----------------------------------------------------
     const armour = this.#equippedArmour();
@@ -698,8 +698,26 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
    * are choices from the same pool. If that reading is wrong the number is
    * visibly wrong, which is the point of showing it.
    */
-  #trainedSkillLimits() {
-    const known = Object.values(this.skills).filter((s) => s.trained).length;
+  #trainedSkillLimits(grants = {}) {
+    /**
+     * A skill a technick TRAINED counts as known, and raises the allowance by
+     * the same one (issue #43).
+     *
+     * Both halves matter. Counting it as known without raising the allowance
+     * would report a character over budget for taking Skill Training, which is
+     * a technick they paid for — the readout would punish them for it. Raising
+     * the allowance without counting it would leave the number unchanged and
+     * the player still unable to see that the skill is trained.
+     *
+     * Only grants the player has not ALSO trained by hand count, or a
+     * belt-and-braces character double-counts a single skill.
+     */
+    const grantedKeys = Object.entries(grants.skills ?? {})
+      .filter(([key, g]) => g?.trained && !this.skills[key]?.trained)
+      .map(([key]) => key);
+
+    const known = Object.values(this.skills).filter((s) => s.trained).length
+      + grantedKeys.length;
 
     const halfElf = (this.parent?.items ?? []).some(
       (i) => i.type === "race" && i.system?.slug === "half-elf"
@@ -707,7 +725,8 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
 
     let max = null;
     try {
-      max = D.trainedSkillCount(this.classes?.[0]?.name, this.attributes.int.mod, halfElf);
+      max = D.trainedSkillCount(this.classes?.[0]?.name, this.attributes.int.mod, halfElf)
+        + grantedKeys.length;
     } catch {
       // No class chosen yet, or one whose table entry is unset. Showing nothing
       // is honest; showing a number derived from a guess is how a character
@@ -715,7 +734,8 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       max = null;
     }
 
-    return { known, max, halfElf, over: max !== null && known > max };
+    return { known, max, halfElf, granted: grantedKeys.length,
+      over: max !== null && known > max };
   }
 
   /** Total bulk carried, summed across the inventory (§4.6). */

@@ -390,8 +390,39 @@
           <span class="la-skill__total">{{lasignal this.total}}</span>
           <span class="la-skill__cell">{{this.halfLevel}}</span>
           <span class="la-skill__cell">{{lasignal this.attrMod}}</span>
-          <input type="checkbox" name="system.skills.{{this.key}}.trained" {{#if this.trained}}checked{{/if}}>
-          <input type="number" name="system.skills.{{this.key}}.focus" value="{{this.focus}}">
+          {{!-- The checkbox writes the PLAYER's own training and reflects only
+                that — binding it to the derived value would be rule 4. When a
+                technick grants training the marker beside it says so, because a
+                player who sees an empty box concludes they have no access to
+                the skill, tooltip on another column notwithstanding (#43). --}}
+          {{!-- When a technick grants the training the box shows CHECKED and
+                DISABLED, in bronze, with a tooltip.
+
+                Not a marker beside an empty box: the reported problem is that
+                players read an empty box as "I do not have this skill", and a
+                small glyph next to it does not answer the question they are
+                actually asking. Disabled because the value is not theirs to
+                change while the grant stands — and a disabled control submits
+                nothing, so their own stored training survives untouched and
+                returns if the technick goes away.
+
+                `grantedTrained` is false when the player trained it themselves,
+                so a hand-trained skill keeps a normal editable box (#43). --}}
+          {{#if this.grantedTrained}}
+            <span class="la-skill__granted-tick"
+                  role="img" aria-label="{{localize 'LASTARC.Field.TrainedByTechnick'}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.GrantedTrained'}}">✓</span>
+          {{else}}
+            <input type="checkbox" name="system.skills.{{this.key}}.trained"
+                   {{#if this.trained}}checked{{/if}}>
+          {{/if}}
+          <span class="la-skill__stack">
+            <input type="number" name="system.skills.{{this.key}}.focus" value="{{this.focus}}">
+            {{#if this.grantedFocus}}
+              <em class="la-skill__granted-n"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.GrantedFocus'}}">{{lasignal this.grantedFocus}}</em>
+            {{/if}}
+          </span>
           <input type="number" name="system.skills.{{this.key}}.misc" value="{{this.miscInput}}">
           <span class="la-skill__cell la-skill__adjust {{#if this.hasAdjustment}}is-active{{/if}}"
                 data-tooltip="{{this.adjustmentTooltip}}">{{lasignal this.adjustment}}</span>
@@ -762,8 +793,39 @@
           <span class="la-skill__total">{{lasignal this.total}}</span>
           <span class="la-skill__cell">{{this.halfLevel}}</span>
           <span class="la-skill__cell">{{lasignal this.attrMod}}</span>
-          <input type="checkbox" name="system.skills.{{this.key}}.trained" {{#if this.trained}}checked{{/if}}>
-          <input type="number" name="system.skills.{{this.key}}.focus" value="{{this.focus}}">
+          {{!-- The checkbox writes the PLAYER's own training and reflects only
+                that — binding it to the derived value would be rule 4. When a
+                technick grants training the marker beside it says so, because a
+                player who sees an empty box concludes they have no access to
+                the skill, tooltip on another column notwithstanding (#43). --}}
+          {{!-- When a technick grants the training the box shows CHECKED and
+                DISABLED, in bronze, with a tooltip.
+
+                Not a marker beside an empty box: the reported problem is that
+                players read an empty box as "I do not have this skill", and a
+                small glyph next to it does not answer the question they are
+                actually asking. Disabled because the value is not theirs to
+                change while the grant stands — and a disabled control submits
+                nothing, so their own stored training survives untouched and
+                returns if the technick goes away.
+
+                `grantedTrained` is false when the player trained it themselves,
+                so a hand-trained skill keeps a normal editable box (#43). --}}
+          {{#if this.grantedTrained}}
+            <span class="la-skill__granted-tick"
+                  role="img" aria-label="{{localize 'LASTARC.Field.TrainedByTechnick'}}"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.GrantedTrained'}}">✓</span>
+          {{else}}
+            <input type="checkbox" name="system.skills.{{this.key}}.trained"
+                   {{#if this.trained}}checked{{/if}}>
+          {{/if}}
+          <span class="la-skill__stack">
+            <input type="number" name="system.skills.{{this.key}}.focus" value="{{this.focus}}">
+            {{#if this.grantedFocus}}
+              <em class="la-skill__granted-n"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.GrantedFocus'}}">{{lasignal this.grantedFocus}}</em>
+            {{/if}}
+          </span>
           <input type="number" name="system.skills.{{this.key}}.misc" value="{{this.miscInput}}">
           <span class="la-skill__cell la-skill__adjust {{#if this.hasAdjustment}}is-active{{/if}}"
                 data-tooltip="{{this.adjustmentTooltip}}">{{lasignal this.adjustment}}</span>

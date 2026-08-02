@@ -798,6 +798,47 @@
   color: var(--la-ink-faint);
   cursor: help;
 }
+
+/* Granted training and focus (issue #43).
+
+   The focus cell holds the input AND a small granted readout. It is one grid
+   cell — the row is a fixed `grid-template-columns` and an extra element would
+   shunt every later column sideways — so they share the track inline rather
+   than the marker being positioned over it, which collided with the row below. */
+.la-skill__stack {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.la-skill__stack input { flex: 1 1 auto; min-width: 0; }
+
+/* A granted tick is a GLYPH, not a disabled checkbox.
+
+   The first version used `<input disabled checked>`, and browsers grey a
+   disabled control and drop its `accent-color` — so it rendered as a faint
+   EMPTY box, which is worse than the problem it was fixing. This follows the
+   idiom the proficiency toggles already use.
+
+   Colour is a second signal, never the only one: the tick itself carries the
+   meaning, so it still reads for the two colour-blind players at this table. */
+.la-skill__granted-tick {
+  justify-self: center;
+  font-size: 0.85rem;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--la-bronze);
+  cursor: help;
+}
+
+.la-skill__granted-n {
+  font-family: var(--la-font-num);
+  font-size: 0.55rem;
+  font-style: normal;
+  line-height: 1;
+  color: var(--la-bronze);
+  cursor: help;
+}
 .la-skill__adjust.is-active {
   color: var(--la-oxblood);
   font-weight: 600;
