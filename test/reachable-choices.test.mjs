@@ -353,18 +353,78 @@ function rowFields() {
     if (!file.endsWith(".mjs")) continue;
     const lines = read(`module/data/${file}`).split("\n");
 
+    /**
+     * Enclosing SchemaFields, so the array's FULL path is known.
+     *
+     * Not cosmetic. The matcher used to allow any prefix before the array name,
+     * and a technick's `grants.skills[]` rows were therefore vouched for by the
+     * CHARACTER SHEET's `system.skills.{{key}}.focus` — a different model, a
+     * different array, the same last two path segments. Three of that row's four
+     * fields read as reachable when none of them was, and only `bonus` (whose
+     * name happens to collide with nothing) was reported. Recording the prefix
+     * is what makes the match mean what it says.
+     */
+    /**
+     * Shared sub-schemas are factored into helper functions and mounted under a
+     * field name at the call site — `grants: grantsSchema()`. A line-based walk
+     * cannot see across that boundary, so `grants.skills[]` presented itself as
+     * a bare `skills[]` and collided with the character sheet's own skills.
+     * Resolve the mount point first, then use it while inside the helper.
+     */
+    const mounts = {};
+    for (const [, field, fn] of read(`module/data/${file}`)
+      .matchAll(/^\s*(\w+):\s*(\w+Schema)\(\)/gm)) mounts[fn] = field;
+
+    const stack = [];
+    let helper = null;
     for (let i = 0; i < lines.length; i++) {
-      const m = lines[i].match(/^\s*(\w+):\s*new fields\.ArrayField\(\s*$/);
+      if (/^export class /.test(lines[i])) { stack.length = 0; helper = null; }
+
+      const fn = lines[i].match(/^function (\w+Schema)\(/);
+      if (fn) { stack.length = 0; helper = mounts[fn[1]] ?? null; }
+
+      const s = lines[i].match(/^(\s*)(\w+):\s*new fields\.SchemaField\(\{\s*$/);
+      if (s) {
+        const depth = s[1].length;
+        while (stack.length && stack[stack.length - 1].depth >= depth) stack.pop();
+        stack.push({ name: s[2], depth });
+        continue;
+      }
+
+      const m = lines[i].match(/^(\s*)(\w+):\s*new fields\.ArrayField\(\s*$/);
       if (!m) continue;
       if (!/new fields\.SchemaField\(\{/.test(lines[i + 1] ?? "")) continue;
 
-      // Walk the row's own schema, stopping at its closing brace.
+      const depth = m[1].length;
+      while (stack.length && stack[stack.length - 1].depth >= depth) stack.pop();
+      const path = [helper, ...stack.map((x) => x.name), m[2]].filter(Boolean).join(".");
+
+      /**
+       * Walk the row's own schema, stopping at its closing brace.
+       *
+       * A SchemaField INSIDE a row opens a subpath rather than being a leaf.
+       * Flattening it reported the spell outcome's `onFail.damageMultiplier` as
+       * a bare `damageMultiplier`, which matched no binding and was filed as a
+       * real gap on #39 — a field that does not exist. The binding it was
+       * looking for, `system.outcomes.N.onFail.damageMultiplier`, was there all
+       * along. A guard that invents work is its own kind of false alarm.
+       */
       const indent = (lines[i + 1].match(/^\s*/) || [""])[0].length;
+      const inner = [];
       for (let j = i + 2; j < lines.length; j++) {
         const line = lines[j];
         if (new RegExp(`^\\s{${indent}}\\}`).test(line)) break;
-        const f = line.match(/^\s*(\w+):\s*new fields\.\w+Field\(/);
-        if (f) out.push({ file, array: m[1], field: f[1] });
+
+        const f = line.match(/^(\s*)(\w+):\s*new fields\.(\w+)Field\(/);
+        if (!f) continue;
+        const d = f[1].length;
+        while (inner.length && inner[inner.length - 1].depth >= d) inner.pop();
+
+        if (f[3] === "Schema") { inner.push({ name: f[2], depth: d }); continue; }
+        out.push({
+          file, array: path,
+          field: [...inner.map((x) => x.name), f[2]].join(".")
+        });
       }
     }
   }
@@ -372,31 +432,35 @@ function rowFields() {
 }
 
 describe("every row field has an input", () => {
+  /**
+   * Keyed by the array's FULL path, not the bare field name. A bare key excused
+   * the same-named field on every model at once — `name` alone would have
+   * silenced an unbound `name` on any row anywhere.
+   */
   const EXCUSED = {
-    sort: "ACTION — set by the reorder controls, not an input",
     // The Break Gauge persistent-source rows are built and cleared by a dialog
     // (`#onAddPersistent` / `#onClearPersistent`), never typed into a grid.
-    id: "ACTION — assigned when a persistent source is added by dialog",
-    label: "ACTION — chosen in the persistent-source dialog",
-    clearedBy: "ACTION — chosen in the persistent-source dialog",
-    fromInjury: "ACTION — set by the persistent-source dialog",
-    // A nested SchemaField. Its own leaves are bound one level deeper, e.g.
-    // `system.outcomes.N.onFail.damageMultiplier`, which this extractor reads
-    // as the parent being unbound.
-    onFail: "nested schema — its leaves are bound at their own paths",
+    "breakGauge.persistentSources.id": "ACTION — assigned when a persistent source is added by dialog",
+    "breakGauge.persistentSources.label": "ACTION — chosen in the persistent-source dialog",
+    "breakGauge.persistentSources.clearedBy": "ACTION — chosen in the persistent-source dialog",
+    "breakGauge.persistentSources.fromInjury": "ACTION — set by the persistent-source dialog"
 
     /**
-     * REAL GAPS, recorded rather than hidden. Each is a field a hand-authoring
-     * GM can store and cannot enter, found by this guard on its first run and
-     * filed as #39. They predate today's work and none is a regression, so they
-     * are excused with a reason rather than fixed blind two days before a
-     * playtest — but an excuse is a claim about the code, and this one comes
-     * with an issue number attached so it cannot quietly become permanent.
+     * NOTHING ELSE. The four gaps this guard reported on its first run (#39)
+     * are closed, and closing them meant three different answers rather than
+     * three more editors:
+     *
+     *   grants.skills[] — a live mechanic with three consumers and no producer.
+     *     Given the editor it was missing.
+     *   race.traits[] — read by nothing, rendered by nothing. Deleted. A field
+     *     with no reader does not need an input.
+     *   outcomes[].damageMultiplier — never existed. This extractor was
+     *     flattening `onFail.damageMultiplier`, which is bound; the guard
+     *     invented the gap and it was filed as real.
+     *
+     * An empty excuse list is the point. Every entry above is an ACTION claim
+     * that can be checked by opening the dialog it names.
      */
-    bonus: "issue #39 — grants.skills[].bonus has no input; a technick cannot set the size of a skill bonus it grants",
-    damageMultiplier: "issue #39 — the outcome's own multiplier has no input, though its onFail counterpart does",
-    name: "issue #39 — race traits[].name has no input",
-    description: "issue #39 — race traits[].description has no input"
   };
 
   test("the extractor finds the row schemas", () => {
@@ -406,13 +470,56 @@ describe("every row field has an input", () => {
       "npc.attacks.count is the field this guard exists for");
   });
 
+  /**
+   * The extractor's own correctness, because both of its bugs were INVISIBLE in
+   * its output — one hid three real gaps, the other invented one. A guard whose
+   * reader is wrong reports confidently either way.
+   */
+  test("a row array reports its full path, including a helper's mount point", () => {
+    const found = rowFields();
+
+    // `grants.skills` lives in `grantsSchema()` and is mounted at `grants:`.
+    // As a bare `skills` it collided with the CHARACTER sheet's own
+    // `system.skills.{{key}}.focus` bindings, and three of its four fields
+    // read as reachable when none of them was.
+    assert.ok(found.some((f) => f.array === "grants.skills" && f.field === "bonus"),
+      "grants.skills lost its mount point: " +
+      found.filter((f) => f.field === "bonus").map((f) => f.array).join(", "));
+    /**
+     * The collision was real in both directions: an NPC legitimately HAS a bare
+     * `skills` row array (a flat printed `{key, value}` list — characters and
+     * NPCs keep skills in different shapes). So the assertion is not "no bare
+     * skills anywhere", which would be false; it is that the technick's copy is
+     * not one of them.
+     */
+    assert.deepEqual(
+      found.filter((f) => f.array === "skills").map((f) => f.file),
+      ["npc.mjs", "npc.mjs"],
+      "a bare `skills` row array outside npc.mjs means a helper-mounted array " +
+      "has lost its prefix and can be vouched for by the character sheet");
+  });
+
+  test("a nested schema inside a row keeps its subpath", () => {
+    const found = rowFields();
+
+    // Flattened, this was a `damageMultiplier` matching no binding — a gap that
+    // did not exist, filed against #39 as though it did.
+    assert.ok(found.some((f) => f.array === "outcomes" && f.field === "onFail.damageMultiplier"),
+      "the spell outcome's onFail leaves are not being read at their own paths");
+    assert.ok(!found.some((f) => f.array === "outcomes" && f.field === "damageMultiplier"),
+      "a nested leaf is still being reported as a direct field of the row");
+    // The nested schema itself is not a leaf and must not be asked for an input.
+    assert.ok(!found.some((f) => f.field === "onFail"),
+      "the SchemaField itself is being treated as a value");
+  });
+
   test("no row field is unfillable", () => {
     const missing = rowFields()
       .filter(({ array, field }) => {
-        if (EXCUSED[field]) return false;
-        // The array may be nested (`grants.skills`), so allow any prefix before
-        // its name rather than assuming it sits at the root of `system`.
-        return !new RegExp(`name="system\\.(?:[\\w.]+\\.)?${array}\\.\\{\\{[^}]*\\}\\}\\.${field}"`)
+        if (EXCUSED[`${array}.${field}`]) return false;
+        // The array's FULL path, anchored. Allowing an arbitrary prefix let one
+        // model's binding vouch for another's — see the note on `rowFields`.
+        return !new RegExp(`name="system\\.${array.replace(/\./g, "\\.")}\\.\\{\\{[^}]*\\}\\}\\.${field}"`)
           .test(allTemplates);
       })
       .map(({ file, array, field }) => `${file}: ${array}[].${field}`);

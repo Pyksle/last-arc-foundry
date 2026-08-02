@@ -549,13 +549,19 @@ export class LastArcRaceData extends foundry.abstract.TypeDataModel {
       speed: new fields.NumberField({ initial: 6, integer: true, min: 0 }),
       senses: new fields.ArrayField(new fields.StringField(), { initial: [] }),
       languages: new fields.ArrayField(new fields.StringField(), { initial: [] }),
-      traits: new fields.ArrayField(
-        new fields.SchemaField({
-          name: new fields.StringField({ initial: "" }),
-          description: new fields.HTMLField({ initial: "" })
-        }),
-        { initial: [] }
-      ),
+      /**
+       * `traits` USED TO BE HERE — an array of `{name, description}` rows.
+       *
+       * Removed rather than given an editor. Nothing read it, nothing rendered
+       * it and nothing could enter it: dead at all three ends since the model
+       * was written. The race's own `description` already carries the prose,
+       * and the two traits that are MECHANICAL are the two fields below, which
+       * derivation actually consumes.
+       *
+       * The rule this follows: a field with no reader does not need an input,
+       * it needs deleting. Building the editor would have manufactured a place
+       * for a GM to type something that could never take effect.
+       */
       /** Humans get a bonus starting technick; half-elves get +1 trained skill (§4.5, §11). */
       bonusTechnicks: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
       bonusTrainedSkills: new fields.NumberField({ initial: 0, integer: true, min: 0 })

@@ -54,6 +54,8 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     actions: {
       addOutcome: LastArcItemSheet.#onAddOutcome,
       deleteOutcome: LastArcItemSheet.#onDeleteOutcome,
+      addSkillGrant: LastArcItemSheet.#onAddSkillGrant,
+      deleteSkillGrant: LastArcItemSheet.#onDeleteSkillGrant,
       toggleDamageType: LastArcItemSheet.#onToggleDamageType,
       toggleTechnickFlag: LastArcItemSheet.#onToggleTechnickFlag
     }
@@ -139,6 +141,27 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       { value: "", label: game.i18n.localize("LASTARC.Field.NoOpposedDefence") },
       ...["ref", "fort", "will"].map((k) => ({ value: k, label: `LASTARC.Defence.${k}` }))
     ];
+
+    /**
+     * Skill grants, for anything carrying the shared `grants` block.
+     *
+     * The rest of that block is flat numbers with one input each. Skills are
+     * rows, and rows need an editor — which is why this one was missing while
+     * every scalar beside it worked. The mechanic was complete otherwise: the
+     * array is keyed by `aggregateGrants`, applied by character derivation as
+     * focus, bonus and trained, and summarised on the technick row. Three
+     * consumers and no producer, so Skill Focus and Skill Training could not be
+     * expressed at all (issue #39).
+     */
+    if (sys.grants?.skills) {
+      context.grantedSkills = sys.grants.skills.map((s, index) => ({ ...s, index }));
+      context.skillOptions = [
+        { value: "", label: game.i18n.localize("LASTARC.Field.NoSkill") },
+        ...Object.entries(LASTARC.allSkills)
+          .map(([value, cfg]) => ({ value, label: game.i18n.localize(cfg.label) }))
+          .sort((a, b) => a.label.localeCompare(b.label))
+      ];
+    }
 
     // Spells and performances BOTH have DC tiers, and both need them indexed
     // here rather than in the template: the rows are edited by index and
@@ -367,6 +390,34 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (!outcomes[index]) return;
     await this.document.update({
       "system.outcomes": outcomes.filter((_, i) => i !== index)
+    });
+  }
+
+  /**
+   * Add a skill-grant row.
+   *
+   * Built from the schema for the same reason `#onAddOutcome` is: the row's
+   * shape lives in exactly one place. A blank `key` is a legitimate starting
+   * state — `aggregateGrants` skips rows without one, so a half-filled row
+   * grants nothing rather than throwing.
+   */
+  static async #onAddSkillGrant() {
+    const skills = this.document.system.toObject().grants?.skills ?? [];
+    const blank = this.document.system.schema.fields.grants.fields.skills.element.clean({});
+    await this.document.update({ "system.grants.skills": [...skills, blank] });
+  }
+
+  /**
+   * Remove one row. Whole-array write — `system.grants.skills.-=N` is
+   * object-key deletion syntax and corrupts an ArrayField rather than splicing
+   * it. Same trap as the outcome rows.
+   */
+  static async #onDeleteSkillGrant(event, target) {
+    const index = Number(target.dataset.index);
+    const skills = this.document.system.toObject().grants?.skills ?? [];
+    if (!skills[index]) return;
+    await this.document.update({
+      "system.grants.skills": skills.filter((_, i) => i !== index)
     });
   }
 

@@ -1031,6 +1031,21 @@
   margin: 0.55rem 0 0.2rem;
 }
 
+/* A skill-grant row. The checkbox and the delete button are the two things a
+   plain `.la-field-row` does not align: the fields carry a label beneath them
+   and these do not, so without this they sit against the tops of the boxes
+   rather than their middles. */
+.la-skillgrant {
+  align-items: center;
+}
+.la-skillgrant .la-checkfield {
+  white-space: nowrap;
+  margin-bottom: 0.9rem;
+}
+.la-skillgrant .la-item__delete {
+  margin-bottom: 0.9rem;
+}
+
 /* Status palette. A dense grid of togglable icons — 33 of them, so the tile is
    small and the name sits under the icon rather than beside it. */
 .la-statuses {

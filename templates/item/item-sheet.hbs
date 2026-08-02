@@ -562,6 +562,52 @@
           <label>{{localize "LASTARC.Field.DR"}}</label>
         </div>
       </div>
+
+      {{!-- Skill grants. Rows rather than a flat number, because one technick
+            can touch several skills and each one carries three separate
+            effects. Everything downstream of this existed and worked —
+            aggregateGrants keys the rows, derivation applies them, the technick
+            row summarises them — with no way to enter a single one (#39). --}}
+      <h3 class="la-prof__title">{{localize "LASTARC.Section.SkillGrants"}}</h3>
+      <p class="la-note">{{localize "LASTARC.Note.SkillGrants"}}</p>
+
+      {{#each grantedSkills}}
+        <div class="la-field-row la-skillgrant">
+          <div class="la-field">
+            <select name="system.grants.skills.{{this.index}}.key">
+              {{#each ../skillOptions}}
+                <option value="{{this.value}}" {{#if (laeq this.value ../key)}}selected{{/if}}>{{this.label}}</option>
+              {{/each}}
+            </select>
+            <label>{{localize "LASTARC.Field.Skill"}}</label>
+          </div>
+          <div class="la-field la-field--narrow"
+               data-tooltip="{{localize 'LASTARC.Tooltip.GrantSkillFocus'}}">
+            <input type="number" name="system.grants.skills.{{this.index}}.focus"
+                   value="{{this.focus}}">
+            <label>{{localize "LASTARC.Field.Focus"}}</label>
+          </div>
+          <div class="la-field la-field--narrow"
+               data-tooltip="{{localize 'LASTARC.Tooltip.GrantSkillBonus'}}">
+            <input type="number" name="system.grants.skills.{{this.index}}.bonus"
+                   value="{{this.bonus}}">
+            <label>{{localize "LASTARC.Field.Bonus"}}</label>
+          </div>
+          <label class="la-checkfield"
+                 data-tooltip="{{localize 'LASTARC.Tooltip.GrantSkillTrained'}}">
+            <input type="checkbox" name="system.grants.skills.{{this.index}}.trained"
+                   {{#if this.trained}}checked{{/if}}>
+            {{localize "LASTARC.Field.Trained"}}
+          </label>
+          <button type="button" class="la-item__delete" data-action="deleteSkillGrant"
+                  data-index="{{this.index}}"
+                  data-tooltip="{{localize 'LASTARC.Action.DeleteSkillGrant'}}">×</button>
+        </div>
+      {{/each}}
+
+      <button type="button" class="la-panel__add" data-action="addSkillGrant">
+        {{localize "LASTARC.Action.AddSkillGrant"}}
+      </button>
     </section>
   {{/if}}
 
