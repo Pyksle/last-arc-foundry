@@ -447,6 +447,49 @@ export function buildContext() {
  */
 export function itemContext(type) {
   return {
+    /**
+     * The item sheet's own context, from the SAME code the sheet runs (#44).
+     *
+     * This fixture was missing thirty-nine of its keys, so every item-sheet
+     * preview ever taken rendered its dropdowns empty — and I looked straight
+     * at an empty `<select name="system.size">` earlier tonight and read it as
+     * a fixture detail rather than as the tool lying to me.
+     */
+    ...ROWS.itemChoiceOptions(),
+    /**
+     * The rest of what the item sheet assigns. Prereq readouts, derived
+     * labels and the panel switches — none of them come from a config list, so
+     * they are stated here and policed by the guard above rather than by hope.
+     */
+    enrichedDescription: "<p>A synthetic description, for layout only.</p>",
+    isConsumable: false,
+    noDamageType: false,
+    wieldCategory: "oneHanded",
+    wieldChoice: null,
+    strMultiplier: 1,
+    decayText: "",
+    fitsText: "",
+    featuresText: "",
+    sensesText: "",
+    languagesText: "",
+    prereqAttributes: [],
+    prereqCheck: { met: true, unmet: [] },
+    prereqTalentsText: "",
+    prereqTechnicksText: "",
+    prereqTrainedSkillsText: "",
+    attributeCaps: [],
+    attributeMods: [],
+    effectTagOptions: [],
+    bonusScopeOptions: [],
+    damageScopeOptions: [],
+    penaltyScopeOptions: [],
+    rerollKindFields: LASTARC.grantableRerollKinds.map((key) => ({
+      key,
+      label: `LASTARC.RerollKind.${key}`,
+      tooltip: `LASTARC.Tooltip.RerollKind.${key}`,
+      checked: key === "higher"
+    })),
+
     itemType: type,
     document: { name: `ZZ ${type}`, img: "" },
     system: {},
@@ -492,7 +535,9 @@ export function npcContext() {
     rangeBandFields: Object.entries(LASTARC.rangeBands).map(([key, band]) => ({
       key, label: band.label, tooltip: `LASTARC.Tooltip.RangeBand.${key}`
     })),
-    npcSkills: [], drops: [],
+    npcSkills: [], drops: [], loot: [], steal: [], items: [],
+    // Damage modifiers are arrays in the schema and comma lists in the UI.
+    weaknessText: "fire", resistanceText: "cold, electric", immunityText: "",
     damageTypeOptions: [], statusOptions: [], skillOptions: [],
     /**
      * A cursed statblock, so the "adjust by hand" note (#45) is actually in the

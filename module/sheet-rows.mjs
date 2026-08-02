@@ -251,3 +251,60 @@ export function npcDefenceRows(sys) {
 export function gaugePercent(value, max) {
   return max > 0 ? Math.max(0, Math.min(100, Math.round((value / max) * 100))) : 0;
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Item sheet choice lists (#44)                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Every `<select>`'s options on the item sheet, all derived from config.
+ *
+ * Extracted for the same reason as the actor rows, and found the same way: the
+ * preview fixture was missing THIRTY-NINE of the item sheet's context keys, so
+ * every item-sheet preview ever taken rendered its dropdowns EMPTY. I had
+ * looked straight at an empty `<select name="system.size">` earlier tonight and
+ * read it as a fixture detail rather than as the tool lying.
+ *
+ * Pure config-to-options mapping, so there is nothing here worth two copies.
+ */
+export function itemChoiceOptions() {
+  return {
+    availabilityOptions: Object.keys(LASTARC.availability)
+      .map((k) => ({ value: k, label: `LASTARC.Availability.${k}` })),
+    sizeOptions: LASTARC.sizeOrder
+      .map((k) => ({ value: k, label: LASTARC.sizes[k].label })),
+    weaponCategoryOptions: LASTARC.weaponCategories
+      .map((k) => ({ value: k, label: `LASTARC.WeaponCategory.${k}` })),
+    armourTypeOptions: Object.keys(LASTARC.armourTypes)
+      .map((k) => ({ value: k, label: `LASTARC.ArmourType.${k}` })),
+    damageTypeOptions: LASTARC.allDamageTypes
+      .map((k) => ({ value: k, label: `LASTARC.DamageType.${k}` })),
+    schoolOptions: LASTARC.spellSchools
+      .map((k) => ({ value: k, label: `LASTARC.School.${k}` })),
+    skillOptions: Object.keys(LASTARC.allSkills)
+      .map((k) => ({ value: k, label: LASTARC.allSkills[k].label })),
+    castingTimeOptions: Object.entries(LASTARC.castingTimes)
+      .map(([k, v]) => ({ value: k, label: v.label })),
+    performSpecOptions: Object.keys(LASTARC.performSpecialisations)
+      .map((k) => ({ value: k, label: `LASTARC.PerformSpec.${k}` })),
+    performanceKindOptions: Object.keys(LASTARC.performanceKinds)
+      .map((k) => ({ value: k, label: `LASTARC.PerformanceKind.${k}` })),
+    classKeyOptions: Object.entries(LASTARC.classes)
+      .map(([k, c]) => ({ value: k, label: c.label })),
+    technickKindOptions: LASTARC.technickKinds
+      .map((k) => ({ value: k, label: `LASTARC.TechnickKind.${k}` })),
+    shieldSizeOptions: Object.keys(LASTARC.shieldDamage)
+      .map((k) => ({ value: k, label: LASTARC.sizes[k]?.label ?? k })),
+    consumableTypeOptions: LASTARC.consumableTypes
+      .map((k) => ({ value: k, label: `LASTARC.ConsumableType.${k}` })),
+    featureCategoryOptions: LASTARC.featureCategories
+      .map((k) => ({ value: k, label: `LASTARC.FeatureCategory.${k}` })),
+    prostheticSiteOptions: LASTARC.prostheticSites
+      .map((k) => ({ value: k, label: `LASTARC.Prosthetic.${k}` })),
+    // The ladder, not LASTARC.initiativeDice — that maps non-player CATEGORIES
+    // to a die, which is a different table. Labels are the die faces
+    // themselves, so they need no localisation.
+    initiativeDieOptions: LASTARC.initiativeDieLadder
+      .map((d) => ({ value: d, label: d })),
+  };
+}

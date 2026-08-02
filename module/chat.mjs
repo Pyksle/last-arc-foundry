@@ -7,13 +7,14 @@
  */
 
 import { LASTARC } from "./config.mjs";
+import * as D from "./derivation.mjs";
 import {
   rollDamage, applyDamage, rollAttack, rollNpcAttack, rollNpcDamage,
   repostAttackAfterReroll
 } from "./dice/attack.mjs";
 import {
   canSpendHeroPoint, heroPointReroll, heroPointBonusRoll,
-  heroPointPreventDeath, HERO_SPEND
+  heroPointPreventDeath, HERO_SPEND, rerollWithoutCost
 } from "./dice/hero-points.mjs";
 import { repostCheckAfterReroll } from "./dice/rolls.mjs";
 import { rollBlock, canBlock } from "./dice/block.mjs";
@@ -23,6 +24,7 @@ import { applyPerformanceEffect } from "./effects.mjs";
 export function registerChatListeners() {
   Hooks.on("renderChatMessageHTML", (message, element) => {
     offerHeroReroll(message, element);
+    offerGrantedRerolls(message, element);
     offerBlock(message, element);
     markBlockedAttack(message, element);
     refreshBlockedAttack(message);
@@ -58,7 +60,11 @@ function offerHeroReroll(message, element) {
   const flags = message.flags?.["last-arc"] ?? {};
   const actor = game.actors.get(flags.actorId);
   if (!actor?.isOwner) return;
-  if (flags.heroRerolled) return;
+  // Either kind of reroll closes the roll. One d20 gets one second chance —
+  // the flags are separate because the resources are, but the gate is shared,
+  // and having only the hero point respect it let a granted reroll be followed
+  // by a bought one on the same die.
+  if (flags.heroRerolled || flags.rerolled) return;
   if (!message.rolls?.[0]?.dice?.some((d) => d.faces === 20)) return;
 
   const reroll = canSpendHeroPoint(actor, HERO_SPEND.REROLL);
@@ -95,6 +101,109 @@ function offerHeroReroll(message, element) {
   }
 
   element.querySelector(".message-content")?.appendChild(wrap);
+}
+
+/**
+ * Offer a reroll granted by a technick, talent or racial trait (#48).
+ *
+ * The GM: "there are certain talents, technicks, and racial traits that allow
+ * for the rerolling of a roll". Both semantics already existed in
+ * `resolveReroll` and were read by nothing but the hero point.
+ *
+ * One button per grant, NAMED after the trait that gives it. A player with two
+ * reroll traits needs to tell them apart — they may have different semantics —
+ * and "Reroll ×2" tells them nothing.
+ *
+ * Misfortune blocks these, shown disabled with the reason, on the same
+ * reasoning as the hero point button: a rule enforced by making its own UI
+ * vanish is indistinguishable from a rule nobody wrote. That is a house call
+ * pending the GM's ruling — §12 blocks spending a HERO POINT to reroll, and a
+ * granted reroll is not one — so it is one condition here rather than a
+ * decision spread through the file.
+ */
+function offerGrantedRerolls(message, element) {
+  const flags = message.flags?.["last-arc"] ?? {};
+  const actor = game.actors.get(flags.actorId);
+  if (!actor?.isOwner) return;
+  if (flags.rerolled || flags.heroRerolled) return;
+  if (!message.rolls?.[0]?.dice?.some((d) => d.faces === 20)) return;
+
+  const grants = actor.system?.rerollGrants ?? [];
+  if (!grants.length) return;
+
+  const blocked = !D.canRerollD20(actor.system?.statuses ?? {});
+
+  const wrap = document.createElement("div");
+  wrap.className = "lastarc-hero-spends";
+
+  for (const [index, grant] of grants.entries()) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "lastarc-hero-reroll";
+    b.dataset.action = "lastarcGrantedReroll";
+    b.dataset.actorId = actor.id;
+    b.dataset.grantIndex = String(index);
+    b.textContent = game.i18n.format("LASTARC.Reroll.Offer", {
+      source: grant.source ?? game.i18n.localize(`LASTARC.RerollKind.${grant.kind}`)
+    });
+    b.disabled = blocked;
+    b.dataset.tooltip = blocked
+      ? game.i18n.localize("LASTARC.HeroPoint.MisfortuneBlocks")
+      : game.i18n.format("LASTARC.Reroll.OfferTooltip", {
+        kind: game.i18n.localize(`LASTARC.RerollKind.${grant.kind}`),
+        source: grant.source ?? "—"
+      });
+    wrap.appendChild(b);
+  }
+
+  element.querySelector(".message-content")?.appendChild(wrap);
+}
+
+/**
+ * Spend a granted reroll.
+ *
+ * No hero point is deducted — that is the entire point of these traits. The
+ * message is flagged so one grant cannot be used twice on the same roll, and
+ * the rebuilt card comes from the same chain the hero point uses, so an attack
+ * gets its damage button back and a check gets its verdict re-resolved.
+ *
+ * `usesPerRest` is recorded on the grant and NOT enforced here. Building a
+ * spend-tracker for a limit the GM has not yet said exists would be machinery
+ * with no rule behind it — the defect this project produces most. The number is
+ * stored, shown, and adjudicated at the table until they rule on it.
+ */
+async function onGrantedReroll(button, message) {
+  const actor = resolveActor(button);
+  const original = message.rolls?.[0];
+  if (!original) return;
+
+  const grant = actor.system?.rerollGrants?.[Number(button.dataset.grantIndex)];
+  if (!grant) return;
+
+  if (!D.canRerollD20(actor.system?.statuses ?? {})) {
+    ui.notifications?.warn(game.i18n.localize("LASTARC.HeroPoint.MisfortuneBlocks"));
+    return;
+  }
+
+  const flags = message.flags?.["last-arc"] ?? {};
+  const result = await rerollWithoutCost(original, {
+    kind: grant.kind, mod: rollModifier(flags)
+  });
+
+  await message.setFlag("last-arc", "rerolled", true);
+
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content:
+      `<div class="lastarc-card lastarc-card--hero">` +
+      `<p class="lastarc-verdict">${game.i18n.format("LASTARC.Reroll.Applied", {
+        source: grant.source ?? "—",
+        original: result.original, rerolled: result.rerolled, kept: result.kept
+      })}</p></div>`,
+    rolls: [result.roll]
+  });
+
+  await rebuildAfterReroll(actor, flags, result.keptRoll);
 }
 
 /**
@@ -215,6 +324,7 @@ async function onChatAction(event, message) {
       case "lastarcComboAttack": return await onComboAttack(button, message);
       case "lastarcApplyDamage": return await onApplyDamage(button);
       case "lastarcHeroReroll": return await onHeroReroll(button, message);
+      case "lastarcGrantedReroll": return await onGrantedReroll(button, message);
       case "lastarcHeroBonus": return await onHeroBonus(button, message);
       case "lastarcPreventDeath": return await onPreventDeath(button);
       case "lastarcBlock": return await onBlock(button, message);

@@ -236,6 +236,29 @@ function grantsSchema() {
     recoveryMinorActions: new fields.NumberField({
       initial: null, nullable: true, integer: true, min: 1
     }),
+    /**
+     * Rerolls this item grants (#48).
+     *
+     * The GM asked for "two checkboxes for mechanical effects inside of the
+     * technicks" — reroll keeping the new die, and reroll keeping the better
+     * one. Both semantics already existed in `resolveReroll` and were read by
+     * nothing but the hero point.
+     *
+     * Generated from `LASTARC.grantableRerollKinds` so a kind cannot be
+     * grantable in the schema and absent from the sheet's checkboxes, or the
+     * reverse — the defect that shipped two unreachable `choices` arrays.
+     *
+     * `usesPerRest` is 0 for unlimited, which is also what an item that has
+     * never been given a limit reads as. That covers both answers to a question
+     * the GM has not yet had to make: if these traits are limited it holds the
+     * limit, and if they are not it stays out of the way.
+     */
+    reroll: new fields.SchemaField({
+      ...Object.fromEntries(LASTARC.grantableRerollKinds.map((kind) => [
+        kind, new fields.BooleanField({ initial: false })
+      ])),
+      usesPerRest: new fields.NumberField({ initial: 0, integer: true, min: 0 })
+    }),
     skills: new fields.ArrayField(
       new fields.SchemaField({
         key: new fields.StringField({ initial: "" }),

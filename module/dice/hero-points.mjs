@@ -51,6 +51,39 @@ export function canSpendHeroPoint(actor, kind) {
 }
 
 /**
+ * Reroll a d20 that costs no hero point (#48).
+ *
+ * The rolling half of `heroPointReroll` with the spend and the eligibility
+ * check removed — those belong to the hero point, and a technick that grants a
+ * reroll is not spending one. Shared rather than reimplemented so the two
+ * cannot drift on the thing that matters: which die is KEPT.
+ *
+ * `resolveReroll` decides by NATURAL, and under "keep the better" the winner is
+ * frequently the ORIGINAL roll. Returning the new one regardless would print a
+ * total the dice never produced, every time the reroll failed to improve.
+ *
+ * @param {Roll} originalRoll
+ * @param {object} options
+ * @param {"second"|"higher"|"lower"} options.kind
+ * @param {number} options.mod  The modifier the original was rolled with.
+ */
+export async function rerollWithoutCost(originalRoll, { kind = "second", mod = 0 } = {}) {
+  const original = originalRoll.dice[0]?.results?.[0]?.result ?? 0;
+
+  const reroll = new Roll("1d20 + @mod", { mod });
+  await reroll.evaluate();
+  const rerolled = reroll.dice[0]?.results?.[0]?.result ?? 0;
+
+  const kept = D.resolveReroll(original, rerolled, kind);
+
+  return {
+    original, rerolled, kept, kind,
+    roll: reroll,
+    keptRoll: kept === rerolled ? reroll : originalRoll
+  };
+}
+
+/**
  * Roll a hero-point bonus die.
  *
  * @param {boolean} rerollOnes  Grassrunner trait: reroll 1s on these dice (§13).

@@ -118,6 +118,8 @@ describe("attack card flags round-trip", () => {
     const ELSEWHERE = {
       blocksMessageId: "written by the Block card in dice/block.mjs",
       heroRerolled: "stamped onto a message by the hero point reroll",
+      rerolled: "stamped onto a message by a technick-granted reroll (#48) — a " +
+        "separate marker from heroRerolled because they are separate resources",
       type: "written by every card builder, not just attacks",
       actorId: "written by every card builder"
     };

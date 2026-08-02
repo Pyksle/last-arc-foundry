@@ -8,6 +8,7 @@
  */
 
 import { LASTARC } from "../config.mjs";
+import * as ROWS from "../sheet-rows.mjs";
 import * as D from "../derivation.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -81,6 +82,22 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.isConsumable = CONSUMABLE_TYPES.has(item.type);
     context.hasGrants = GRANTING_TYPES.has(item.type);
 
+    /**
+     * The reroll checkboxes (#48), driven off `LASTARC.grantableRerollKinds`
+     * rather than written out twice in the template.
+     *
+     * Same reasoning as the NPC range bands: one list means a kind cannot
+     * become grantable in the schema and stay untickable here. Two hand-kept
+     * copies is how this codebase shipped two `choices` arrays nobody could
+     * reach (#32).
+     */
+    context.rerollKindFields = LASTARC.grantableRerollKinds.map((key) => ({
+      key,
+      label: `LASTARC.RerollKind.${key}`,
+      tooltip: `LASTARC.Tooltip.RerollKind.${key}`,
+      checked: !!sys.grants?.reroll?.[key]
+    }));
+
     // The schema itself, so {{formInput}} can build the right control for a
     // field rather than the template guessing. Needed for description in
     // particular: HTMLField defaults its element to <prose-mirror>, which is
@@ -91,43 +108,7 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.enrichedDescription = await foundry.applications.ux.TextEditor
       .implementation.enrichHTML(sys.description ?? "", { relativeTo: item });
 
-    context.availabilityOptions = Object.keys(LASTARC.availability)
-      .map((k) => ({ value: k, label: `LASTARC.Availability.${k}` }));
-    context.sizeOptions = LASTARC.sizeOrder
-      .map((k) => ({ value: k, label: LASTARC.sizes[k].label }));
-    context.weaponCategoryOptions = LASTARC.weaponCategories
-      .map((k) => ({ value: k, label: `LASTARC.WeaponCategory.${k}` }));
-    context.armourTypeOptions = Object.keys(LASTARC.armourTypes)
-      .map((k) => ({ value: k, label: `LASTARC.ArmourType.${k}` }));
-    context.damageTypeOptions = LASTARC.allDamageTypes
-      .map((k) => ({ value: k, label: `LASTARC.DamageType.${k}` }));
-    context.schoolOptions = LASTARC.spellSchools
-      .map((k) => ({ value: k, label: `LASTARC.School.${k}` }));
-    context.skillOptions = Object.keys(LASTARC.allSkills)
-      .map((k) => ({ value: k, label: LASTARC.allSkills[k].label }));
-    context.castingTimeOptions = Object.entries(LASTARC.castingTimes)
-      .map(([k, v]) => ({ value: k, label: v.label }));
-    context.performSpecOptions = Object.keys(LASTARC.performSpecialisations)
-      .map((k) => ({ value: k, label: `LASTARC.PerformSpec.${k}` }));
-    context.performanceKindOptions = Object.keys(LASTARC.performanceKinds)
-      .map((k) => ({ value: k, label: `LASTARC.PerformanceKind.${k}` }));
-    context.classKeyOptions = Object.entries(LASTARC.classes)
-      .map(([k, c]) => ({ value: k, label: c.label }));
-    context.technickKindOptions = LASTARC.technickKinds
-      .map((k) => ({ value: k, label: `LASTARC.TechnickKind.${k}` }));
-    context.shieldSizeOptions = Object.keys(LASTARC.shieldDamage)
-      .map((k) => ({ value: k, label: LASTARC.sizes[k]?.label ?? k }));
-    context.consumableTypeOptions = LASTARC.consumableTypes
-      .map((k) => ({ value: k, label: `LASTARC.ConsumableType.${k}` }));
-    context.featureCategoryOptions = LASTARC.featureCategories
-      .map((k) => ({ value: k, label: `LASTARC.FeatureCategory.${k}` }));
-    context.prostheticSiteOptions = LASTARC.prostheticSites
-      .map((k) => ({ value: k, label: `LASTARC.Prosthetic.${k}` }));
-    // The ladder, not LASTARC.initiativeDice — that maps non-player CATEGORIES
-    // to a die, which is a different table. Labels are the die faces
-    // themselves, so they need no localisation.
-    context.initiativeDieOptions = LASTARC.initiativeDieLadder
-      .map((d) => ({ value: d, label: d }));
+    Object.assign(context, ROWS.itemChoiceOptions());
 
     // A blank first entry is the "none" case and must be selectable, or a
     // field once set could never be cleared.

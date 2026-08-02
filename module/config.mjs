@@ -821,6 +821,19 @@ LASTARC.npcManualAdjustments = (statuses = {}) =>
  */
 LASTARC.rerollKinds = ["second", "higher", "lower"];
 
+/**
+ * The kinds a TECHNICK, TALENT OR RACE may grant (#48).
+ *
+ * `lower` is deliberately absent. It is the misfortune PENALTY — reroll and
+ * keep the worse — and an item granting it would be handing a character a
+ * curse. The three kinds are one list because they are one mechanic; which of
+ * them can be given away is a separate question and this is its answer.
+ *
+ * Both the schema and the item sheet's checkboxes are generated from here, so
+ * a kind cannot become grantable in one and not the other.
+ */
+LASTARC.grantableRerollKinds = ["second", "higher"];
+
 /* -------------------------------------------------------------------------- */
 /*  Ethos (§12)                                                                */
 /* -------------------------------------------------------------------------- */

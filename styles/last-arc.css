@@ -345,6 +345,33 @@
 .la-field { display: flex; flex-direction: column-reverse; flex: 1 1 8rem; min-width: 0; }
 .la-field--name { flex-basis: 100%; }
 .la-field--narrow { flex: 0 1 5rem; }
+/**
+ * The granted-reroll row on an item sheet (#48).
+ *
+ * Matches the caption idiom every other grant label uses. Left as default body
+ * serif it rendered "Grants a reroll / New roll stands / Keep the better" in
+ * large text beside "REFLEX" and "2ND WIND" — legible, but reading as prose
+ * dropped into a form rather than as part of it.
+ */
+.la-field-row--rerolls {
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+}
+.la-field-row__tag,
+.la-field-row--rerolls .la-check span {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--la-ink-faint);
+}
+.la-field-row__tag { color: var(--la-bronze-bright); }
+.la-field-row--rerolls .la-check {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
 .la-field label {
   font-size: 0.62rem;
   letter-spacing: 0.12em;

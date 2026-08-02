@@ -28,7 +28,8 @@ import { join } from "node:path";
 // and the item sheet against the synthetic context. A throw fails the suite.
 import {
   Handlebars, PARTIALS, buildContext, root,
-  renderedItemSheets, renderedNpcSheet, renderedCards, renderedCharacterSheet
+  renderedItemSheets, renderedNpcSheet, renderedCards, renderedCharacterSheet,
+  npcContext, itemContext
 } from "../tools/preview.mjs";
 
 const read = (p) => readFileSync(join(root, p), "utf8");
@@ -417,14 +418,29 @@ describe("§ issue #44: the preview fixture tracks what the sheets assign", () =
     assert.ok(keys.has("attacks"), [...keys].join(", "));
   });
 
-  test("every key the character sheet assigns is in the fixture", () => {
-    const fixture = new Set(Object.keys(buildContext()));
-    const missing = [...assignedBy("module/sheets/character-sheet.mjs")]
-      .filter((k) => !fixture.has(k))
-      .sort();
+  /**
+   * ALL THREE sheets, not just the character's.
+   *
+   * This guard covered `character-sheet.mjs` alone, and the two it did not
+   * cover had drifted badly: the NPC fixture was short six keys and the ITEM
+   * fixture was short THIRTY-NINE — every option list on it. So every item
+   * sheet ever previewed rendered its dropdowns empty, and I read an empty
+   * `<select name="system.size">` as a fixture quirk rather than as the tool
+   * lying. A guard that checks one of three surfaces is a guard that says
+   * "fine" about two it never looked at.
+   */
+  for (const [label, file, ctx] of [
+    ["character", "module/sheets/character-sheet.mjs", () => buildContext()],
+    ["NPC", "module/sheets/npc-sheet.mjs", () => npcContext()],
+    ["item", "module/sheets/item-sheet.mjs", () => itemContext("technick")]
+  ]) {
+    test(`every key the ${label} sheet assigns is in the fixture`, () => {
+      const fixture = new Set(Object.keys(ctx()));
+      const missing = [...assignedBy(file)].filter((k) => !fixture.has(k)).sort();
 
-    assert.deepEqual(missing, [],
-      "the preview renders these as blank, so it cannot distinguish an unwired " +
-      "panel from an unpopulated fixture:\n  " + missing.join("\n  "));
-  });
+      assert.deepEqual(missing, [],
+        `the ${label} preview renders these as blank, so it cannot distinguish ` +
+        "an unwired panel from an unpopulated fixture:\n  " + missing.join("\n  "));
+    });
+  }
 });

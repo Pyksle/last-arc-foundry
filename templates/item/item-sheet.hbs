@@ -546,6 +546,36 @@
                  value="{{system.grants.recoveryMinorActions}}" min="1" placeholder="3">
           <label>{{localize "LASTARC.Field.RecoveryMinors"}}</label>
         </div>
+      </div>
+
+      {{!-- Rerolls this trait grants (#48). The GM asked for "two checkboxes
+            for mechanical effects inside of the technicks" — keep the new die,
+            or keep the better one. Both semantics already existed and were read
+            by nothing but the hero point.
+
+            Generated from `LASTARC.grantableRerollKinds`, so a kind cannot be
+            grantable in the schema and untickable here. `lower` is deliberately
+            not grantable: it is the misfortune penalty, and an item handing it
+            out would be giving a character a curse. --}}
+      <div class="la-field-row la-field-row--rerolls">
+        <span class="la-field-row__tag"
+              data-tooltip="{{localize 'LASTARC.Tooltip.GrantsReroll'}}">
+          {{localize "LASTARC.Field.GrantsReroll"}}
+        </span>
+        {{#each rerollKindFields}}
+          <label class="la-check"
+                 data-tooltip="{{localize this.tooltip}}">
+            <input type="checkbox" name="system.grants.reroll.{{this.key}}"
+                   {{#if this.checked}}checked{{/if}}>
+            <span>{{localize this.label}}</span>
+          </label>
+        {{/each}}
+        <div class="la-field la-field--narrow"
+             data-tooltip="{{localize 'LASTARC.Tooltip.RerollUses'}}">
+          <input type="number" name="system.grants.reroll.usesPerRest"
+                 value="{{system.grants.reroll.usesPerRest}}" min="0" placeholder="0">
+          <label>{{localize "LASTARC.Field.RerollUses"}}</label>
+        </div>
         <div class="la-field la-field--narrow"
              data-tooltip="{{localize 'LASTARC.Tooltip.GrantHp'}}">
           <input type="number" name="system.grants.hp" value="{{system.grants.hp}}">

@@ -848,5 +848,16 @@
   "LASTARC.Tooltip.RangeBand.pointBlank": "Up to this distance: no penalty.",
   "LASTARC.Tooltip.RangeBand.short": "Up to this distance: -2. Leave zero to stop here — this attack simply cannot reach further.",
   "LASTARC.Tooltip.RangeBand.mid": "Up to this distance: -5.",
-  "LASTARC.Tooltip.RangeBand.long": "Up to this distance: -10. The attack's maximum range."
+  "LASTARC.Tooltip.RangeBand.long": "Up to this distance: -10. The attack's maximum range.",
+  "LASTARC.Field.GrantsReroll": "Grants a reroll",
+  "LASTARC.Field.RerollUses": "Per rest",
+  "LASTARC.RerollKind.second": "New roll stands",
+  "LASTARC.RerollKind.higher": "Keep the better",
+  "LASTARC.Tooltip.GrantsReroll": "Lets this character reroll a d20 from the chat card. Leave both unticked if the trait does not grant a reroll.",
+  "LASTARC.Tooltip.RerollKind.second": "Reroll and take the new die, even if it is worse. The gamble — the same rule a hero point uses.",
+  "LASTARC.Tooltip.RerollKind.higher": "Reroll and keep whichever die was higher. Never worse than not rerolling.",
+  "LASTARC.Tooltip.RerollUses": "Uses per rest. Leave at 0 for unlimited — the table tracks it.",
+  "LASTARC.Reroll.Offer": "Reroll — {source}",
+  "LASTARC.Reroll.OfferTooltip": "{kind}. Granted by {source}.",
+  "LASTARC.Reroll.Applied": "{source}: rolled {original}, then {rerolled} — kept {kept}."
 }

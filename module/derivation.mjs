@@ -680,7 +680,20 @@ export function aggregateGrants(grantsList = []) {
     hp: 0,
     mp: 0,
     dr: 0,
-    skills: {}
+    skills: {},
+    /**
+     * Rerolls granted by technicks, talents and races (#48).
+     *
+     * Kept as a LIST rather than summed, because each entry has to name its
+     * source. A player with two reroll traits needs to know which button is
+     * which — "Reroll (Grassrunner)" is usable at a table and "Reroll ×2" is
+     * not, since the two may have different semantics and different limits.
+     *
+     * `usesPerRest: 0` means unlimited, and the totals below follow suit: one
+     * unlimited grant makes the whole kind unlimited rather than capping it at
+     * whatever the limited ones added up to.
+     */
+    rerolls: []
   };
 
   for (const g of grantsList) {
@@ -697,6 +710,16 @@ export function aggregateGrants(grantsList = []) {
     out.hp += g.hp ?? 0;
     out.mp += g.mp ?? 0;
     out.dr += g.dr ?? 0;
+
+    for (const kind of LASTARC.grantableRerollKinds) {
+      if (g.reroll?.[kind]) {
+        out.rerolls.push({
+          kind,
+          usesPerRest: g.reroll.usesPerRest ?? 0,
+          source: g.__source ?? null
+        });
+      }
+    }
 
     if (g.recoveryMinorActions != null) {
       out.recoveryMinorActions = out.recoveryMinorActions === null

@@ -283,6 +283,16 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     this.study = this.#studyLimits();
     this.trainedSkills = this.#trainedSkillLimits(grants);
 
+    /**
+     * Rerolls this character's traits offer (#48). Read-only, derived from the
+     * items — see the class docstring on why nothing derived gets an input.
+     *
+     * Surfaced on `system` so the chat card can offer a button without walking
+     * the item list itself: a chat handler that re-derives what the model
+     * already knows is a second implementation waiting to disagree.
+     */
+    this.rerollGrants = grants.rerolls;
+
     // 4. Equipped armour ----------------------------------------------------
     const armour = this.#equippedArmour();
 
@@ -641,7 +651,16 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       // technick schema. Features have no such switch, hence `!== false`
       // rather than a truthiness test.
       if (item.system.active === false) continue;
-      if (isInnate || item.system.equipped) contributing.push(g);
+      /**
+       * Tagged with the item's name so a granted reroll can say WHICH trait
+       * offers it (#48). A player with two reroll traits needs "Reroll
+       * (Grassrunner)" rather than two identical buttons — they may have
+       * different semantics and different limits.
+       *
+       * A shallow copy, because `grants` is live schema data and writing a
+       * display field onto it would persist to the database.
+       */
+      if (isInnate || item.system.equipped) contributing.push({ ...g, __source: item.name });
     }
 
     return D.aggregateGrants(contributing);
