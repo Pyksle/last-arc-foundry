@@ -128,7 +128,16 @@ function offerGrantedRerolls(message, element) {
   if (flags.rerolled || flags.heroRerolled) return;
   if (!message.rolls?.[0]?.dice?.some((d) => d.faces === 20)) return;
 
-  const grants = actor.system?.rerollGrants ?? [];
+  /**
+   * A grant scoped to one skill only offers itself on THAT skill's checks
+   * (#48). The GM's examples are a class talent and a racial trait that each
+   * reroll a single named skill, so an unscoped grant is the exception.
+   *
+   * An attack has no `skillKey`, so a scoped grant never appears on one —
+   * which is right: these traits reroll skill checks, not attacks.
+   */
+  const grants = (actor.system?.rerollGrants ?? [])
+    .filter((g) => !g.skill || g.skill === flags.skillKey);
   if (!grants.length) return;
 
   const blocked = !D.canRerollD20(actor.system?.statuses ?? {});
@@ -167,17 +176,23 @@ function offerGrantedRerolls(message, element) {
  * the rebuilt card comes from the same chain the hero point uses, so an attack
  * gets its damage button back and a check gets its verdict re-resolved.
  *
- * `usesPerRest` is recorded on the grant and NOT enforced here. Building a
- * spend-tracker for a limit the GM has not yet said exists would be machinery
- * with no rule behind it — the defect this project produces most. The number is
- * stored, shown, and adjudicated at the table until they rule on it.
+ * There is no per-rest counter. The GM's ruling is that these are limited to
+ * one reroll per attempted check, and that is already enforced by the shared
+ * gate: any reroll, bought or granted, retires the buttons on that roll.
  */
 async function onGrantedReroll(button, message) {
   const actor = resolveActor(button);
   const original = message.rolls?.[0];
   if (!original) return;
 
-  const grant = actor.system?.rerollGrants?.[Number(button.dataset.grantIndex)];
+  /**
+   * Re-filtered the SAME way the offer filtered, because the button's index is
+   * into the filtered list. Indexing the raw list here would spend the wrong
+   * grant the moment a character has one scoped trait and one unscoped.
+   */
+  const flagsForScope = message.flags?.["last-arc"] ?? {};
+  const grant = (actor.system?.rerollGrants ?? [])
+    .filter((g) => !g.skill || g.skill === flagsForScope.skillKey)[Number(button.dataset.grantIndex)];
   if (!grant) return;
 
   if (!D.canRerollD20(actor.system?.statuses ?? {})) {

@@ -251,16 +251,23 @@ describe("§ every sheet and card renders, for every subtype", () => {
    * looks like. Every item sheet previewed before #44 had several, and I read
    * one as a fixture quirk rather than as the tool lying.
    */
-  test("no dropdown renders with nothing in it", () => {
+  test("no dropdown renders with nothing to choose", () => {
     const bad = [];
     for (const [label, html] of surfaces()) {
-      for (const m of html.matchAll(/<select name="([^"]+)">\s*<\/select>/g)) {
-        bad.push(`${label}: ${m[1]}`);
+      for (const m of html.matchAll(/<select\b[^>]*name="([^"]+)"[^>]*>([\s\S]*?)<\/select>/g)) {
+        const options = [...m[2].matchAll(/<option\b[^>]*value="([^"]*)"/g)];
+        // A picker holding ONLY its blank placeholder is empty in every sense
+        // that matters: there is nothing the user can pick. The first version
+        // of this guard matched `<select></select>` and sailed past a skill
+        // picker showing just "Any roll", which is how the stub that produced
+        // it survived another twenty minutes.
+        const choosable = options.filter((o) => o[1] !== "");
+        if (!choosable.length) bad.push(`${label}: ${m[1]}`);
       }
     }
     assert.deepEqual(bad, [],
-      "these render an empty picker, so the preview cannot tell an unwired " +
-      "field from an unpopulated fixture:\n  " + bad.join("\n  "));
+      "these render a picker with nothing choosable in it, so the preview " +
+      "cannot tell an unwired field from an unpopulated fixture:\n  " + bad.join("\n  "));
   });
 
   test("nothing renders NaN", () => {

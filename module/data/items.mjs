@@ -248,16 +248,23 @@ function grantsSchema() {
      * grantable in the schema and absent from the sheet's checkboxes, or the
      * reverse — the defect that shipped two unreachable `choices` arrays.
      *
-     * `usesPerRest` is 0 for unlimited, which is also what an item that has
-     * never been given a limit reads as. That covers both answers to a question
-     * the GM has not yet had to make: if these traits are limited it holds the
-     * limit, and if they are not it stays out of the way.
+     * `skill` scopes the grant. The GM's examples are a class talent and a
+     * racial trait that both reroll ONE named skill, so a trait that rerolls
+     * anything is the exception rather than the rule — blank means any roll.
+     *
+     * There is deliberately no uses-per-rest field. The GM's ruling is that
+     * these are limited to one reroll per attempted check, which the chat card
+     * already enforces by retiring the button once a roll has been rerolled by
+     * ANY method. A per-rest counter would be a second limit with no rule
+     * behind it, which is what issue #46 was about.
      */
     reroll: new fields.SchemaField({
       ...Object.fromEntries(LASTARC.grantableRerollKinds.map((kind) => [
         kind, new fields.BooleanField({ initial: false })
       ])),
-      usesPerRest: new fields.NumberField({ initial: 0, integer: true, min: 0 })
+      skill: new fields.StringField({
+        initial: "", blank: true, choices: ["", ...Object.keys(LASTARC.allSkills)]
+      })
     }),
     skills: new fields.ArrayField(
       new fields.SchemaField({

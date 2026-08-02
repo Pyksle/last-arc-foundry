@@ -501,11 +501,31 @@ export function itemContext(type) {
     isTechnick: type === "technick" || type === "talent",
     outcomes: [],
     grantedSkills: [],
-    skillOptions: [],
-    statusOptions: [],
+    /**
+     * These four were `[]`, which renders a picker containing nothing — and
+     * `...ROWS.itemChoiceOptions()` above supplies `skillOptions` properly, so
+     * this stub was silently OVERRIDING the real thing. A stub that overrides
+     * shared code is worse than one that fills a gap.
+     */
+    statusOptions: [
+      { value: "", label: localize("LASTARC.Field.NoStatus") },
+      ...LASTARC.allStatusIds.map((id) => ({ value: id, label: `LASTARC.Status.${id}` }))
+    ],
     defenceOptions: ROWS.opposedDefenceOptions(localize),
-    weaponDamageTypes: [],
-    flagOptions: []
+    // Shapes copied from the sheet, not guessed. My first attempt invented
+    // `{key, active}` where the sheet produces `{value, hint, selected}`, and
+    // the render came out with `data-key=""` and `data-tooltip="undefined"` —
+    // the third time tonight a hand-written fixture has been confidently wrong
+    // about a shape, which is the whole argument of this issue.
+    weaponDamageTypes: LASTARC.allDamageTypes.map((k) => ({
+      value: k, label: `LASTARC.DamageType.${k}`, selected: k === "slashing"
+    })),
+    flagOptions: LASTARC.technickFlags.map((f) => ({
+      value: f,
+      label: `LASTARC.TechnickFlag.${f}`,
+      hint: `LASTARC.TechnickFlagHint.${f}`,
+      selected: false
+    }))
   };
 }
 

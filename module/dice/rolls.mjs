@@ -76,7 +76,8 @@ export async function rollSkill(actor, skillKey, options = {}) {
     mod: mod + situational,
     dc,
     isWeaponSkill: !!cfg.weapon,
-    flavourKey: "LASTARC.Roll.SkillCheck"
+    flavourKey: "LASTARC.Roll.SkillCheck",
+    skillKey
   });
 }
 
@@ -112,7 +113,8 @@ export async function rollAttribute(actor, attrKey, options = {}) {
  * @returns {Promise<LastArcRollResult>}
  */
 export async function evaluateCheck({
-  actor, label, mod, dc, isWeaponSkill, flavourKey, misfortuneApplies = true
+  actor, label, mod, dc, isWeaponSkill, flavourKey, misfortuneApplies = true,
+  skillKey = null
 }) {
   /**
    * Misfortune rerolls "attacks and skill checks" keeping the lower — the
@@ -160,7 +162,13 @@ export async function evaluateCheck({
          * `1d20`, and the number in the log is not the number that was rolled.
          */
         label, mod, dc: dc ?? null, isWeaponSkill: !!isWeaponSkill, flavourKey,
-        misfortuneApplies
+        misfortuneApplies,
+        /**
+         * WHICH skill, so a trait that rerolls one named skill can tell its own
+         * rolls from everyone else's (#48). The label is localised and the
+         * flavour key is generic; neither can be matched against a config key.
+         */
+        skillKey: skillKey ?? null
       }
     }
   });

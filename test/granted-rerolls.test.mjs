@@ -50,16 +50,16 @@ describe("§48 which kinds a trait may grant", () => {
 describe("§48 a grant survives the trip from item to actor", () => {
   test("a ticked kind reaches the aggregate, an unticked one does not", () => {
     const g = aggregateGrants([
-      { __source: "ZZ trait", reroll: { second: true, higher: false, usesPerRest: 2 } },
-      { __source: "ZZ inert", reroll: { second: false, higher: false, usesPerRest: 3 } }
+      { __source: "ZZ trait", reroll: { second: true, higher: false, skill: "survival" } },
+      { __source: "ZZ inert", reroll: { second: false, higher: false, skill: "survival" } }
     ]);
     assert.equal(g.rerolls.length, 1, "an untouched trait must grant nothing");
-    assert.deepEqual(g.rerolls[0], { kind: "second", usesPerRest: 2, source: "ZZ trait" });
+    assert.deepEqual(g.rerolls[0], { kind: "second", skill: "survival", source: "ZZ trait" });
   });
 
   test("one trait can grant both kinds", () => {
     const g = aggregateGrants([
-      { __source: "ZZ both", reroll: { second: true, higher: true, usesPerRest: 1 } }
+      { __source: "ZZ both", reroll: { second: true, higher: true, skill: "" } }
     ]);
     assert.deepEqual(g.rerolls.map((r) => r.kind), ["second", "higher"]);
   });
@@ -71,8 +71,8 @@ describe("§48 a grant survives the trip from item to actor", () => {
    */
   test("each grant carries the name of the trait that gave it", () => {
     const g = aggregateGrants([
-      { __source: "ZZ knack", reroll: { second: true, usesPerRest: 0 } },
-      { __source: "ZZ boon", reroll: { higher: true, usesPerRest: 1 } }
+      { __source: "ZZ knack", reroll: { second: true, skill: "" } },
+      { __source: "ZZ boon", reroll: { higher: true, skill: "stealth" } }
     ]);
     assert.deepEqual(g.rerolls.map((r) => r.source), ["ZZ knack", "ZZ boon"]);
   });
@@ -98,7 +98,8 @@ describe("§48 every link of the chain is connected", () => {
       "schema and untickable on the sheet — issue #32, twice");
     assert.match(itemTemplate, /name="system\.grants\.reroll\.\{\{this\.key\}\}"/,
       "the generated checkboxes do not bind to the grants schema");
-    assert.match(itemTemplate, /name="system\.grants\.reroll\.usesPerRest"/);
+    assert.match(itemTemplate, /name="system\.grants\.reroll\.skill"/,
+      "no skill picker, so a trait that rerolls one named skill cannot say which");
   });
 
   test("the card offers one button per grant", () => {
@@ -181,7 +182,8 @@ describe("§48 strings exist for everything the buttons say", () => {
 
   test("the offer and its result have strings", () => {
     for (const key of ["LASTARC.Reroll.Offer", "LASTARC.Reroll.OfferTooltip",
-      "LASTARC.Reroll.Applied", "LASTARC.Field.GrantsReroll", "LASTARC.Field.RerollUses"]) {
+      "LASTARC.Reroll.Applied", "LASTARC.Field.GrantsReroll", "LASTARC.Field.RerollSkill",
+      "LASTARC.Field.RerollAnyRoll"]) {
       assert.ok(lang[key], `${key} is missing from lang/en.json`);
     }
   });
@@ -191,5 +193,56 @@ describe("§48 strings exist for everything the buttons say", () => {
     // twice over is not, when a character has two such traits.
     assert.match(lang["LASTARC.Reroll.Offer"], /\{source\}/,
       "the button does not name its source, so two grants look identical");
+  });
+});
+
+/* ── scoping (the GM's ruling on #48) ─────────────────────────────────────── */
+
+describe("§48 a scoped grant only offers itself on its own skill", () => {
+  test("the aggregate carries the scope, blank becoming null", () => {
+    const scoped = aggregateGrants([
+      { __source: "ZZ knack", reroll: { second: true, skill: "survival" } }
+    ]);
+    assert.equal(scoped.rerolls[0].skill, "survival");
+
+    const anyRoll = aggregateGrants([
+      { __source: "ZZ boon", reroll: { second: true, skill: "" } }
+    ]);
+    assert.equal(anyRoll.rerolls[0].skill, null,
+      "blank must normalise to null, or `!g.skill` would not read as unscoped");
+  });
+
+  test("the offer filters by the rolled skill", () => {
+    assert.match(chat, /!g\.skill \|\| g\.skill === flags\.skillKey/,
+      "every grant is offered on every roll, so a trait that rerolls one skill " +
+      "would offer itself on all of them");
+  });
+
+  /**
+   * The button's index is into the FILTERED list. Indexing the raw list in the
+   * handler would spend the wrong grant the moment a character has one scoped
+   * trait and one unscoped — the two lists differ in length and order.
+   */
+  test("the handler re-filters the same way before indexing", () => {
+    const fn = chat.slice(chat.indexOf("async function onGrantedReroll"));
+    assert.match(fn.slice(0, 1200), /!g\.skill \|\| g\.skill === flagsForScope\.skillKey/,
+      "the handler indexes the unfiltered list, so it can spend the wrong grant");
+  });
+
+  test("a check records which skill it was", () => {
+    const rolls = read("module/dice/rolls.mjs");
+    assert.match(rolls, /skillKey: skillKey \?\? null/,
+      "a check does not say which skill it was, so no scoped grant can match it");
+    assert.match(rolls, /flavourKey: "LASTARC\.Roll\.SkillCheck",\s*\n\s*skillKey/,
+      "rollSkill does not pass the key through to the card");
+  });
+
+  test("there is no per-rest counter", () => {
+    // The GM's ruling: one reroll per attempted check, which the shared gate
+    // already enforces. A second limit with no rule behind it is issue #46.
+    for (const f of ["module/data/items.mjs", "module/chat.mjs", "module/derivation.mjs"]) {
+      assert.ok(!read(f).includes("usesPerRest"),
+        `${f} still carries a per-rest limit that no rule asks for`);
+    }
   });
 });

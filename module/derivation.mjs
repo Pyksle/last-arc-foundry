@@ -689,9 +689,11 @@ export function aggregateGrants(grantsList = []) {
      * which — "Reroll (Grassrunner)" is usable at a table and "Reroll ×2" is
      * not, since the two may have different semantics and different limits.
      *
-     * `usesPerRest: 0` means unlimited, and the totals below follow suit: one
-     * unlimited grant makes the whole kind unlimited rather than capping it at
-     * whatever the limited ones added up to.
+     * Each entry also carries the SKILL it is scoped to, or null for any roll.
+     * The GM's examples are a class talent and a racial trait that each reroll
+     * one named skill, so an unscoped grant is the exception rather than the
+     * rule — and a grant that offered itself on every roll would be a quiet
+     * upgrade to the trait.
      */
     rerolls: []
   };
@@ -715,7 +717,10 @@ export function aggregateGrants(grantsList = []) {
       if (g.reroll?.[kind]) {
         out.rerolls.push({
           kind,
-          usesPerRest: g.reroll.usesPerRest ?? 0,
+          // Blank means any roll. A scoped grant must not offer itself on an
+          // attack or on a different skill — the GM's traits reroll one named
+          // skill each.
+          skill: g.reroll.skill || null,
           source: g.__source ?? null
         });
       }

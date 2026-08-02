@@ -570,11 +570,22 @@
             <span>{{localize this.label}}</span>
           </label>
         {{/each}}
-        <div class="la-field la-field--narrow"
-             data-tooltip="{{localize 'LASTARC.Tooltip.RerollUses'}}">
-          <input type="number" name="system.grants.reroll.usesPerRest"
-                 value="{{system.grants.reroll.usesPerRest}}" min="0" placeholder="0">
-          <label>{{localize "LASTARC.Field.RerollUses"}}</label>
+        {{!-- Which skill the reroll applies to. The GM's examples each reroll
+              one named skill, so blank ("any roll") is the exception. --}}
+        <div class="la-field"
+             data-tooltip="{{localize 'LASTARC.Tooltip.RerollSkill'}}">
+          <select name="system.grants.reroll.skill">
+            <option value="" {{#unless system.grants.reroll.skill}}selected{{/unless}}>
+              {{localize "LASTARC.Field.RerollAnyRoll"}}
+            </option>
+            {{#each skillOptions}}
+              <option value="{{this.value}}"
+                {{#if (laeq this.value ../system.grants.reroll.skill)}}selected{{/if}}>
+                {{localize this.label}}
+              </option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.RerollSkill"}}</label>
         </div>
         <div class="la-field la-field--narrow"
              data-tooltip="{{localize 'LASTARC.Tooltip.GrantHp'}}">

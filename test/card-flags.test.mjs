@@ -120,6 +120,9 @@ describe("attack card flags round-trip", () => {
       heroRerolled: "stamped onto a message by the hero point reroll",
       rerolled: "stamped onto a message by a technick-granted reroll (#48) — a " +
         "separate marker from heroRerolled because they are separate resources",
+      skillKey: "written by the CHECK card in dice/rolls.mjs. Its absence on an " +
+        "attack is load-bearing: a reroll grant scoped to one skill matches on " +
+        "this, so an attack having none is what keeps it off attack cards",
       type: "written by every card builder, not just attacks",
       actorId: "written by every card builder"
     };
