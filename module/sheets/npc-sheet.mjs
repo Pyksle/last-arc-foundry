@@ -15,6 +15,7 @@ import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import { rollAttribute } from "../dice/rolls.mjs";
 import { rollNpcAttack, defenceToBeat } from "../dice/attack.mjs";
+import { rollCheckD20 } from "../dice/d20.mjs";
 import { promptCreateItem } from "./item-creation.mjs";
 import { shareItem } from "../dice/share-item.mjs";
 import { orderBySort } from "../item-order.mjs";
@@ -388,8 +389,21 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const entry = this.document.system.skills[index];
     if (!entry) return;
 
-    const penalty = this.document.system.breakGauge.penalty ?? 0;
-    const roll = await new Roll(`1d20 + ${entry.value} + ${penalty}`).evaluate();
+    const sys = this.document.system;
+    const penalty = sys.breakGauge.penalty ?? 0;
+    /**
+     * Statuses reach a statblock's skill checks too. A character picks up
+     * `skillCheckPenalty` through derivation; an NPC's skills are printed
+     * numbers, so it has to be added at the roll — the same reason its attack
+     * bonus takes its status penalty here rather than in the model.
+     *
+     * Through the shared roller so Misfortune's reroll-and-keep-lower applies:
+     * this is a skill check, and it was the eighth bare d20 in the codebase.
+     */
+    const statusPenalty = sys.statuses?.skillCheckPenalty ?? 0;
+    const { roll } = await rollCheckD20(
+      this.document, entry.value + penalty + statusPenalty
+    );
     await roll.toMessage({
       speaker: ChatMessage.getSpeaker({ actor: this.document }),
       flavor: game.i18n.format("LASTARC.Card.SkillCheck", {

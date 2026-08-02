@@ -12,6 +12,7 @@ import { rollDamageDice, rollExplodingDice } from "./explode.mjs";
 import { describeCheck } from "./breakdown.mjs";
 import { situationalLabel } from "./situational.mjs";
 import * as DT from "./damage-type.mjs";
+import { rollCheckD20 } from "./d20.mjs";
 
 /* -------------------------------------------------------------------------- */
 /*  Attack resolution — pure                                                   */
@@ -438,8 +439,7 @@ export async function rollAttack(actor, weapon, options = {}) {
     ...options
   });
 
-  const roll = new Roll("1d20 + @mod", { mod: mods.total });
-  await roll.evaluate();
+  const { roll, discardedNatural } = await rollCheckD20(actor, mods.total);
   const natural = roll.dice[0]?.results?.[0]?.result ?? 0;
 
   const outcome = resolveAttack({
@@ -599,8 +599,7 @@ export async function rollNpcAttack(actor, index, options = {}) {
     ...options
   });
 
-  const roll = new Roll("1d20 + @mod", { mod: mods.total });
-  await roll.evaluate();
+  const { roll, discardedNatural } = await rollCheckD20(actor, mods.total);
   const natural = roll.dice[0]?.results?.[0]?.result ?? 0;
 
   const outcome = resolveAttack({

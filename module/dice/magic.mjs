@@ -23,6 +23,7 @@ import { rollDamageDice } from "./explode.mjs";
 import { rollHealing } from "./healing.mjs";
 import { describeCheck, describeDamage } from "./breakdown.mjs";
 import { situationalLabel } from "./situational.mjs";
+import { rollCheckD20 } from "./d20.mjs";
 import { performanceEffectChanges, performanceRiders } from "../effects.mjs";
 import * as CB from "../combat.mjs";
 
@@ -292,8 +293,7 @@ export async function performItem(actor, performance, options = {}) {
   add(situationalLabel(options.situationalNote), options.situational ?? 0);
 
   const mod = parts.reduce((sum, p) => sum + p.value, 0);
-  const roll = new Roll("1d20 + @mod", { mod });
-  await roll.evaluate();
+  const { roll } = await rollCheckD20(actor, mod);
 
   const outcome = selectOutcome(perf.outcomes, roll.total);
   const target = options.target;
@@ -566,8 +566,7 @@ export async function castSpell(actor, spell, options = {}) {
   add(situationalLabel(options.situationalNote), options.situational ?? 0);
 
   const mod = parts.reduce((s, p) => s + p.value, 0);
-  const roll = new Roll("1d20 + @mod", { mod });
-  await roll.evaluate();
+  const { roll } = await rollCheckD20(actor, mod);
 
   /* -- outcome ------------------------------------------------------------- */
 

@@ -18,6 +18,7 @@
 
 import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
+import { rollCheckD20 } from "./d20.mjs";
 import { getTurnState, setTurnState } from "../combat.mjs";
 import * as AE from "../action-economy.mjs";
 import { describeCheck } from "./breakdown.mjs";
@@ -75,12 +76,7 @@ export function canBlock(actor) {
  * that made every light-weapon attack in the game roll with no skill bonus, so
  * it is handled once here rather than assumed.
  */
-function skillTotal(actor, key) {
-  const skills = actor.system?.skills;
-  if (!skills) return 0;
-  if (Array.isArray(skills)) return skills.find((s) => s.key === key)?.value ?? 0;
-  return skills[key]?.total ?? 0;
-}
+const skillTotal = (actor, key) => D.skillTotalOf(actor.system?.skills, key);
 
 /**
  * Is this actor proficient with shields?
@@ -167,8 +163,7 @@ export async function rollBlock(actor, {
     situational
   });
 
-  const roll = new Roll("1d20 + @mod", { mod: mods.total });
-  await roll.evaluate();
+  const { roll } = await rollCheckD20(actor, mods.total);
 
   const result = D.resolveBlock({ blockTotal: roll.total, attackTotal });
 

@@ -786,6 +786,25 @@ export function resolveReroll(original, rerolled, kind) {
 }
 
 /**
+ * One actor's total in a named skill, whichever shape the actor keeps.
+ *
+ * A character stores skills as a keyed object of derived rows with a `total`; a
+ * statblock stores a flat printed array of `{key, value}`. Reading the
+ * character path against an NPC yields `undefined`, which becomes 0 — and a
+ * silent 0 in a skill check looks exactly like a bad roll.
+ *
+ * `block.mjs` had this logic privately and correctly. `rollSurprise` did not,
+ * and rolled every monster's ambush Stealth at +0 while reading the DEFENDERS'
+ * passive Perception in a properly shape-aware way ten lines further down.
+ * Shared so there is one answer.
+ */
+export function skillTotalOf(skills, key) {
+  if (!skills) return 0;
+  if (Array.isArray(skills)) return skills.find((s) => s.key === key)?.value ?? 0;
+  return skills[key]?.total ?? 0;
+}
+
+/**
  * May this actor spend a hero point to reroll a d20?
  *
  * Misfortune explicitly forbids rerolling d20s, and §12 flags that this

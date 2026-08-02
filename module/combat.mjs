@@ -11,6 +11,8 @@ import { LASTARC } from "./config.mjs";
 import * as INIT from "./initiative.mjs";
 import * as AE from "./action-economy.mjs";
 import * as ATK from "./dice/attack.mjs";
+import * as D from "./derivation.mjs";
+import { rollCheckD20 } from "./dice/d20.mjs";
 
 const SYSTEM_ID = "last-arc";
 const FLAG_ORDER = "turnOrder";
@@ -311,9 +313,15 @@ export async function rollSurprise(attackers, defenders) {
   const rolled = [];
 
   for (const a of attackers) {
-    const mod = a.actor?.system?.skills?.stealth?.total ?? 0;
-    const roll = new Roll("1d20 + @mod", { mod });
-    await roll.evaluate();
+    /**
+     * Shape-aware, and it was not. This read `skills.stealth.total`, which a
+     * statblock does not have, so every monster ambushed at Stealth +0 — while
+     * the DEFENDERS' passive Perception below was written to handle both shapes
+     * from the start. Ten lines apart, in the same function.
+     */
+    const mod = D.skillTotalOf(a.actor?.system?.skills, "stealth");
+    // A Stealth check is a skill check, so Misfortune applies (§12).
+    const { roll } = await rollCheckD20(a.actor, mod);
     stealth[a.name] = roll.total;
     rolled.push({ id: a.id, name: a.name, stealth: roll.total });
   }

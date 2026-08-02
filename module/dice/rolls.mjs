@@ -11,6 +11,7 @@
  */
 
 import { LASTARC } from "../config.mjs";
+import { rollCheckD20 } from "./d20.mjs";
 import * as D from "../derivation.mjs";
 import { situationalSuffix } from "./situational.mjs";
 
@@ -89,6 +90,8 @@ export async function rollAttribute(actor, attrKey, options = {}) {
     mod: attr.mod + bp + situational,
     dc,
     isWeaponSkill: false,
+    // An attribute check is not a skill check — see evaluateCheck.
+    misfortuneApplies: false,
     flavourKey: "LASTARC.Roll.AttributeCheck"
   });
 }
@@ -98,9 +101,17 @@ export async function rollAttribute(actor, attrKey, options = {}) {
  *
  * @returns {Promise<LastArcRollResult>}
  */
-export async function evaluateCheck({ actor, label, mod, dc, isWeaponSkill, flavourKey }) {
-  const roll = new Roll("1d20 + @mod", { mod });
-  await roll.evaluate();
+export async function evaluateCheck({
+  actor, label, mod, dc, isWeaponSkill, flavourKey, misfortuneApplies = true
+}) {
+  /**
+   * Misfortune rerolls "attacks and skill checks" keeping the lower — the
+   * config comment's wording, which does not mention ATTRIBUTE checks. They are
+   * excluded rather than assumed in, and flagged on issue #46 for the table to
+   * correct if Chapter 12 means otherwise.
+   */
+  const { roll, discardedNatural } =
+    await rollCheckD20(actor, mod, { applies: misfortuneApplies });
 
   const natural = roll.dice[0]?.results?.[0]?.result ?? 0;
 
