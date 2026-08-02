@@ -313,16 +313,70 @@ export function buildContext() {
      * #40, sitting in the verification tool this time. Recorded on the board
      * rather than fixed here.
      */
+    /**
+     * Label keys and the `active` flag are copied from `_prepareContext`
+     * VERBATIM. The first version of this guessed `armourTypes[key].label` and
+     * `proficient`, and the preview duly rendered "undefined · undefined ·
+     * undefined" with every tick blank — `armourTypes` is a string map, and the
+     * flag is called `active`.
+     *
+     * That is the fixture-drift problem in miniature and the reason #44 stays
+     * open: matching key NAMES is checkable, matching the shape behind them is
+     * not, and only rendering it and looking caught this.
+     */
     weaponProficiencies: LASTARC.weaponCategories.map((key, i) => ({
-      key, label: LASTARC.weaponCategoryLabels?.[key] ?? `LASTARC.WeaponCategory.${key}`,
-      proficient: i < 3
+      key, label: `LASTARC.WeaponCategory.${key}`, active: i < 3
     })),
     armourProficiencies: Object.keys(LASTARC.armourTypes).map((key, i) => ({
-      key, label: LASTARC.armourTypes[key].label, proficient: i === 0
+      key, label: `LASTARC.ArmourType.${key}`, active: i === 0
     })),
-    statuses: Object.keys(LASTARC.statusEffects ?? {}).slice(0, 6).map((id, i) => ({
+    statuses: LASTARC.allStatusIds.slice(0, 6).map((id, i) => ({
       id, label: `LASTARC.Status.${id}`,
       img: `assets/status/${id}.svg`, active: i === 0, isCurse: false
+    })),
+
+    /**
+     * The rest of what `_prepareContext` assigns (issue #44).
+     *
+     * Fourteen keys were missing, so the Spells, Performances and Features
+     * panels, the Second Wind pips and the study allowances all rendered blank
+     * in every preview ever taken. The harness was failing in the SAFE
+     * direction, which is why nobody noticed and why it is still wrong: a
+     * reviewer sees an empty panel and cannot tell "not wired up" from "not in
+     * this fixture", and telling those apart is the entire job.
+     *
+     * Names are synthetic on purpose — no rulebook content lives in this repo.
+     */
+    config: LASTARC,
+    editable: true,
+    fields: {},
+    enrichedBiography: "<p>A synthetic biography, for layout only.</p>",
+    languagesText: "ZZ trade cant, ZZ high tongue",
+    movementInput: { fly: 0, hover: false },
+    secondWindPips: [
+      { index: 0, spent: true, label: "Second Wind 1" },
+      { index: 1, spent: false, label: "Second Wind 2" }
+    ],
+    spells: [
+      { id: "s1", name: "ZZ probe", img: "", school: "black", schoolLabel: "Black",
+        mpCost: 3, castingTimeLabel: "Primary", isArea: false }
+    ],
+    performances: [
+      { id: "p1", name: "ZZ cadence", img: "", kindLabel: "Enhancing",
+        specLabel: "Instrument" }
+    ],
+    features: [
+      { id: "f1", name: "ZZ trait", img: "", typeLabel: "Feature", summary: "" }
+    ],
+    /** Over the limit on spells, so the readout's warning state is visible. */
+    study: {
+      spells: { known: 2, max: 1, takings: 1, over: true },
+      performances: { known: 0, max: 0, takings: 0, over: false }
+    },
+    noArcaneStudy: false,
+    noBardicStudy: true,
+    highArcanaOptions: LASTARC.highArcanaIds.map((id) => ({
+      value: id, label: LASTARC.highArcana[id].label
     })),
 
     classOptions: Object.entries(LASTARC.classes).map(([k, c]) => ({ value: k, label: c.label })),
@@ -334,12 +388,117 @@ export function buildContext() {
 
 /* -------------------------------------------------------------------------- */
 
+/* -------------------------------------------------------------------------- */
+/*  Fixtures for the sheets this harness did not used to reach                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Exported so `test/templates-render.test.mjs` uses THESE and not a second set.
+ *
+ * Before this, the preview rendered two of thirteen templates: the character
+ * sheet and two chat cards. The NPC sheet, all eighteen item subtypes and five
+ * of the seven cards had never been rendered outside a live Foundry at all —
+ * which is Quench's "renders an item sheet for every subtype" and "renders the
+ * NPC sheet", both of which have never run.
+ *
+ * The contexts are deliberately SPARSE. A fixture that fills every key proves
+ * the template works when it is handed everything; the interesting case is a
+ * half-filled document, which is what a hand-authoring GM actually produces.
+ */
+export function itemContext(type) {
+  return {
+    itemType: type,
+    document: { name: `ZZ ${type}`, img: "" },
+    system: {},
+    fields: {},
+    config: LASTARC,
+    // Panels are gated on these, so a false one hides the block it guards and
+    // the render proves nothing about it.
+    isPhysical: true,
+    hasGrants: true,
+    isTechnick: type === "technick" || type === "talent",
+    outcomes: [],
+    grantedSkills: [],
+    skillOptions: [],
+    statusOptions: [],
+    defenceOptions: [],
+    weaponDamageTypes: [],
+    flagOptions: []
+  };
+}
+
+export function npcContext() {
+  return {
+    ...buildContext(),
+    system: {
+      attacks: [], skills: [], drops: [],
+      breakGauge: {}, resources: { hp: {}, mp: {} },
+      defences: {}, details: {}, damageMods: {}
+    },
+    attacks: [], npcSkills: [], drops: [],
+    damageTypeOptions: [], statusOptions: [], skillOptions: []
+  };
+}
+
+/** One scripted context per chat card, keyed by template path. */
+export function cardContexts() {
+  return {
+    "templates/chat/spell-card.hbs": { name: "ZZ probe", parts: [], outcome: {} },
+    "templates/chat/healing-card.hbs": { name: "ZZ probe", results: [] },
+    "templates/chat/item-card.hbs": { name: "ZZ probe" },
+    "templates/chat/block-card.hbs": { shieldName: "ZZ probe", parts: [] },
+    "templates/chat/performance-card.hbs": {
+      name: "ZZ probe", parts: [], achieved: true, landed: true,
+      canApplyEffect: true, unappliableRiders: []
+    }
+  };
+}
+
 const context = buildContext();
 const render = (rel) =>
   Handlebars.compile(readFileSync(join(root, rel), "utf8"))(context);
 
 const header = render("templates/actor/character-header.hbs");
 const body = render("templates/actor/character-body.hbs");
+
+/**
+ * The character sheet's own markup, exported for the render checks.
+ *
+ * It was NOT exported at first, and the "nothing renders the word undefined"
+ * guard therefore passed while the armour proficiency row read "undefined ·
+ * undefined · undefined" — the very bug that prompted the guard. A check that
+ * does not cover the surface it was written for is worse than none.
+ */
+export const renderedCharacterSheet = header + body;
+
+/**
+ * Everything else, rendered on import so that merely loading this module proves
+ * every template still compiles and resolves. The results are exported rather
+ * than dropped: the render test reads them to check that no `LASTARC.*` key
+ * reached the output as literal text, which is Quench's "leaves no untranslated
+ * keys in the rendered sheet" running for the first time.
+ */
+export const renderedItemSheets = Object.fromEntries(
+  Object.keys(
+    JSON.parse(readFileSync(join(root, "system.json"), "utf8")).documentTypes.Item
+  ).map((type) => [
+    type,
+    Handlebars.compile(readFileSync(join(root, "templates/item/item-sheet.hbs"), "utf8"))(
+      itemContext(type)
+    )
+  ])
+);
+
+export const renderedNpcSheet = Handlebars.compile(
+  readFileSync(join(root, "templates/actor/npc-sheet.hbs"), "utf8")
+)(npcContext());
+
+export const renderedCards = Object.fromEntries(
+  Object.entries(cardContexts()).map(([path, ctx]) => [
+    path,
+    Handlebars.compile(readFileSync(join(root, path), "utf8"))(ctx)
+  ])
+);
 
 /**
  * Chat cards, rendered against a scripted attack and damage result. The attack
