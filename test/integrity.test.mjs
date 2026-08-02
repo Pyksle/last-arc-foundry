@@ -671,21 +671,6 @@ describe("no orphaned exports", () => {
       "the `surprised` and `detectsAttacker` cases it handles are unenforced. Two " +
       "implementations of one rule; do not rewire initiative on the eve of a playtest"],
 
-    /**
-     * Slice A of issue #20 ships the target whitelist and the guard; slice B is
-     * the Apply button on the performance card, which is this function's only
-     * intended caller.
-     *
-     * Listed rather than quietly deleted because the mapping it encodes is the
-     * substantive finding of the investigation — which of the book's scopes can
-     * become a standing effect and which two cannot — and it is covered by
-     * `test/effect-targets.test.mjs`. The staleness check below removes this
-     * entry the moment slice B calls it.
-     */
-    ["scopeTargets", "issue #20 slice B: resolves a performance scope onto effect " +
-      "target paths. The Apply button that consumes it is the next slice; the " +
-      "mapping is already tested, including the two scopes that deliberately " +
-      "resolve to nothing"]
   ]);
 
   /**

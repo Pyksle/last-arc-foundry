@@ -26,7 +26,7 @@ import { fileURLToPath } from "node:url";
 import { LASTARC } from "../module/config.mjs";
 import {
   effectTargets, supportedTargetPaths, scopeTargets, skillGroupTargets,
-  unsupportedChanges, skillTarget, defenceTarget
+  unsupportedChanges, skillTarget, defenceTarget, performanceEffectChanges
 } from "../module/effects.mjs";
 
 const read = (p) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.url)), "utf8");
@@ -234,5 +234,104 @@ describe("§ issue #20: unsupported targets are detected", () => {
 
   test("an unknown skill group yields nothing rather than throwing", () => {
     assert.deepEqual(skillGroupTargets("zzNope"), []);
+  });
+});
+
+describe("§ issue #20 slice B: a performance's tier becomes an effect", () => {
+  test("a scoped skill bonus becomes ADD changes on every skill it covers", () => {
+    const { changes, skipped } = performanceEffectChanges({
+      skillBonus: 2, bonusScope: "weaponSkills"
+    });
+
+    assert.deepEqual(skipped, []);
+    assert.equal(changes.length, 5, "one per weapon skill");
+    for (const c of changes) {
+      assert.equal(c.value, 2);
+      // ADD, not OVERRIDE. Two performers each granting +1 must give +2, and
+      // OVERRIDE would have the second silently erase the first.
+      assert.equal(c.mode, 2, "changes must ADD");
+      assert.match(c.key, /^system\.skills\.\w+\.misc$/);
+    }
+  });
+
+  /**
+   * The sign flip, which is the easiest thing here to get backwards. §4.5 stores
+   * a penalty as a POSITIVE magnitude — that is how the book prints it — so a
+   * hostile tier typed straight from the page would be a GIFT if this did not
+   * negate exactly once.
+   */
+  test("a penalty is stored positive and applied negative", () => {
+    const { changes } = performanceEffectChanges({ penalty: 3, penaltyScope: "allDefences" });
+    assert.equal(changes.length, 3, "one per defence");
+    for (const c of changes) {
+      assert.equal(c.value, -3, "a penalty must reduce the defence");
+      assert.match(c.key, /^system\.defences\.\w+\.misc$/);
+    }
+  });
+
+  test("a tier granting a bonus AND a penalty produces both", () => {
+    const { changes } = performanceEffectChanges({
+      skillBonus: 1, bonusScope: "spellcraft",
+      penalty: 2, penaltyScope: "will"
+    });
+    assert.deepEqual(
+      changes.map((c) => [c.key, c.value]).sort(),
+      [["system.defences.will.misc", -2], ["system.skills.spellcraft.misc", 1]]
+    );
+  });
+
+  test("an empty tier produces nothing rather than a zero-value effect", () => {
+    assert.deepEqual(performanceEffectChanges({}).changes, []);
+    // A zero bonus is not a bonus; an effect carrying it would clutter the
+    // sheet and claim to be doing something.
+    assert.deepEqual(performanceEffectChanges({ skillBonus: 0, bonusScope: "spellcraft" }).changes, []);
+  });
+
+  /**
+   * The honest half, again. A rider that cannot be automated must be REPORTED,
+   * because applying half of what the card promised without saying so is the
+   * worst of the three options.
+   */
+  test("an unmappable bonus is skipped with its reason, not dropped", () => {
+    const { changes, skipped } = performanceEffectChanges({
+      skillBonus: 2, bonusScope: "refVsSpells"
+    });
+    assert.deepEqual(changes, [], "a conditional bonus must not become a flat one");
+    assert.equal(skipped.length, 1);
+    assert.equal(skipped[0].scope, "refVsSpells");
+    assert.ok(skipped[0].reason);
+  });
+
+  test("bonus damage is reported rather than silently lost", () => {
+    const { changes, skipped } = performanceEffectChanges({
+      bonusDamage: "1d6", bonusDamageScope: "melee"
+    });
+    assert.deepEqual(changes, []);
+    assert.equal(skipped.length, 1);
+    assert.equal(skipped[0].value, "1d6");
+  });
+
+  test("a mappable bonus alongside an unmappable one still applies", () => {
+    // The failure mode worth pinning: one bad rider must not abandon the tier.
+    const { changes, skipped } = performanceEffectChanges({
+      skillBonus: 2, bonusScope: "spellcraft",
+      bonusDamage: "1d6", bonusDamageScope: "ranged"
+    });
+    assert.equal(changes.length, 1);
+    assert.equal(skipped.length, 1);
+  });
+
+  test("every change targets a path the whitelist allows", () => {
+    // Belt and braces: the changes are built from scopeTargets, but if that
+    // ever grew a path outside the whitelist the guard above would not see it.
+    const ok = supportedTargetPaths();
+    const { changes } = performanceEffectChanges({
+      skillBonus: 2, bonusScope: "attacksAndSkills",
+      penalty: 1, penaltyScope: "allDefences"
+    });
+    assert.ok(changes.length > 5);
+    for (const c of changes) {
+      assert.ok(ok.has(c.key), `${c.key} is not a supported effect target`);
+    }
   });
 });

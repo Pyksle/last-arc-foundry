@@ -140,6 +140,57 @@ export function unsupportedChanges(changes = []) {
     .filter((key) => typeof key === "string" && key.startsWith("system.") && !ok.has(key));
 }
 
+/**
+ * Turn a performance's outcome into the `changes` an Active Effect carries.
+ *
+ * A performance can grant a bonus and impose a penalty in the same tier, and
+ * they land on different scopes, so both are walked. A penalty is stored as a
+ * POSITIVE magnitude — §4.5's convention, so that typing what the book prints
+ * cannot accidentally make a hostile tier a gift — and is negated here, once,
+ * at the only point that knows which it is.
+ *
+ * Anything unmappable comes back in `skipped` with its reason rather than being
+ * dropped, because a buff that silently applies HALF of what the card promised
+ * is worse than one that says which half it could not do.
+ *
+ * @returns {{changes: Array<{key:string,mode:number,value:number,priority:number}>,
+ *            skipped: Array<{scope:string, reason:string, value:number}>}}
+ */
+export function performanceEffectChanges(outcome = {}) {
+  const changes = [];
+  const skipped = [];
+
+  const add = (scope, value) => {
+    if (!scope || !value) return;
+    const { paths, reason } = scopeTargets(scope);
+    if (reason || !paths.length) {
+      skipped.push({ scope, reason: reason ?? "LASTARC.EffectTarget.unknownScope", value });
+      return;
+    }
+    for (const key of paths) {
+      // ADD, never OVERRIDE: two performers each granting +1 should give +2,
+      // and the `misc` slots are sums by construction. OVERRIDE would make the
+      // second performance silently erase the first.
+      changes.push({ key, mode: 2, value, priority: 20 });
+    }
+  };
+
+  add(outcome.bonusScope, Number(outcome.skillBonus) || 0);
+  // Stored positive, applied negative — see above.
+  add(outcome.penaltyScope, -(Number(outcome.penalty) || 0));
+  // Bonus damage has no field to land on; report it rather than lose it.
+  if (outcome.bonusDamage && outcome.bonusDamageScope) {
+    const { reason } = scopeTargets(outcome.bonusDamageScope);
+    skipped.push({
+      scope: outcome.bonusDamageScope,
+      reason: reason ?? "LASTARC.EffectTarget.noDamageField",
+      value: outcome.bonusDamage
+    });
+  }
+
+  return { changes, skipped };
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Foundry-facing                                                             */
 /* -------------------------------------------------------------------------- */
@@ -168,4 +219,81 @@ export function warnUnsupportedTargets(effect) {
     + "on the next prepare. Target an input slot instead — see LASTARC.effectTargets.",
     effect
   );
+}
+
+/** Flag scope for effects this system creates, so it can find its own again. */
+const FLAG = "last-arc";
+
+/**
+ * Anchor a round-counted duration to the current combat.
+ *
+ * `startRound` and `startTurn` have to be stated. Without them Foundry counts
+ * from whenever it next notices, and a buff created on the performer's turn can
+ * survive a full extra round — which for a one-round effect is a doubling.
+ *
+ * Returns an empty duration out of combat: `rounds` with no combat to measure
+ * against is not a shorter effect, it is an unmeasured one.
+ */
+function buildDuration(rounds) {
+  const combat = game.combat;
+  if (!rounds || !combat) return {};
+  return {
+    rounds,
+    startRound: combat.round,
+    startTurn: combat.turn ?? 0
+  };
+}
+
+/**
+ * Put a performance's buff or debuff on a set of actors.
+ *
+ * REPLACES rather than stacks per source. Performing the same piece again is
+ * one performance continuing, not two running at once — so an effect carrying
+ * the same `sourceId` is removed first. Two DIFFERENT performances stack
+ * normally, which is why `changes` use ADD mode and why this keys on the item
+ * rather than on the performer.
+ *
+ * ONE ROUND, because Chapter 9 says so and the card has been saying so all
+ * along: "allies gain +2 until the start of your next turn". Foundry measures a
+ * round from the current combat time, so an effect created on the performer's
+ * turn expires at the same initiative next round — the same instant.
+ *
+ * Outside combat there is no round to count, and Foundry leaves the effect in
+ * place. That is the honest behaviour rather than a bug: "until your next turn"
+ * has no meaning when nobody is taking turns, so it stays until removed.
+ *
+ * @returns {Promise<{applied: Actor[], failed: Array<{actor: Actor, error: string}>}>}
+ */
+export async function applyPerformanceEffect(actors, {
+  name, img = null, sourceId = null, changes = [], rounds = 1
+} = {}) {
+  const applied = [];
+  const failed = [];
+  if (!changes.length) return { applied, failed };
+
+  for (const actor of actors ?? []) {
+    try {
+      const stale = actor.effects
+        .filter((e) => e.getFlag?.(FLAG, "performanceId") === sourceId)
+        .map((e) => e.id);
+      if (stale.length) await actor.deleteEmbeddedDocuments("ActiveEffect", stale);
+
+      await actor.createEmbeddedDocuments("ActiveEffect", [{
+        name,
+        img: img || undefined,
+        changes,
+        duration: buildDuration(rounds),
+        origin: sourceId ? `Item.${sourceId}` : undefined,
+        flags: { [FLAG]: { performanceId: sourceId } }
+      }]);
+      applied.push(actor);
+    } catch (err) {
+      // One actor failing must not abandon the rest — a bard buffing four
+      // allies should not lose three of them to one locked token.
+      failed.push({ actor, error: err?.message ?? String(err) });
+      console.error(`Last Arc | could not apply "${name}" to ${actor?.name}`, err);
+    }
+  }
+
+  return { applied, failed };
 }

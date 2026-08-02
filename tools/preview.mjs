@@ -32,7 +32,22 @@ const css = readFileSync(join(root, "styles/last-arc.css"), "utf8");
 
 const localize = (key) => lang[key] ?? key;
 
-Handlebars.registerHelper("localize", localize);
+/**
+ * Foundry's `localize` also FORMATS: `{{localize "X" n=2 scope="Will"}}`
+ * substitutes `{n}` and `{scope}` in the string.
+ *
+ * The stub used to ignore the hash entirely, so every formatted string previewed
+ * with its raw `{placeholders}` showing. That is the harness misleading in
+ * exactly the way it exists to prevent — a reviewer sees `{n}` and cannot tell a
+ * missing context value from a stub that never substitutes.
+ */
+Handlebars.registerHelper("localize", (key, options) => {
+  let out = localize(key);
+  for (const [k, v] of Object.entries(options?.hash ?? {})) {
+    out = out.replaceAll(`{${k}}`, v ?? "");
+  }
+  return new Handlebars.SafeString(out);
+});
 Handlebars.registerHelper("lasignal", (n) => {
   const v = Number(n) || 0;
   return v < 0 ? `−${Math.abs(v)}` : `+${v}`;

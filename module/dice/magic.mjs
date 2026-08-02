@@ -23,6 +23,7 @@ import { rollDamageDice } from "./explode.mjs";
 import { rollHealing } from "./healing.mjs";
 import { describeCheck, describeDamage } from "./breakdown.mjs";
 import { situationalLabel } from "./situational.mjs";
+import { performanceEffectChanges } from "../effects.mjs";
 import * as CB from "../combat.mjs";
 
 /** Re-exported: it is a derived value and lives with the other derived values. */
@@ -363,6 +364,13 @@ export async function performItem(actor, performance, options = {}) {
   const scopeLabel = (table, key) =>
     key ? game.i18n.localize(table[key]?.label ?? key) : null;
 
+  /**
+   * What of this tier can become a standing Active Effect, and what cannot
+   * (issue #20). Resolved once, here, so the card and the flags agree — the
+   * button offers exactly what the flags carry.
+   */
+  const effectChanges = performanceEffectChanges(outcome ?? {});
+
   const content = await foundry.applications.handlebars.renderTemplate(
     "systems/last-arc/templates/chat/performance-card.hbs",
     {
@@ -418,7 +426,26 @@ export async function performItem(actor, performance, options = {}) {
       special: perf.special || null,
       substitutesDefence: perf.substitutesDefence
         ? game.i18n.localize(`LASTARC.Defence.${perf.substitutesDefence}`)
-        : null
+        : null,
+
+      /**
+       * Whether this tier has anything a standing effect could carry, and what
+       * it could not (issue #20). Computed here rather than in the template
+       * because the answer depends on the SCOPE, not on whether a number is
+       * present: a +2 to Reflex-against-spells is a real bonus with no path to
+       * live on, and the card has to offer the button for one and an
+       * explanation for the other.
+       */
+      canApplyEffect: landed && effectChanges.changes.length > 0,
+      unappliableRiders: effectChanges.skipped.map((s) => ({
+        label: game.i18n.localize(
+          LASTARC.performanceBonusScopes[s.scope]?.label
+          ?? LASTARC.performanceDamageScopes[s.scope]?.label
+          ?? LASTARC.performancePenaltyScopes[s.scope]?.label
+          ?? s.scope
+        ),
+        reason: game.i18n.localize(s.reason)
+      }))
     }
   );
 
@@ -426,7 +453,24 @@ export async function performItem(actor, performance, options = {}) {
     speaker: ChatMessage.getSpeaker({ actor }),
     content,
     rolls: [roll],
-    flags: { "last-arc": { type: "performance", actorId: actor.id } }
+    /**
+     * The CHANGES travel on the card, not the outcome index.
+     *
+     * Rebuilding them at apply time would mean reading the performance item
+     * again, and the item can be edited — or deleted — between the roll and the
+     * click. The card is the record of what was performed, so it carries what
+     * was actually granted. Same reasoning as the attack card's wield flags.
+     */
+    flags: {
+      "last-arc": {
+        type: "performance",
+        actorId: actor.id,
+        performanceId: performance.id,
+        performanceName: performance.name,
+        performanceImg: performance.img,
+        effectChanges: effectChanges.changes
+      }
+    }
   });
 
   return result;

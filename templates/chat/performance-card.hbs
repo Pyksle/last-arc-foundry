@@ -135,6 +135,27 @@
     </p>
   {{/if}}
 
+  {{!-- Issue #20. A performance's riders used to be printed here and applied to
+        nobody, so a bard buffing four allies meant four players remembering a
+        number for the rest of the scene. The button puts it on whoever is
+        targeted, as a real effect they can see on their own sheet. --}}
+  {{#if canApplyEffect}}
+    <div class="lastarc-card__buttons">
+      <button type="button" data-action="lastarcApplyPerformance">
+        {{localize "LASTARC.Card.ApplyPerformanceEffect"}}
+      </button>
+    </div>
+  {{/if}}
+
+  {{!-- Riders that cannot become a standing effect, with the reason. Printing
+        them is the point: silently applying HALF of what the card promised is
+        worse than saying which half could not be automated. --}}
+  {{#each unappliableRiders}}
+    <p class="lastarc-note lastarc-note--faint">
+      <strong>{{this.label}}</strong> — {{this.reason}}
+    </p>
+  {{/each}}
+
   {{#if notes}}<p class="lastarc-note">{{notes}}</p>{{/if}}
   {{#if special}}<p class="lastarc-note">{{special}}</p>{{/if}}
 

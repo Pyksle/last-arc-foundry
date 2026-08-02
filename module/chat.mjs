@@ -16,6 +16,7 @@ import {
 } from "./dice/hero-points.mjs";
 import { rollBlock, canBlock } from "./dice/block.mjs";
 import { describeDamage } from "./dice/breakdown.mjs";
+import { applyPerformanceEffect } from "./effects.mjs";
 
 export function registerChatListeners() {
   Hooks.on("renderChatMessageHTML", (message, element) => {
@@ -206,6 +207,7 @@ async function onChatAction(event, message) {
       case "lastarcHeroBonus": return await onHeroBonus(button, message);
       case "lastarcPreventDeath": return await onPreventDeath(button);
       case "lastarcBlock": return await onBlock(button, message);
+      case "lastarcApplyPerformance": return await onApplyPerformance(message);
     }
   } catch (err) {
     console.error("Last Arc | Chat action failed", err);
@@ -401,6 +403,60 @@ async function onComboAttack(button, message) {
   if (index !== null) return await rollNpcAttack(actor, index, options);
 
   await rollAttack(actor, resolveWeapon(actor, button), options);
+}
+
+/**
+ * Put a performance's buff or debuff on the targeted actors (issue #20).
+ *
+ * The changes come off the CARD's flags, not off the performance item. The item
+ * can be edited or deleted between the roll and the click, and the card is the
+ * record of what was actually performed — the same reasoning that put `wield`
+ * on the attack card in 0.18.1.
+ *
+ * Targets rather than selection, matching the damage buttons: a bard buffs who
+ * they aimed at, and "whatever happens to be selected" is how the wrong four
+ * people get a bonus.
+ */
+async function onApplyPerformance(message) {
+  const flags = message.flags?.["last-arc"] ?? {};
+  const changes = flags.effectChanges ?? [];
+
+  if (!changes.length) {
+    ui.notifications?.warn(game.i18n.localize("LASTARC.Warning.NoEffectToApply"));
+    return;
+  }
+
+  const targets = [...(game.user.targets ?? [])].map((t) => t.actor).filter(Boolean);
+  if (!targets.length) {
+    ui.notifications?.warn(game.i18n.localize("LASTARC.Warning.NoTargets"));
+    return;
+  }
+
+  const { applied, failed } = await applyPerformanceEffect(targets, {
+    name: flags.performanceName ?? game.i18n.localize("LASTARC.Card.Performance"),
+    img: flags.performanceImg ?? null,
+    sourceId: flags.performanceId ?? null,
+    changes
+  });
+
+  // Reported to the log rather than a toast: who is buffed is table
+  // information, and the GM should not be the only one who saw it.
+  const names = applied.map((a) => a.name).join(", ");
+  const lines = [];
+  if (applied.length) {
+    lines.push(`<p>${game.i18n.format("LASTARC.Card.PerformanceApplied", {
+      name: flags.performanceName ?? "", targets: names
+    })}</p>`);
+  }
+  for (const f of failed) {
+    lines.push(`<p class="lastarc-note">${f.actor?.name}: ${f.error}</p>`);
+  }
+
+  if (lines.length) {
+    await ChatMessage.create({
+      content: `<div class="lastarc-card lastarc-card--applied">${lines.join("")}</div>`
+    });
+  }
 }
 
 async function onApplyDamage(button) {
