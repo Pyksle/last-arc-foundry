@@ -456,6 +456,38 @@ export function rangeBandPenalty(bandKey) {
   return LASTARC.rangeBands[bandKey]?.penalty ?? 0;
 }
 
+/**
+ * The range bands for a STATBLOCK attack, from its typed increments (#43).
+ *
+ * The same shape `rangeBandsFor` returns, so the prompt, the penalty lookup and
+ * the card treat a monster's bow exactly as they treat a player's. Only the
+ * SOURCE of the numbers differs: a character's come from the weapon's size via
+ * the book's one table, a monster's are printed on its own page.
+ *
+ * Returns null when the GM has recorded nothing, so an attack that predates
+ * this field — every attack in every world right now — does not start
+ * interrupting a roll to ask a question with no answer.
+ *
+ * Bands are taken in order and STOP at the first unrecorded one: a creature
+ * with a point-blank and a short increment and nothing beyond has a maximum
+ * range, and offering it a "long" band would invent reach the page never gave
+ * it.
+ */
+export function npcRangeBands(attack) {
+  const typed = attack?.rangeBands;
+  if (!typed) return null;
+
+  let from = 0;
+  const out = [];
+  for (const [key, band] of Object.entries(LASTARC.rangeBands)) {
+    const to = Number(typed[key]) || 0;
+    if (to <= 0) break;
+    out.push({ key, label: band.label, penalty: band.penalty, from, to });
+    from = to + 1;
+  }
+  return out.length ? out : null;
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Skills (§4.5)                                                              */
 /* -------------------------------------------------------------------------- */

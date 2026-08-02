@@ -380,7 +380,8 @@
               <label>
                 <span>{{localize "LASTARC.Field.Range"}}</span>
                 <input type="text" name="system.attacks.{{this.index}}.range"
-                       value="{{this.range}}">
+                       value="{{this.range}}"
+                       data-tooltip="{{localize 'LASTARC.Tooltip.RangeText'}}">
               </label>
             {{/if}}
             <label class="la-attack__notes">
@@ -389,6 +390,31 @@
                      value="{{this.notes}}">
             </label>
           </div>
+
+          {{!-- Range increments, in squares (#43). Only on ranged attacks: a
+                melee attack has reach, not bands, and four boxes asking about
+                distance on a claw would be noise on every statblock.
+
+                Leave them at zero and nothing changes — the roll does not stop
+                to ask. Fill them in and this attack offers the same band picker
+                a player gets, with the same -2/-5/-10. --}}
+          {{#unless this.isMelee}}
+            <div class="la-attack__row la-attack__row--edit la-attack__row--bands">
+              <span class="la-attack__bandlabel"
+                    data-tooltip="{{localize 'LASTARC.Tooltip.RangeBands'}}">
+                {{localize "LASTARC.Field.RangeIncrements"}}
+              </span>
+              {{#each ../rangeBandFields}}
+                <label class="la-attack__band">
+                  <span>{{localize this.label}}</span>
+                  <input type="number" min="0"
+                         name="system.attacks.{{../this.index}}.rangeBands.{{this.key}}"
+                         value="{{lookup ../this.rangeBands this.key}}"
+                         data-tooltip="{{localize this.tooltip}}">
+                </label>
+              {{/each}}
+            </div>
+          {{/unless}}
 
         </div>
       {{else}}

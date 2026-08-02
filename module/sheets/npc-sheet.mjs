@@ -129,6 +129,20 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
      */
     context.manualAdjustments = LASTARC.npcManualAdjustments(sys.statuses);
 
+    /**
+     * The four range-increment boxes, driven off `LASTARC.rangeBands` rather
+     * than written out four times in the template (#43).
+     *
+     * If a fifth band is ever added, the editor grows a box on its own instead
+     * of silently storing a number nobody can type — which is the shape of
+     * defect that put two unreachable `choices` arrays in this codebase.
+     */
+    context.rangeBandFields = Object.entries(LASTARC.rangeBands).map(([key, band]) => ({
+      key,
+      label: band.label,
+      tooltip: `LASTARC.Tooltip.RangeBand.${key}`
+    }));
+
     context.attributes = LASTARC.attributeOrder.map((key) => ({
       key,
       label: LASTARC.attributes[key].label,
@@ -274,7 +288,19 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   static async #onRollNpcAttack(event, target) {
     const index = Number(target.dataset.index);
-    const extra = await situationalOptions(event);
+
+    /**
+     * A ranged statblock attack offers the same band picker a player gets
+     * (#43), fed by the increments typed on the attack row.
+     *
+     * `npcRangeBands` returns null when none are recorded, and a melee attack
+     * never asks — so the prompt appears exactly where the GM has said it
+     * should and nowhere else.
+     */
+    const attack = this.document.system.attacks?.[index];
+    const bands = attack && !attack.isMelee ? D.npcRangeBands(attack) : null;
+
+    const extra = await situationalOptions(event, { rangeBands: bands });
     if (extra === null) return;
 
     const targeted = [...(game.user.targets ?? [])][0]?.actor;

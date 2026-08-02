@@ -151,7 +151,38 @@ export class LastArcNpcData extends foundry.abstract.TypeDataModel {
           isArea: new fields.BooleanField({ initial: false }),
           /** Squares. Melee uses reach; ranged uses range. */
           reach: new fields.NumberField({ initial: 1, min: 0 }),
+          /**
+           * Printed range text, e.g. "60/120". Display only — kept because a
+           * statblock's own wording is often not four clean numbers, and the
+           * GM should not have to normalise the page to record it.
+           */
           range: new fields.StringField({ initial: "" }),
+          /**
+           * Range increments in squares, so a statblock attack can offer the
+           * same band picker a player gets (#43).
+           *
+           * TYPED, not derived. A character's bands come from the weapon's size
+           * via one table in the book; a monster's are whatever the statblock
+           * prints, and there is no size row that reproduces "40/80/160/320"
+           * for a specific creature. The GM asked to "manually dictate the
+           * range increments" and that is the honest shape for printed data.
+           *
+           * All zero means "no bands recorded" and the picker stays away — an
+           * attack that has never been given increments must not start
+           * demanding one before every roll.
+           */
+          rangeBands: new fields.SchemaField(
+            /**
+             * Generated from `LASTARC.rangeBands`, which is also what the sheet
+             * loops over to draw the boxes. ONE list, so a band cannot exist in
+             * the schema with no input or in the editor with nowhere to store.
+             * Two hand-kept copies is how this codebase shipped two `choices`
+             * arrays nobody could reach (issue #32).
+             */
+            Object.fromEntries(Object.keys(LASTARC.rangeBands).map((key) => [
+              key, new fields.NumberField({ initial: 0, integer: true, min: 0 })
+            ]))
+          ),
           /** Multiattack: how many of these the creature makes per action. */
           count: new fields.NumberField({ initial: 1, integer: true, min: 1 }),
           /** Optional rider applied to the target on a hit. */

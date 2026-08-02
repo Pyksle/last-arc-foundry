@@ -451,7 +451,24 @@ export function npcContext() {
       breakGauge: {}, resources: { hp: {}, mp: {} },
       defences: {}, details: {}, damageMods: {}
     },
-    attacks: [], npcSkills: [], drops: [],
+    /**
+     * One melee and one ranged attack, so the ranged-only range-increment
+     * editor (#43) is in the render rather than being a branch the preview
+     * never enters. Band keys come from the config, like the sheet's own.
+     */
+    attacks: [
+      { index: 0, name: "ZZ probe", isMelee: true, atkBonus: 5, damage: "1d6",
+        damageBonus: 0, damageType: "blunt", appliesStatus: "", isArea: false,
+        count: 1, reach: 1, range: "", notes: "", rangeBands: {} },
+      { index: 1, name: "ZZ sling", isMelee: false, atkBonus: 4, damage: "1d4",
+        damageBonus: 0, damageType: "blunt", appliesStatus: "", isArea: false,
+        count: 2, reach: 0, range: "40/80", notes: "",
+        rangeBands: { pointBlank: 20, short: 40, mid: 60, long: 80 } }
+    ],
+    rangeBandFields: Object.entries(LASTARC.rangeBands).map(([key, band]) => ({
+      key, label: band.label, tooltip: `LASTARC.Tooltip.RangeBand.${key}`
+    })),
+    npcSkills: [], drops: [],
     damageTypeOptions: [], statusOptions: [], skillOptions: [],
     /**
      * A cursed statblock, so the "adjust by hand" note (#45) is actually in the

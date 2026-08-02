@@ -1837,6 +1837,26 @@
 .la-body--npc .la-attack__row--edit input[type="number"] { width: 3.5rem; }
 .la-body--npc .la-attack__row--edit select { max-width: 9rem; }
 
+/**
+ * Range increments (#43). The caption takes its own line so the four boxes sit
+ * as a set — inline, it pushed Point-Blank and Short onto the first row and
+ * Mid and Long onto the second, which reads as two unrelated pairs rather than
+ * one ladder of distances.
+ */
+.la-body--npc .la-attack__row--bands {
+  align-items: flex-end;
+  border-left: 2px solid color-mix(in srgb, var(--la-bronze) 40%, transparent);
+  margin-left: 0.1rem;
+  padding-left: 0.5rem;
+}
+.la-body--npc .la-attack__bandlabel {
+  flex: 1 0 100%;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--la-bronze-bright);
+}
+
 .la-body--npc .la-attack__check {
   flex-direction: row !important;
   align-items: center;

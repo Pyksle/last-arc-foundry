@@ -443,7 +443,25 @@ describe("every row field has an input", () => {
     "breakGauge.persistentSources.id": "ACTION — assigned when a persistent source is added by dialog",
     "breakGauge.persistentSources.label": "ACTION — chosen in the persistent-source dialog",
     "breakGauge.persistentSources.clearedBy": "ACTION — chosen in the persistent-source dialog",
-    "breakGauge.persistentSources.fromInjury": "ACTION — set by the persistent-source dialog"
+    "breakGauge.persistentSources.fromInjury": "ACTION — set by the persistent-source dialog",
+
+    /**
+     * GENERATED — the four range-increment boxes are drawn by a loop, so their
+     * input names end in `{{this.key}}` and this guard's regex, which expects a
+     * literal leaf, cannot see them. They ARE reachable.
+     *
+     * Excusing a field because a guard cannot read it is how a gap hides, so
+     * this is not a bare exemption: the schema keys and the editor's loop are
+     * both generated from `LASTARC.rangeBands`, and
+     * `test/npc-range-bands.test.mjs` asserts that the three lists — config,
+     * schema and rendered inputs — are the same set. That is a stronger check
+     * than the literal-name match it replaces, because it also catches a band
+     * added to the config and forgotten everywhere else.
+     */
+    "attacks.rangeBands.pointBlank": "GENERATED — see npc-range-bands.test.mjs",
+    "attacks.rangeBands.short": "GENERATED — see npc-range-bands.test.mjs",
+    "attacks.rangeBands.mid": "GENERATED — see npc-range-bands.test.mjs",
+    "attacks.rangeBands.long": "GENERATED — see npc-range-bands.test.mjs"
 
     /**
      * NOTHING ELSE. The four gaps this guard reported on its first run (#39)

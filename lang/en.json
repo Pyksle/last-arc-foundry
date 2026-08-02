@@ -841,5 +841,12 @@
   "LASTARC.Tooltip.DeleteDrop": "Remove this row",
   "LASTARC.NpcManual.why": "A printed maximum is an authored number, so the system will not overwrite what you typed. The same curse on a player character is applied automatically.",
   "LASTARC.Note.StatusesTemplateOnly": "This is the shared statblock, not a token. Its tokens are unlinked, so statuses toggled here do not reach any creature already on the scene — open the token's own sheet for that.",
-  "LASTARC.Note.StatusDuplicates": "Applied more than once. Click to remove every copy."
+  "LASTARC.Note.StatusDuplicates": "Applied more than once. Click to remove every copy.",
+  "LASTARC.Field.RangeIncrements": "Range increments (squares)",
+  "LASTARC.Tooltip.RangeText": "Printed range as the statblock words it. Display only — the increments below are what the roll uses.",
+  "LASTARC.Tooltip.RangeBands": "Upper bound of each band, in squares. Leave at zero and this attack never asks about range. Fill them in and rolling it offers the band picker, applying -2, -5 or -10.",
+  "LASTARC.Tooltip.RangeBand.pointBlank": "Up to this distance: no penalty.",
+  "LASTARC.Tooltip.RangeBand.short": "Up to this distance: -2. Leave zero to stop here — this attack simply cannot reach further.",
+  "LASTARC.Tooltip.RangeBand.mid": "Up to this distance: -5.",
+  "LASTARC.Tooltip.RangeBand.long": "Up to this distance: -10. The attack's maximum range."
 }
