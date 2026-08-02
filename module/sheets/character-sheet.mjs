@@ -961,6 +961,21 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     await rollAttack(this.document, weapon, {
       ...extra,
       targetDefence: defenceToBeat(targeted),
+      /**
+       * The target's own condition. `situationalModifiers` has implemented both
+       * of these since it was written — prone is +5 in melee and −5 at range,
+       * helpless is +5 — and the NPC sheet has always supplied them.
+       *
+       * THIS SHEET DID NOT. So a monster attacking a prone player got its +5
+       * and a player attacking a prone monster got nothing, for as long as both
+       * sheets have existed. One rule, two call sites, one of them wired.
+       *
+       * Helpless is the one that bites hardest: `applyDamage` applies it
+       * automatically at 0 HP, so every attack a player made against a downed
+       * creature was quietly 5 short.
+       */
+      targetProne: !!targeted?.statuses?.has?.("prone"),
+      targetHelpless: !!targeted?.statuses?.has?.("helpless"),
       // Carried so the card can offer the target a Block (issue #12). Weapon
       // attacks always target Reflex, which is exactly what a shield answers.
       target: targeted
