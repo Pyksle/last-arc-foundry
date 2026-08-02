@@ -477,6 +477,7 @@
   "LASTARC.Card.OnHitApplies": "On hit, applies",
   "LASTARC.Mod.statblock": "Statblock attack bonus",
   "LASTARC.Mod.break": "Break Gauge",
+  "LASTARC.Mod.status": "Status",
   "LASTARC.Tooltip.RollNpcAttack": "Roll this attack. Target a token first to compare against its Reflex — a flat-footed target uses its flat-footed value.",
   "LASTARC.Tooltip.AttackBroken": "The printed bonus is the creature's UNBROKEN value. The Break Gauge penalty is applied on top.",
   "LASTARC.Tooltip.DeleteAttack": "Remove this attack",

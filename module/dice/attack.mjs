@@ -122,6 +122,7 @@ export function attackModifiers({
 export function npcAttackModifiers({
   atkBonus = 0,
   breakPenalty = 0,
+  statusPenalty = 0,
   ...situation
 } = {}) {
   const parts = [];
@@ -129,6 +130,13 @@ export function npcAttackModifiers({
 
   add("LASTARC.Mod.statblock", atkBonus);
   add("LASTARC.Mod.break", breakPenalty);
+  /**
+   * Statuses penalise a monster's attacks exactly as they do a player's — a
+   * grabbed creature is at −2 and a toad at −10. A character picks this up
+   * through its derived skill total; a statblock's bonus is printed, so it has
+   * to be added here or it is lost.
+   */
+  add("LASTARC.Mod.status", statusPenalty);
 
   parts.push(...situationalModifiers(situation));
 
@@ -586,6 +594,7 @@ export async function rollNpcAttack(actor, index, options = {}) {
   const mods = npcAttackModifiers({
     atkBonus: attack.atkBonus,
     breakPenalty: sys.breakGauge?.penalty ?? 0,
+    statusPenalty: sys.statuses?.attackPenalty ?? 0,
     isMelee,
     ...options
   });

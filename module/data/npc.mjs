@@ -203,17 +203,47 @@ export class LastArcNpcData extends foundry.abstract.TypeDataModel {
     const step = D.clampStep(this.breakGauge.step);
     const bp = D.breakPenaltyOrZero(step);
 
-    this.breakGauge.penalty = bp;
-    this.breakGauge.incapacitated = D.isIncapacitated(step) || this.resources.hp.value <= 0;
+    /**
+     * STATUSES APPLY TO MONSTERS TOO.
+     *
+     * They did not. Statuses were wired into character derivation and never
+     * here, so every derived consequence was inert on a statblock: a boss under
+     * Exhaustion kept its full defences, a withered one kept its full hit
+     * points, a grabbed one attacked at its full printed bonus.
+     *
+     * The affordance was the damning part — the NPC sheet carries the whole
+     * status palette, so a GM could click any of the thirty-three onto a
+     * monster, watch the icon appear on the token, and get no arithmetic at all.
+     *
+     * The DAMAGE side always worked, because `applyDamage` and `rollHealing`
+     * read `target.statuses` directly rather than going through a data model.
+     * That split is why this survived: half the feature was visibly fine.
+     */
+    const statuses = D.aggregateStatuses(this.parent?.statuses ?? []);
+    this.statuses = statuses;
 
-    // Printed values are unbroken; apply the gauge on top.
-    this.defences.ref.value = this.defences.ref.base + bp;
-    this.defences.fort.value = this.defences.fort.base + bp;
-    this.defences.will.value = this.defences.will.base + bp;
+    this.breakGauge.penalty = bp;
+    this.breakGauge.incapacitated =
+      D.isIncapacitated(step) || this.resources.hp.value <= 0 || statuses.noActions;
+
+    // Printed values are unbroken; the gauge and any status penalties ride on
+    // top. Statuses are added here rather than subtracted from the finished
+    // total for the same reason as on a character: Threshold reads Fortitude.
+    this.defences.ref.value = this.defences.ref.base + bp + statuses.defences.ref;
+    this.defences.fort.value = this.defences.fort.base + bp + statuses.defences.fort;
+    this.defences.will.value = this.defences.will.base + bp + statuses.defences.will;
 
     this.defences.ref.flatFooted =
       (this.defences.ref.flatFootedBase ?? (this.defences.ref.base - Math.max(0, this.attributes.agi.mod)))
-      + bp;
+      + bp + statuses.defences.ref;
+
+    /**
+     * A status that denies Agility means the creature IS flat-footed, so its
+     * live Reflex becomes the flat-footed one. `defenceToBeat` already checks
+     * the `flatFooted` status by name; this covers the others that deny
+     * Agility — asleep, petrified, pinned, helpless, unconscious.
+     */
+    if (statuses.agiDenied) this.defences.ref.value = this.defences.ref.flatFooted;
 
     /**
      * Threshold: the printed value when present, else derived from the
@@ -244,10 +274,46 @@ export class LastArcNpcData extends foundry.abstract.TypeDataModel {
         : atk.damage;
     }
 
+    /**
+     * WITHERING AND DIM ARE NOT APPLIED HERE, deliberately.
+     *
+     * They halve maximum HP and MP, and on a character that is safe because the
+     * maximum is derived. On a statblock it is PRINTED, with an input on the
+     * sheet — so writing it in `prepareDerivedData` would store the GM's number
+     * and show a halved one back, which is the exact defect CLAUDE.md rule 4
+     * exists for and which has shipped twice already.
+     *
+     * Caught by `test/derived-binding.test.mjs` the moment it was written, which
+     * is the guard doing its job on the person who added it.
+     *
+     * Doing this properly needs an `effectiveMax` beside the printed one and
+     * every consumer moved onto it. Until then the GM halves the printed
+     * maximum by hand — the status icon on the token is the reminder.
+     */
     this.resources.hp.value = Math.clamp(this.resources.hp.value, 0, this.resources.hp.max);
     this.resources.mp.value = Math.clamp(this.resources.mp.value, 0, this.resources.mp.max);
 
-    this.movement.value = this.movement.base;
+    /**
+     * Movement. A statblock has no encumbrance — it carries no inventory — so
+     * this is the status half of the character's calculation and nothing else.
+     * Slow halves to a MINIMUM of one square (§12), which is a stated rule
+     * rather than a rounding artefact.
+     */
+    if (statuses.speedZero) {
+      this.movement.value = 0;
+    } else {
+      this.movement.value = D.speedAfterPenalties(
+        this.movement.base,
+        statuses.speedReduction ? [statuses.speedReduction] : []
+      );
+      if (statuses.speedMultiplier || statuses.speedMinimum) {
+        const scaled = Math.floor(this.movement.value * (statuses.speedMultiplier ?? 1));
+        this.movement.value = Math.max(statuses.speedMinimum ?? 0, scaled);
+      }
+      // `fly` and `hover` are authored inputs on a statblock, not derived
+      // values, so `blocksFlying` cannot be applied by writing them — same
+      // rule-4 reason as the maxima above.
+    }
 
     try {
       this.initiative.effectiveDie = D.improvedInitiativeDie(
