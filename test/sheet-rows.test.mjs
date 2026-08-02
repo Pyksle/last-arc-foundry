@@ -216,3 +216,46 @@ describe("§44 gauge fills are guarded", () => {
     assert.equal(ROWS.gaugePercent(12, 30), 40);
   });
 });
+
+/* ── the NPC variants (CLAUDE.md §10) ─────────────────────────────────────── */
+
+describe("§44 the two actor shapes diverge on purpose, and only where they must", () => {
+  const npcSys = {
+    attributes: sys.attributes,
+    defences: Object.fromEntries(LASTARC.opposableDefences.map((k) => [
+      k, { value: 15, base: 17 }
+    ]))
+  };
+
+  test("a statblock's attributes carry no editable-source fields", () => {
+    // A character's do, because an Active Effect must not be written back on
+    // the next submit. A statblock's scores are typed directly — there is
+    // nothing derived to protect them from.
+    const row = ROWS.npcAttributeRows(npcSys)[0];
+    for (const key of ["valueInput", "racialModInput", "capInput"]) {
+      assert.ok(!(key in row), `${key} is cargo-culted onto the statblock row`);
+    }
+    assert.equal(row.key, LASTARC.attributeOrder[0], "printed order, not key order");
+  });
+
+  test("a statblock's defences show the PRINTED value beside the live one", () => {
+    const ref = ROWS.npcDefenceRows(npcSys).find((r) => r.key === "ref");
+    assert.equal(ref.base, 17, "the page's number");
+    assert.equal(ref.value, 15, "...and what it is now, after the gauge");
+    assert.ok(!("miscInput" in ref),
+      "a statblock has no misc slot — that is the character's own column");
+  });
+
+  test("both shapes cover every defence", () => {
+    assert.deepEqual(ROWS.npcDefenceRows(npcSys).map((r) => r.key), LASTARC.opposableDefences);
+    assert.deepEqual(ROWS.defenceRows(sys, src).map((r) => r.key), LASTARC.opposableDefences);
+  });
+
+  test("the break track is SHARED, not duplicated per actor type", () => {
+    // It was byte-identical in both sheets, which is a change to one silently
+    // missing the other. Same input, same output, one function.
+    const a = ROWS.breakTrackRows(sys, (k) => k);
+    const b = ROWS.breakTrackRows({ breakGauge: sys.breakGauge }, (k) => k);
+    assert.deepEqual(a, b, "the track must depend on nothing but the gauge");
+  });
+});

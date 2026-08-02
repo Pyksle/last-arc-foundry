@@ -189,6 +189,58 @@ export function defenceRows(sys, src) {
   }));
 }
 
+/* -------------------------------------------------------------------------- */
+/*  NPC variants                                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The statblock forms of two rows above, kept HERE rather than in the NPC sheet.
+ *
+ * CLAUDE.md §10: characters and NPCs have genuinely different shapes, and these
+ * two are the difference made concrete. Putting them beside their character
+ * counterparts means the divergence is one screen apart and deliberate, instead
+ * of being two files apart and looking like an oversight.
+ *
+ * The rows that are NOT different — the Break Gauge track and the gauge
+ * percentages — are shared outright. Both sheets had byte-identical copies of
+ * them, which is a change to one silently missing the other.
+ */
+
+/**
+ * A statblock's attributes carry no `*Input` fields.
+ *
+ * A character's do, because an Active Effect must not be written back on the
+ * next submit. A statblock's scores are typed directly and there is nothing
+ * derived to protect them from — so adding the inputs here would be cargo
+ * cult, and omitting them from the character sheet would be the bug rule 4
+ * exists for.
+ */
+export function npcAttributeRows(sys) {
+  return LASTARC.attributeOrder.map((key) => ({
+    key,
+    label: LASTARC.attributes[key].label,
+    abbr: LASTARC.attributes[key].abbr,
+    ...sys.attributes[key]
+  }));
+}
+
+/**
+ * A statblock's defences show `base` — the PRINTED, unbroken number — beside
+ * the live value.
+ *
+ * A character's show the `misc` slot the player types into. The two sheets are
+ * answering different questions: "what does the page say, and what is it now?"
+ * against "what did I add, and what did that make?".
+ */
+export function npcDefenceRows(sys) {
+  return LASTARC.opposableDefences.map((key) => ({
+    key,
+    label: `LASTARC.Defence.${key}`,
+    value: sys.defences[key].value,
+    base: sys.defences[key].base
+  }));
+}
+
 /**
  * Gauge fill percentages.
  *

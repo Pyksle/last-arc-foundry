@@ -363,6 +363,20 @@ describe("§44 the sheet and the harness build rows from the same code", () => {
     });
   }
 
+  test("the NPC sheet shares what it can and keeps only what differs", () => {
+    const npc = read("module/sheets/npc-sheet.mjs");
+    // Byte-identical copies before #44: a change to the Break Gauge display or
+    // the gauge guard had to be made twice, and missing one was silent.
+    for (const fn of ["breakTrackRows", "gaugePercent", "npcAttributeRows", "npcDefenceRows"]) {
+      assert.match(npc, new RegExp(`ROWS\\.${fn}\\(`),
+        `npc-sheet.mjs has its own copy of ${fn} again`);
+    }
+    assert.ok(!/LASTARC\.breakPenalties\.map\(/.test(npc),
+      "the NPC sheet is rebuilding the Break Gauge track itself");
+    assert.ok(!/const pct = \(value, max\)/.test(npc),
+      "the NPC sheet has its own copy of the gauge guard again");
+  });
+
   test("neither rebuilds a row from the config lists by hand", () => {
     // The specific shapes that were duplicated. Matching either outside
     // sheet-rows.mjs means a second copy has grown back.

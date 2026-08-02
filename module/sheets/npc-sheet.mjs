@@ -22,6 +22,7 @@ import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
 import { markStatuses, toggleStatus } from "./status-palette.mjs";
 import { situationalOptions } from "../dice/situational.mjs";
+import * as ROWS from "../sheet-rows.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -112,12 +113,10 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.ethosMoralityOptions = LASTARC.ethosMorality
       .map((v) => ({ value: v, label: `LASTARC.Ethos.${v}` }));
 
-    // Same guard as the character sheet: a statblock with 0 max MP is common
-    // and must not render NaN%.
-    const pct = (value, max) =>
-      max > 0 ? Math.max(0, Math.min(100, Math.round((value / max) * 100))) : 0;
-    context.hpPercent = pct(sys.resources.hp.value, sys.resources.hp.max);
-    context.mpPercent = pct(sys.resources.mp.value, sys.resources.mp.max);
+    // Shared with the character sheet: a statblock with 0 max MP is common and
+    // must not render NaN%. This was a byte-identical copy in both files (#44).
+    context.hpPercent = ROWS.gaugePercent(sys.resources.hp.value, sys.resources.hp.max);
+    context.mpPercent = ROWS.gaugePercent(sys.resources.mp.value, sys.resources.mp.max);
 
     /**
      * Curses a statblock cannot apply to itself (#45).
@@ -143,36 +142,16 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       tooltip: `LASTARC.Tooltip.RangeBand.${key}`
     }));
 
-    context.attributes = LASTARC.attributeOrder.map((key) => ({
-      key,
-      label: LASTARC.attributes[key].label,
-      abbr: LASTARC.attributes[key].abbr,
-      ...sys.attributes[key]
-    }));
+    context.attributes = ROWS.npcAttributeRows(sys);
 
     context.sizeOptions = LASTARC.sizeOrder
       .map((k) => ({ value: k, label: LASTARC.sizes[k].label }));
 
-    context.defenceRows = ["ref", "fort", "will"].map((key) => ({
-      key,
-      label: `LASTARC.Defence.${key}`,
-      value: sys.defences[key].value,
-      base: sys.defences[key].base
-    }));
+    context.defenceRows = ROWS.npcDefenceRows(sys);
 
-    context.breakTrack = LASTARC.breakPenalties.map((penalty, step) => ({
-      step,
-      penalty,
-      isCurrent: step === sys.breakGauge.step,
-      isPassed: step < sys.breakGauge.step,
-      isPersistent: step > 0 && step <= sys.breakGauge.persistentSteps,
-      isTerminal: penalty === null,
-      label: penalty === null
-        ? game.i18n.localize("LASTARC.Break.Unconscious")
-        : penalty === 0
-          ? game.i18n.localize("LASTARC.Break.Normal")
-          : `−${Math.abs(penalty)}`
-    }));
+    // Identical to the character sheet's, so it is now literally the same code
+    // (#44) — a change to the Break Gauge display used to need making twice.
+    context.breakTrack = ROWS.breakTrackRows(sys, (key) => game.i18n.localize(key));
 
     // Damage modifiers are arrays in the schema but comma lists in the UI —
     // statblocks are transcribed by hand and typing beats a multi-select.
