@@ -192,7 +192,17 @@ export async function heroPointDefenceBoost(actor, defence, { rerollOnes = false
       defence: game.i18n.localize(`LASTARC.Defence.${defence}`),
       amount: die.total
     }),
-    img: `systems/last-arc/assets/status/exhaustion.svg`,
+    /**
+     * Foundry's neutral default, NOT a status icon.
+     *
+     * This drew `assets/status/exhaustion.svg` — so spending a hero point to
+     * get BETTER put the Exhaustion badge on your token for a round. The status
+     * glyphs are deliberately shape-coded for the two colour-blind players at
+     * this table, which makes borrowing one for something else worse here than
+     * it would be elsewhere. Surfaced by #20 slice C, which finally gave the
+     * effect somewhere to be looked at.
+     */
+    img: "icons/svg/aura.svg",
     changes: [{
       key: `system.defences.${defence}.misc`,
       mode: CONST.ACTIVE_EFFECT_MODES.ADD,

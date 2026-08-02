@@ -170,12 +170,39 @@ describe("§ issue #20: the book's scopes resolve onto real paths", () => {
    * would also apply against every sword swing.
    */
   test("the unmappable scopes return no paths AND a reason", () => {
-    for (const scope of ["refVsSpells", "refVsAttacks", "melee", "ranged"]) {
+    for (const scope of ["refVsSpells", "refVsAttacks"]) {
       const { paths, reason } = scopeTargets(scope);
       assert.deepEqual(paths, [], `${scope} must not resolve to a flat effect`);
       assert.ok(reason, `${scope} must explain itself rather than vanish`);
       assert.ok(reason in JSON.parse(read("lang/en.json")), `${reason} is not localised`);
     }
+  });
+
+  /**
+   * This table is keyed by TARGET scope. `melee` and `ranged` are DAMAGE
+   * scopes, and `ranged` is also a real weapon skill — so while they sat here,
+   * `scopeTargets("ranged")` answered "bonus damage has no field" and Ranged
+   * became the one skill in the system an effect could not target. Caught by
+   * the custom-effect picker in #20 slice C, which resolves everything it
+   * offers.
+   */
+  test("no unmappable scope collides with something resolvable", () => {
+    for (const scope of Object.keys(LASTARC.unmappableEffectScopes)) {
+      assert.ok(!LASTARC.allSkills[scope],
+        `"${scope}" is both an unmappable scope and a skill; the table is ` +
+        "consulted first, so that skill can never be targeted");
+      assert.ok(!LASTARC.attributes[scope], `"${scope}" is also an attribute`);
+      assert.ok(!LASTARC.opposableDefences.includes(scope), `"${scope}" is also a defence`);
+    }
+  });
+
+  test("bonus damage still reports itself as unapplicable", () => {
+    // The reason moved to the call site; the behaviour must not have.
+    const { skipped } = performanceEffectChanges({
+      bonusDamage: "1d6", bonusDamageScope: "ranged"
+    });
+    assert.equal(skipped.length, 1);
+    assert.equal(skipped[0].reason, "LASTARC.EffectTarget.noDamageField");
   });
 
   test("every performance scope is either mappable or explained", () => {

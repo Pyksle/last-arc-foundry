@@ -1220,22 +1220,29 @@ LASTARC.effectSkillGroups = Object.freeze({
  * Performance and spell scopes that CANNOT become an Active Effect, with the
  * reason, so the card can say so instead of silently dropping them.
  *
- * Both are conditional on something the effect system cannot see:
+ * Both are conditional on something the effect system cannot see: a Reflex
+ * bonus that applies only against spells, or only against attacks, would have
+ * to sit on `defences.ref.misc`, which applies to everything. Over-applying a
+ * bonus is worse than not applying it. These belong to issue #16's conditional
+ * modifiers, not here.
  *
- *   - a Reflex bonus that applies only against spells, or only against
- *     attacks, would have to sit on `defences.ref.misc`, which applies to
- *     everything. Over-applying a bonus is worse than not applying it.
- *   - bonus damage is assembled at roll time from the weapon and the
- *     wielder's attribute. There is no actor field standing behind it, so
- *     there is nothing for an effect to point at.
+ * ── Why `melee` and `ranged` are NOT in this table ──────────────────────────
  *
- * These belong to issue #16's conditional modifiers, not here.
+ * They were, and it was a category error with a live consequence. This table is
+ * keyed by TARGET scope — what an effect writes to — while `melee` and `ranged`
+ * are DAMAGE scopes, describing which attacks a bonus rides on. Two vocabularies
+ * in one namespace, and `ranged` is also the key of a real weapon skill.
+ *
+ * `scopeTargets` consults this table first, so `scopeTargets("ranged")` answered
+ * "bonus damage has no field" and the Ranged weapon skill became the one skill
+ * in the system an effect could not target. Nothing had noticed because the only
+ * caller passing a damage scope discards the answer and reports
+ * `noDamageField` regardless — which is where that reason belongs, at the one
+ * call site that knows it is talking about damage.
  */
 LASTARC.unmappableEffectScopes = Object.freeze({
   refVsSpells: "LASTARC.EffectTarget.conditionalOnly",
-  refVsAttacks: "LASTARC.EffectTarget.conditionalOnly",
-  melee: "LASTARC.EffectTarget.noDamageField",
-  ranged: "LASTARC.EffectTarget.noDamageField"
+  refVsAttacks: "LASTARC.EffectTarget.conditionalOnly"
 });
 
 /* -------------------------------------------------------------------------- */

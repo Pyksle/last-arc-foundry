@@ -25,6 +25,9 @@ import { shareItem } from "../dice/share-item.mjs";
 import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
 import { markStatuses, toggleStatus } from "./status-palette.mjs";
+import {
+  effectPanelRows, promptCreateEffect, editEffect, toggleEffect, deleteEffect
+} from "./effect-panel.mjs";
 import { situationalOptions } from "../dice/situational.mjs";
 import * as ROWS from "../sheet-rows.mjs";
 import { applyHealing } from "../dice/healing.mjs";
@@ -66,7 +69,11 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       resetActions: LastArcCharacterSheet.#onResetActions,
       toggleStatus: LastArcCharacterSheet.#onToggleStatus,
       toggleProficiency: LastArcCharacterSheet.#onToggleProficiency,
-      toggleTechnickActive: LastArcCharacterSheet.#onToggleTechnickActive
+      toggleTechnickActive: LastArcCharacterSheet.#onToggleTechnickActive,
+      createEffect: LastArcCharacterSheet.#onCreateEffect,
+      editEffect: LastArcCharacterSheet.#onEditEffect,
+      toggleEffect: LastArcCharacterSheet.#onToggleEffect,
+      deleteEffect: LastArcCharacterSheet.#onDeleteEffect
     }
   };
 
@@ -199,6 +206,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
     this.#prepareItems(context, sys);
     context.actionEconomy = this.#prepareActionEconomy();
+    context.effects = effectPanelRows(this.document, localize);
 
     return context;
   }
@@ -730,6 +738,27 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     if (!item) return;
 
     await item.update({ "system.active": item.system.active === false });
+  }
+
+  /**
+   * The four effect handlers are one line each on purpose: both sheets carry
+   * the same set, and everything they do lives in `effect-panel.mjs` so the two
+   * cannot drift (#20 slice C, and the lesson of #44).
+   */
+  static async #onCreateEffect() {
+    await promptCreateEffect(this.document);
+  }
+
+  static async #onEditEffect(event, target) {
+    editEffect(this.document, target.dataset.effectId);
+  }
+
+  static async #onToggleEffect(event, target) {
+    await toggleEffect(this.document, target.dataset.effectId);
+  }
+
+  static async #onDeleteEffect(event, target) {
+    await deleteEffect(this.document, target.dataset.effectId);
   }
 
   static async #onHeroBoost(event, target) {

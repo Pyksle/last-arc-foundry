@@ -2445,3 +2445,106 @@
   border-radius: 999px;
   padding: 0.05rem 0.45rem;
 }
+
+/* ── Effects panel (#20 slice C) ───────────────────────────────────────────
+   Built on the .la-item row rather than beside it: an effect reads as another
+   thing hanging off the character, and giving it its own visual language would
+   make the sheet say two things where it means one.
+
+   The `is-unsupported` state is the reason this panel exists — an effect whose
+   change points at a value derivation reassigns does nothing at all, silently.
+   It is drawn in oxblood like every other "this is wrong" on these sheets, and
+   the label carries the meaning so the two colour-blind players at this table
+   are not relying on the tint. */
+.la-effect {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.3rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--la-rule) 40%, transparent);
+}
+.la-effect:nth-child(even) { background: color-mix(in srgb, var(--la-paper-3) 25%, transparent); }
+
+.la-effect__img {
+  width: 1.5rem; height: 1.5rem;
+  object-fit: cover;
+  border: 1px solid var(--la-rule);
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+.la-effect__name {
+  background: none;
+  border: none;
+  color: var(--la-ink);
+  font-family: var(--la-font-body);
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.la-effect__name:hover { color: var(--la-bronze); }
+
+/* The changes are the substance of the row, so they take the free space. */
+.la-effect__changes {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.5rem;
+  min-width: 0;
+}
+.la-effect__change {
+  font-family: var(--la-font-num);
+  font-size: 0.72rem;
+  color: var(--la-ink-soft);
+  white-space: nowrap;
+}
+.la-effect__change.is-unsupported {
+  color: var(--la-oxblood);
+  text-decoration: line-through;
+}
+
+.la-effect__duration,
+.la-effect__source {
+  font-size: 0.62rem;
+  color: var(--la-ink-faint);
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+.la-effect__source { font-style: italic; }
+
+.la-effect__warn {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--la-oxblood);
+  border: 1px solid var(--la-oxblood);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  flex: 0 0 auto;
+}
+.la-effect.is-unsupported { background: color-mix(in srgb, var(--la-oxblood) 8%, transparent); }
+
+.la-effect__toggle,
+.la-effect__delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+  flex: 0 0 auto;
+  padding: 0 0.2rem;
+}
+.la-effect__toggle {
+  color: var(--la-ink-faint);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.la-effect__toggle:hover { color: var(--la-bronze); }
+.la-effect__delete { color: var(--la-oxblood); font-size: 1rem; }
+
+/* A suspended effect is still listed — it is the GM's undo, not a deletion —
+   but must not read as one that is doing something. */
+.la-effect.is-disabled .la-effect__name { font-style: italic; }
+.la-effect.is-disabled .la-effect__img,
+.la-effect.is-disabled .la-effect__changes { opacity: 0.45; }

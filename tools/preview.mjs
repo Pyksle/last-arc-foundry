@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
 import { LASTARC } from "../module/config.mjs";
 import * as D from "../module/derivation.mjs";
 import * as ROWS from "../module/sheet-rows.mjs";
+import { effectRows } from "../module/effects.mjs";
 
 export const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const lang = JSON.parse(readFileSync(join(root, "lang/en.json"), "utf8"));
@@ -89,13 +90,24 @@ Handlebars.registerHelper("formInput", (field, options) => {
  * rendered in a live Foundry" attached to it. The one thing that could have
  * checked was itself unchecked.
  *
- * Read from the same paths last-arc.mjs registers, so adding a partial there
- * and forgetting it here fails loudly the next time anyone previews.
+ * READ OUT OF last-arc.mjs, rather than kept as a second list here that claims
+ * to follow it. This was a hand-copied pair, and the comment already said it
+ * tracked the source — the effects panel in #20 proved otherwise the moment it
+ * was added. A missing partial does throw, so the failure was loud, but only
+ * for a partial some template already uses; the honest fix is to stop having
+ * two lists.
  */
-export const PARTIALS = {
-  laItemOrder: "templates/actor/item-order.hbs",
-  laStatusPalette: "templates/actor/status-palette.hbs"
-};
+export const PARTIALS = Object.fromEntries(
+  [...readFileSync(join(root, "module/last-arc.mjs"), "utf8")
+    .matchAll(/(\w+):\s*`systems\/\$\{SYSTEM_ID\}\/(templates\/[^`]+)`/g)]
+    .map((m) => [m[1], m[2]])
+);
+if (!Object.keys(PARTIALS).length) {
+  throw new Error(
+    "preview: found no partials in last-arc.mjs — registerPartials() has been "
+    + "restructured and this parser needs updating, or every preview renders wrong."
+  );
+}
 for (const [name, rel] of Object.entries(PARTIALS)) {
   Handlebars.registerPartial(name, readFileSync(join(root, rel), "utf8"));
 }
@@ -379,6 +391,40 @@ export function buildContext() {
     })),
 
     /**
+     * Effects panel rows (#20 slice C), built through the REAL row builder.
+     *
+     * Hand-writing the shape is what put `{key, active}` into the technick-flag
+     * fixture where the sheet builds `{value, hint, selected}`, and every
+     * preview since had rendered `data-tooltip="undefined"`. So this calls
+     * `effectRows` on snapshots, which is the same function the sheets call.
+     *
+     * The third row is deliberately pointed at a derived path. That is the one
+     * state this panel exists to reveal — an effect that sits on the sheet
+     * looking healthy and does nothing — and a preview that never shows it
+     * cannot be used to check that it reads clearly.
+     */
+    effects: effectRows([
+      {
+        id: "zzBuff", name: "ZZ rousing march", img: null, disabled: false,
+        durationLabel: "1 Round", source: "ZZ performance",
+        changes: [
+          { key: "system.skills.athletics.misc", mode: 2, value: "2" },
+          { key: "system.defences.will.misc", mode: 2, value: "1" }
+        ]
+      },
+      {
+        id: "zzHex", name: "ZZ hex", img: null, disabled: true,
+        durationLabel: null, source: null,
+        changes: [{ key: "system.attributes.agi.value", mode: 2, value: "-2" }]
+      },
+      {
+        id: "zzInert", name: "ZZ misdirected ward", img: null, disabled: false,
+        durationLabel: null, source: null,
+        changes: [{ key: "system.resources.hp.max", mode: 2, value: "10" }]
+      }
+    ], { localize, actorType: "character" }),
+
+    /**
      * The rest of what `_prepareContext` assigns (issue #44).
      *
      * Fourteen keys were missing, so the Spells, Performances and Features
@@ -550,6 +596,28 @@ export function npcContext() {
     rangeBandFields: Object.entries(LASTARC.rangeBands).map(([key, band]) => ({
       key, label: band.label, tooltip: `LASTARC.Tooltip.RangeBand.${key}`
     })),
+    /**
+     * NPC-SHAPED effects, not the character ones inherited from `buildContext`.
+     *
+     * A statblock's defence slot is `base`, not `misc`, and it has no per-skill
+     * slot at all — so the character fixture's "Athletics +2" is a row that
+     * cannot exist on this sheet, and previewing it would show the panel
+     * working in a case the code deliberately refuses. Fixtures being
+     * confidently wrong about the NPC shape is how the 0.25.0 debuff bug got
+     * through; there is no reason to reproduce it in the harness.
+     */
+    effects: effectRows([
+      {
+        id: "zzCurse", name: "ZZ withering hex", img: null, disabled: false,
+        durationLabel: "1 Round", source: "ZZ performance",
+        changes: [{ key: "system.defences.will.base", mode: 2, value: "-2" }]
+      },
+      {
+        id: "zzInert", name: "ZZ misdirected ward", img: null, disabled: false,
+        durationLabel: null, source: null,
+        changes: [{ key: "system.skills.athletics.misc", mode: 2, value: "2" }]
+      }
+    ], { localize, actorType: "npc" }),
     npcSkills: [], drops: [], loot: [], steal: [], items: [],
     // Damage modifiers are arrays in the schema and comma lists in the UI.
     weaknessText: "fire", resistanceText: "cold, electric", immunityText: "",

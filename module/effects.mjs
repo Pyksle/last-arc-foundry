@@ -142,6 +142,19 @@ export function scopeTargets(scope, actorType = "character") {
   const unmappable = LASTARC.unmappableEffectScopes[scope];
   if (unmappable) return { paths: [], reason: unmappable };
 
+  /**
+   * Attributes. Both models keep `value` as the authored input, so this is the
+   * one scope that is identical on a character and a statblock.
+   *
+   * Added when the custom-effect builder needed it (#20 slice C). It went HERE
+   * rather than into a second resolver next to the builder, because "which
+   * paths does this scope mean" having two answers is how flat-footed ended up
+   * with two implementations of one rule.
+   */
+  if (LASTARC.attributes[scope]) {
+    return { paths: [`system.attributes.${scope}.value`], reason: null };
+  }
+
   // Defence scopes. The slot is named differently per model.
   if (scope === "allDefences") {
     return {
@@ -181,6 +194,157 @@ export function scopeTargets(scope, actorType = "character") {
   if (group.length) return { paths: group, reason: null };
 
   return { paths: [], reason: "LASTARC.EffectTarget.unknownScope" };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Authoring an effect by hand (#20 slice C)                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Every scope a GM may build a custom effect against, grouped for a picker.
+ *
+ * SCOPES, not paths. A path has to be resolved against the target's shape —
+ * `defences.ref.misc` on a character, `defences.ref.base` on a statblock — and
+ * resolving it once at authoring time is precisely the bug that shipped in
+ * 0.25.0, where every debuff aimed at a monster wrote character paths and did
+ * nothing. The stored value stays a scope and `scopeTargets` resolves it.
+ *
+ * `skillGroup` was declared in `LASTARC.effectTargetGroups` from the start and
+ * nothing ever emitted one, so "+2 to all weapon skills" was a category the
+ * config knew about and no UI could reach. It is a row here.
+ *
+ * @returns {Array<{scope, label, group, groupLabel}>}
+ */
+export function customEffectTargets(actorType = "character") {
+  const row = (scope, label, group) => ({
+    scope, label, group, groupLabel: LASTARC.effectTargetGroups[group].label
+  });
+
+  const out = [
+    ...Object.entries(LASTARC.attributes).map(([k, cfg]) => row(k, cfg.label, "attribute")),
+    ...LASTARC.opposableDefences.map((k) => row(k, `LASTARC.Defence.${k}`, "defence")),
+    row("allDefences", "LASTARC.PerformScope.allDefences", "defence")
+  ];
+
+  // A statblock's skills are printed values in an array with no per-skill slot,
+  // so offering them would build effects that cannot land. `scopeTargets` would
+  // report the reason, but a picker that lists unusable choices is worse than
+  // one that does not list them.
+  if (supportsSkillEffects(actorType)) {
+    for (const [key, cfg] of Object.entries(LASTARC.allSkills)) {
+      out.push(row(key, cfg.label, "skill"));
+    }
+    for (const [key, cfg] of Object.entries(LASTARC.effectSkillGroups)) {
+      out.push(row(key, cfg.label, "skillGroup"));
+    }
+  }
+
+  return out;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Reading an effect back (#20 slice C)                                       */
+/* -------------------------------------------------------------------------- */
+
+/** Path → label, unioned across both actor types so either shape resolves. */
+function pathLabels() {
+  const map = new Map();
+  for (const type of ["character", "npc"]) {
+    for (const t of effectTargets(type)) map.set(t.path, t.label);
+  }
+  return map;
+}
+
+/**
+ * One `change` in words: what it touches, and by how much.
+ *
+ * The raw path is kept and shown when nothing recognises it, because an effect
+ * from another module or a hand-typed path is still real and still applies —
+ * printing "unknown" would be this system claiming authority it does not have.
+ *
+ * @param {{key: string, mode: number, value: *}} change
+ * @param {(key: string) => string} [localize]
+ * @param {string|null} [actorType]  Judge against ONE shape when it is known.
+ */
+export function describeChange(change, localize = (k) => k, actorType = null) {
+  const key = change?.key ?? "";
+  const label = pathLabels().get(key);
+  const value = Number(change?.value);
+  const numeric = Number.isFinite(value);
+
+  return {
+    key,
+    label: label ? localize(label) : key,
+    /** Named as a path when nothing knows it — the GM needs to see what it says. */
+    known: !!label,
+    value: numeric ? value : change?.value,
+    /**
+     * ADD is the mode this system uses everywhere and is the only one whose
+     * sign carries meaning. OVERRIDE reads as "= n"; anything else prints the
+     * bare value rather than a sign that would be a lie.
+     */
+    display: renderChangeValue(change?.mode, value, numeric, change?.value),
+    /**
+     * The load-bearing one. A change pointing outside the whitelist is
+     * overwritten by derivation on the next prepare and does nothing, silently
+     * — which is the entire reason issue #20 exists. The panel is where a GM
+     * would look to find out why a buff did nothing, so it has to say.
+     *
+     * Judged against ONE shape when the caller knows it. `system.skills.*.misc`
+     * is real on a character and absent on a statblock, so the union — which is
+     * right for the create-time warning, where the document may end up on
+     * either — would pass a character-shaped debuff sitting inert on a monster.
+     * That is precisely the bug 0.25.0 shipped, and the panel is the place it
+     * would now be looked for.
+     */
+    unsupported: key.startsWith("system.") && !supportedTargetPaths(actorType).has(key)
+  };
+}
+
+function renderChangeValue(mode, value, numeric, raw) {
+  const OVERRIDE = 5;
+  if (mode === OVERRIDE) return `= ${numeric ? value : raw}`;
+  if (!numeric) return String(raw ?? "");
+  // U+2212, matching the `lasignal` helper every other signed number on these
+  // sheets goes through. A hyphen-minus here would be the one place a penalty
+  // is drawn differently from every other penalty in the system.
+  return value >= 0 ? `+${value}` : `−${Math.abs(value)}`;
+}
+
+/**
+ * An effect as a row for the sheet's Effects panel.
+ *
+ * Takes a plain snapshot rather than the document so the shaping is testable
+ * without Foundry. Duration is passed through as Foundry computed it — a round
+ * count means nothing without a combat to measure against, and reimplementing
+ * that here would give the panel a second opinion about when a buff ends.
+ */
+export function effectRow(effect, { localize = (k) => k, actorType = null } = {}) {
+  const changes = (effect?.changes ?? []).map((c) => describeChange(c, localize, actorType));
+  return {
+    id: effect?.id ?? null,
+    name: effect?.name ?? "",
+    img: effect?.img || null,
+    disabled: !!effect?.disabled,
+    durationLabel: effect?.durationLabel || null,
+    source: effect?.source || null,
+    changes,
+    /** Any one bad change is worth flagging: the buff is partly inert. */
+    unsupported: changes.some((c) => c.unsupported)
+  };
+}
+
+/**
+ * Which effects the panel shows: everything that is not a condition.
+ *
+ * Conditions have the status palette, whose remove deletes EVERY effect
+ * carrying that id — Foundry can end up with several, and issue #47 was exactly
+ * that pile-up. Giving one condition two remove buttons with different
+ * semantics would rebuild it. So the palette owns statuses and the panel owns
+ * the rest, and neither can quietly disagree with the other.
+ */
+export function effectRows(effects = [], { localize = (k) => k, actorType = null } = {}) {
+  return effects.filter((e) => !e?.isStatus).map((e) => effectRow(e, { localize, actorType }));
 }
 
 /**
@@ -238,12 +402,19 @@ export function performanceEffectChanges(outcome = {}, actorType = "character") 
   add(outcome.bonusScope, Number(outcome.skillBonus) || 0);
   // Stored positive, applied negative — see above.
   add(outcome.penaltyScope, -(Number(outcome.penalty) || 0));
-  // Bonus damage has no field to land on; report it rather than lose it.
+  /**
+   * Bonus damage has no field to land on; report it rather than lose it.
+   *
+   * The reason is stated HERE rather than looked up in `unmappableEffectScopes`,
+   * because this is the one call site that knows it is holding a DAMAGE scope
+   * rather than a target scope. Routing it through `scopeTargets` put `melee`
+   * and `ranged` into a table keyed by target — and `ranged` is also a weapon
+   * skill, so that lookup made Ranged the one skill an effect could not target.
+   */
   if (outcome.bonusDamage && outcome.bonusDamageScope) {
-    const { reason } = scopeTargets(outcome.bonusDamageScope, actorType);
     skipped.push({
       scope: outcome.bonusDamageScope,
-      reason: reason ?? "LASTARC.EffectTarget.noDamageField",
+      reason: "LASTARC.EffectTarget.noDamageField",
       value: outcome.bonusDamage
     });
   }
@@ -329,7 +500,7 @@ const FLAG = "last-arc";
  * Returns an empty duration out of combat: `rounds` with no combat to measure
  * against is not a shorter effect, it is an unmeasured one.
  */
-function buildDuration(rounds) {
+export function buildDuration(rounds) {
   const combat = game.combat;
   if (!rounds || !combat) return {};
   return {

@@ -25,6 +25,7 @@ import * as D from "./derivation.mjs";
 import * as BLOCK from "./dice/block.mjs";
 import * as HEAL from "./dice/healing.mjs";
 import * as ORDER from "./item-order.mjs";
+import { effectPanelRows, toggleEffect, deleteEffect } from "./sheets/effect-panel.mjs";
 
 const SYSTEM_ID = "last-arc";
 
@@ -322,6 +323,106 @@ function registerActiveEffectBatch(quench) {
               "if this ever passes with +99, prepareDerivedData stopped recomputing " +
               "and the whole derivation chain is no longer authoritative"
             );
+          });
+        });
+      });
+
+      /**
+       * The Effects panel (#20 slice C).
+       *
+       * Slice B put real effects on targeted allies and nothing could see one:
+       * this system replaces Foundry's actor sheet, so its effects tab went
+       * too, and the only UI touching effects was the status palette. A
+       * performance buff out of combat "stays until removed" by design, with
+       * nothing able to remove it.
+       *
+       * The two tests above prove the INVARIANT the panel reports on. These
+       * prove the panel reports it, and that its buttons do what they say.
+       */
+      describe("the Effects panel", function () {
+        const inert = {
+          name: "Quench: inert ward",
+          changes: [{
+            key: "system.resources.hp.max",
+            mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "10"
+          }]
+        };
+        const live = {
+          name: "Quench: real ward",
+          changes: [{
+            key: "system.defences.will.misc",
+            mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "2"
+          }]
+        };
+
+        it("lists an effect with what it changes", async function () {
+          await withActor({}, async (actor) => {
+            await actor.createEmbeddedDocuments("ActiveEffect", [live]);
+            const rows = effectPanelRows(actor, (k) => game.i18n.localize(k));
+
+            const row = rows.find((r) => r.name === live.name);
+            assert.ok(row, "the effect is not listed at all");
+            assert.equal(row.changes.length, 1);
+            assert.equal(row.changes[0].display, "+2");
+            assert.isFalse(row.unsupported);
+          });
+        });
+
+        /**
+         * The reason the panel exists. An effect on a derived path sits there
+         * looking healthy and does nothing; the GM had no way to find out
+         * which of theirs those were.
+         */
+        it("flags one that derivation overwrites", async function () {
+          await withActor({}, async (actor) => {
+            const before = actor.system.resources.hp.max;
+            await actor.createEmbeddedDocuments("ActiveEffect", [inert]);
+
+            assert.equal(actor.system.resources.hp.max, before,
+              "the premise: this effect really does nothing");
+
+            const row = effectPanelRows(actor, (k) => game.i18n.localize(k))
+              .find((r) => r.name === inert.name);
+            assert.isTrue(row?.unsupported, "...and the panel has to say so");
+          });
+        });
+
+        /**
+         * Conditions belong to the status palette, whose remove deletes EVERY
+         * effect carrying that id. One condition with two remove buttons that
+         * behave differently is how the pile-up in #47 happened.
+         */
+        it("leaves conditions to the status palette", async function () {
+          await withActor({}, async (actor) => {
+            await actor.toggleStatusEffect("prone", { active: true });
+            const rows = effectPanelRows(actor, (k) => game.i18n.localize(k));
+            assert.equal(rows.length, 0, "a status is showing up in the effects panel");
+          });
+        });
+
+        it("suspending stops the number moving, and resuming brings it back", async function () {
+          await withActor({}, async (actor) => {
+            const before = actor.system.defences.will.value;
+            const [effect] = await actor.createEmbeddedDocuments("ActiveEffect", [live]);
+            assert.equal(actor.system.defences.will.value, before + 2);
+
+            await toggleEffect(actor, effect.id);
+            assert.equal(actor.system.defences.will.value, before,
+              "a suspended effect must not still be applying");
+
+            await toggleEffect(actor, effect.id);
+            assert.equal(actor.system.defences.will.value, before + 2);
+          });
+        });
+
+        it("deleting removes it", async function () {
+          await withActor({}, async (actor) => {
+            const before = actor.system.defences.will.value;
+            const [effect] = await actor.createEmbeddedDocuments("ActiveEffect", [live]);
+
+            await deleteEffect(actor, effect.id);
+            assert.equal(actor.system.defences.will.value, before);
+            assert.equal(actor.effects.size, 0);
           });
         });
       });

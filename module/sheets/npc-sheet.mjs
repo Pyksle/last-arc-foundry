@@ -21,6 +21,9 @@ import { shareItem } from "../dice/share-item.mjs";
 import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
 import { markStatuses, toggleStatus } from "./status-palette.mjs";
+import {
+  effectPanelRows, promptCreateEffect, editEffect, toggleEffect, deleteEffect
+} from "./effect-panel.mjs";
 import { situationalOptions } from "../dice/situational.mjs";
 import { castSpell, performItem } from "../dice/magic.mjs";
 import * as ROWS from "../sheet-rows.mjs";
@@ -89,7 +92,11 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       shareItem: LastArcNpcSheet.#onShareItem,
       editItem: LastArcNpcSheet.#onEditItem,
       deleteItem: LastArcNpcSheet.#onDeleteItem,
-      moveItem: LastArcNpcSheet.#onMoveItem
+      moveItem: LastArcNpcSheet.#onMoveItem,
+      createEffect: LastArcNpcSheet.#onCreateEffect,
+      editEffect: LastArcNpcSheet.#onEditEffect,
+      toggleEffect: LastArcNpcSheet.#onToggleEffect,
+      deleteEffect: LastArcNpcSheet.#onDeleteEffect
     }
   };
 
@@ -250,8 +257,32 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.performances = performances;
     markOrder(this, { technicks, items });
     markStatuses(context, this.document);
+    context.effects = effectPanelRows(this.document, (k) => game.i18n.localize(k));
 
     return context;
+  }
+
+  /**
+   * A statblock takes effects too, and its shape is not a character's — the
+   * builder resolves a scope against the actor it is creating on, so a defence
+   * debuff lands on `base` here and on `misc` there. Skills are deliberately
+   * absent from an NPC's picker: they are a printed array with no per-skill
+   * slot to write to, so an effect could only address one by INDEX.
+   */
+  static async #onCreateEffect() {
+    await promptCreateEffect(this.document);
+  }
+
+  static async #onEditEffect(event, target) {
+    editEffect(this.document, target.dataset.effectId);
+  }
+
+  static async #onToggleEffect(event, target) {
+    await toggleEffect(this.document, target.dataset.effectId);
+  }
+
+  static async #onDeleteEffect(event, target) {
+    await deleteEffect(this.document, target.dataset.effectId);
   }
 
   /**

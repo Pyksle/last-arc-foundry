@@ -1,0 +1,59 @@
+{{!--
+  Active Effects on this actor (#20 slice C).
+
+  Conditions are NOT here — they have the status palette, whose remove deletes
+  every effect carrying that id. Two remove buttons with different semantics on
+  one condition is how the status pile-up in #47 happened.
+--}}
+<section class="la-panel la-panel--effects">
+  <h2 class="la-panel__title">{{localize "LASTARC.Section.Effects"}}</h2>
+
+  <div class="la-effects">
+    {{#each effects}}
+      <div class="la-effect{{#if this.disabled}} is-disabled{{/if}}{{#if this.unsupported}} is-unsupported{{/if}}">
+        {{#if this.img}}<img class="la-effect__img" src="{{this.img}}" alt="">{{/if}}
+
+        <button type="button" class="la-effect__name" data-action="editEffect"
+                data-effect-id="{{this.id}}"
+                data-tooltip="{{localize 'LASTARC.Tooltip.EditEffect'}}">{{this.name}}</button>
+
+        <span class="la-effect__changes">
+          {{#each this.changes}}
+            <span class="la-effect__change {{#if this.unsupported}}is-unsupported{{/if}}"
+                  {{#if this.unsupported}}
+                    data-tooltip="{{localize 'LASTARC.Tooltip.EffectChangeInert'}}"
+                  {{/if}}>{{this.label}} {{this.display}}</span>
+          {{/each}}
+        </span>
+
+        {{#if this.durationLabel}}
+          <span class="la-effect__duration">{{this.durationLabel}}</span>
+        {{/if}}
+        {{#if this.source}}
+          <span class="la-effect__source">{{this.source}}</span>
+        {{/if}}
+
+        {{#if this.unsupported}}
+          <span class="la-effect__warn"
+                data-tooltip="{{localize 'LASTARC.Tooltip.EffectInert'}}">{{localize "LASTARC.Effect.Inert"}}</span>
+        {{/if}}
+
+        <button type="button" class="la-effect__toggle" data-action="toggleEffect"
+                data-effect-id="{{this.id}}"
+                data-tooltip="{{localize 'LASTARC.Tooltip.ToggleEffect'}}">
+          {{#if this.disabled}}{{localize "LASTARC.Effect.Resume"}}{{else}}{{localize "LASTARC.Effect.Suspend"}}{{/if}}
+        </button>
+        <button type="button" class="la-effect__delete" data-action="deleteEffect"
+                data-effect-id="{{this.id}}"
+                data-tooltip="{{localize 'LASTARC.Tooltip.DeleteEffect'}}">×</button>
+      </div>
+    {{else}}
+      <p class="la-note">{{localize "LASTARC.Note.NoEffects"}}</p>
+    {{/each}}
+  </div>
+
+  <button type="button" class="la-panel__add" data-action="createEffect"
+          data-tooltip="{{localize 'LASTARC.Tooltip.CreateEffect'}}">
+    {{localize "LASTARC.Action.AddEffect"}}
+  </button>
+</section>
