@@ -661,16 +661,12 @@ describe("no orphaned exports", () => {
     ["initiativeDieFor", "die lookup superseded by the derived actor value"],
 
     /**
-     * Surfaced the moment the guard stopped counting comments as uses (issue
-     * #34). `trainedSkillCount` was here too and has since been wired to the
-     * trained-skill readout, so it left the list — which is the staleness check
-     * below working as intended rather than a courtesy.
+     * `isFlatFooted` and `trainedSkillCount` both sat here and have both since
+     * been wired, which is the staleness check below working as intended rather
+     * than a courtesy. `isFlatFooted` left on issue #37: the lifecycle now
+     * reaches it through `flatFootedAtCombatStart` instead of inlining a
+     * narrower copy of the same rule.
      */
-    ["isFlatFooted", "issue #37: the combat lifecycle implements a NARROWER version " +
-      "of this rule inline — round-1-and-not-yet-acted only — and never calls it, so " +
-      "the `surprised` and `detectsAttacker` cases it handles are unenforced. Two " +
-      "implementations of one rule; do not rewire initiative on the eve of a playtest"],
-
   ]);
 
   /**

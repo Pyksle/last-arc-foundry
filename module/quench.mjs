@@ -1404,6 +1404,64 @@ function registerCombatBatch(quench) {
             }
           });
         });
+
+        /**
+         * The GM's ruling on #37: the per-attacker cases — flat-footed against
+         * one creature and not another — are applied BY HAND, because a Foundry
+         * status is one flag on the actor and cannot express a pair.
+         *
+         * That only works if the lifecycle leaves hand-applied statuses alone.
+         * The round sweep used to clear flat-footed from EVERY combatant at
+         * every round boundary, so the GM's ruling lasted until the next round
+         * tick and no longer — and the creature it was meant to catch had not
+         * yet taken the turn that is supposed to end it.
+         */
+        it("a hand-applied flat-footed survives the round boundary", async function () {
+          this.timeout(20_000);
+          await withEncounter(async (combat, a, b) => {
+            await combat.startCombat();
+            await settle();
+            await combat.nextTurn();     // b acts; its round-1 status clears
+            await settle();
+            await combat.nextTurn();     // round 2, a acts
+            await settle();
+            assert.isFalse(b.statuses.has("flatFooted"), "clean slate to start from");
+
+            await b.toggleStatusEffect("flatFooted", { active: true });
+            await settle();
+
+            await combat.nextRound();    // round 3 opens on a; b has not acted
+            await settle();
+            assert.isTrue(b.statuses.has("flatFooted"),
+              "the sweep cleared a status the lifecycle did not apply");
+
+            await combat.nextTurn();     // b's turn
+            await settle();
+            assert.isFalse(b.statuses.has("flatFooted"),
+              "and the start of its own turn is where it ends");
+          });
+        });
+
+        /**
+         * The one case the two implementations of this rule disagreed on. The
+         * lifecycle inlined "everyone except whoever is acting", so a creature
+         * caught by the surprise round which then WON initiative walked into
+         * its own ambush at full Reflex.
+         */
+        it("a surprised combatant is flat-footed even though it acts first", async function () {
+          this.timeout(20_000);
+          await withEncounter(async (combat, a) => {
+            const first = combat.combatants.find((c) => c.actorId === a.id);
+            await first.setFlag("last-arc", "surprised", true);
+
+            await combat.startCombat();
+            await settle();
+
+            assert.equal(combat.combatant.actorId, a.id, "a rolled lowest and acts first");
+            assert.isTrue(a.statuses.has("flatFooted"),
+              "acting exempts you from the round-1 trigger, not from surprise");
+          });
+        });
       });
 
       describe("rolling initiative through Foundry", function () {

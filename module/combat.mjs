@@ -19,6 +19,30 @@ const FLAG_ORDER = "turnOrder";
 const FLAG_ACTIONS = "actions";
 const FLAG_HELD = "held";
 
+/**
+ * Set when the LIFECYCLE flat-footed a combatant for the round-1 rule, so the
+ * round-2 expiry can clear exactly those and leave anything else alone (#37).
+ *
+ * The GM's ruling is that the per-attacker cases — "flat-footed against Nim but
+ * not against Vera" — are applied by hand, because one status on the actor
+ * cannot express a pair. That only works if the lifecycle stops sweeping the
+ * status off everybody at the top of every round, which is what it did: a
+ * flat-footed applied during round 3 for an ambush vanished when round 4 began,
+ * before its target had taken the turn that is supposed to end it.
+ */
+const FLAG_FF_AUTO = "flatFootedRound1";
+
+/**
+ * Whether this combatant was caught by the surprise round (§8).
+ *
+ * A combat-scoped flag rather than a status: `LASTARC.allStatusIds` is the
+ * book's condition list and "surprised" is not on it — the rules express it as
+ * a state of the encounter that MAKES you flat-footed. The flag is what feeds
+ * `isFlatFooted`'s `surprised` trigger, and it ends where the GM asked the
+ * status to end, at the start of the creature's turn.
+ */
+const FLAG_SURPRISED = "surprised";
+
 /* -------------------------------------------------------------------------- */
 /*  Combatant helpers                                                          */
 /* -------------------------------------------------------------------------- */
@@ -31,8 +55,31 @@ function snapshot(combatant) {
     initiative: combatant.initiative,
     turnOrder: combatant.getFlag(SYSTEM_ID, FLAG_ORDER) ?? combatant.initiative,
     agiScore: sys.attributes?.agi?.total ?? 0,
-    initiativeDie: sys.initiative?.effectiveDie ?? "d10"
+    initiativeDie: sys.initiative?.effectiveDie ?? "d10",
+    surprised: !!combatant.getFlag(SYSTEM_ID, FLAG_SURPRISED)
   };
+}
+
+/**
+ * End the statuses that a creature's own turn ends (§8, the GM's ruling on #37).
+ *
+ * Flat-footed and surprise both last "until your next turn", so the start of
+ * that turn is where they go — whatever put them there. A GM who hand-applied
+ * flat-footed for an ambush gets the same expiry as the round-1 rule, which is
+ * the whole reason hand-application is a workable answer to the per-pair case.
+ */
+async function endTurnStartStatuses(combatant) {
+  if (combatant.actor?.statuses?.has("flatFooted")) {
+    await combatant.actor.toggleStatusEffect?.("flatFooted", { active: false });
+  }
+  // Unset only when set: an unconditional write is a document update per
+  // combatant per turn, and this hook already does enough of those.
+  if (combatant.getFlag(SYSTEM_ID, FLAG_FF_AUTO)) {
+    await combatant.unsetFlag(SYSTEM_ID, FLAG_FF_AUTO);
+  }
+  if (combatant.getFlag(SYSTEM_ID, FLAG_SURPRISED)) {
+    await combatant.unsetFlag(SYSTEM_ID, FLAG_SURPRISED);
+  }
 }
 
 export function getTurnState(combatant) {
@@ -116,31 +163,57 @@ export function registerCombat() {
     const combatant = combat.combatant;
     const startedThisUpdate = changed.round === 1 && combat.turn === 0;
 
-    // Combat has just begun: everyone who has not yet acted is flat-footed (§8).
-    // Nothing previously SET this status — the lifecycle only ever cleared it —
-    // so the surprise round simply never happened in play.
+    /**
+     * Combat has just begun: everyone who has not yet acted is flat-footed (§8).
+     *
+     * The list comes from `initiative.mjs` rather than being decided here.
+     * This block used to read `c.id === combatant?.id` and nothing else — a
+     * strict subset of the rule that file states, and the two disagreed on a
+     * real case: a creature caught by the surprise round which then won
+     * initiative was flat-footed by the rule and not by the code (#37).
+     */
     if (startedThisUpdate) {
+      const ids = new Set(INIT.flatFootedAtCombatStart(
+        [...combat.combatants].map(snapshot),
+        { round: combat.round, actingId: combatant?.id ?? null }
+      ));
       for (const c of combat.combatants) {
-        if (!c.actor || c.id === combatant?.id) continue;
+        if (!c.actor || !ids.has(c.id)) continue;
         await c.actor.toggleStatusEffect?.("flatFooted", { active: true });
+        await c.setFlag(SYSTEM_ID, FLAG_FF_AUTO, true);
       }
     }
 
-    // From round 2 the "has not yet acted" trigger no longer applies to anyone.
+    /**
+     * From round 2 the "has not yet acted" trigger no longer applies to anyone.
+     *
+     * Scoped to the combatants the lifecycle itself flat-footed. It used to
+     * clear the status from EVERY combatant, which is indistinguishable from
+     * the round-1 case only for as long as nothing else can apply it — and the
+     * ruling on #37 is that the GM applies it by hand for the per-attacker
+     * cases. Unscoped, this loop deleted those at the next round boundary.
+     */
     if (combat.round > 1 && "round" in changed) {
       for (const c of combat.combatants) {
+        if (!c.getFlag(SYSTEM_ID, FLAG_FF_AUTO)) continue;
         if (c.actor?.statuses?.has("flatFooted")) {
           await c.actor.toggleStatusEffect?.("flatFooted", { active: false });
         }
+        await c.unsetFlag(SYSTEM_ID, FLAG_FF_AUTO);
       }
     }
 
     if (!combatant) return;
 
-    // Acting ends round-1 flat-footed for the combatant whose turn it now is.
-    if (combatant.actor?.statuses?.has("flatFooted")) {
-      await combatant.actor.toggleStatusEffect?.("flatFooted", { active: false });
-    }
+    /**
+     * The start of a creature's turn ends its flat-footed and its surprise.
+     *
+     * NOT on the update where combat began. That is the first combatant's
+     * first turn, not a later one, and §8 gives a surprised creature its
+     * flat-footed "until its NEXT turn" — clearing here would hand back the
+     * Agility on the single turn the ambush was meant to cost.
+     */
+    if (!startedThisUpdate) await endTurnStartStatuses(combatant);
 
     // Fresh slots for the INCOMING combatant — but banked minor progress
     // survives the turn boundary, per §9.
@@ -339,13 +412,27 @@ export async function rollSurprise(attackers, defenders) {
 
   const flatFooted = [];
   const report = {};
-  for (const d of defs) {
-    const missed = unnoticed.get(d.id) ?? new Set();
-    report[d.name] = rolled.filter((a) => missed.has(a.id)).map((a) => a.name);
-    if (missed.size) {
-      await d.actor?.toggleStatusEffect?.("flatFooted", { active: true });
-      flatFooted.push(d.name);
-    }
+  /**
+   * Iterating the COMBATANTS, not the plain snapshots.
+   *
+   * This loop ran over `defs`, whose entries carry `{id, name,
+   * passivePerception}` and no `actor` at all — so `d.actor?.toggleStatusEffect`
+   * short-circuited on undefined every time and no status was ever applied,
+   * while `flatFooted.push` still ran. The function reported an ambush it had
+   * not carried out. It has never bitten anyone only because nothing calls it
+   * yet; the tracker button that would have was the thing keeping it quiet.
+   */
+  for (const defender of defenders) {
+    const missed = unnoticed.get(defender.id) ?? new Set();
+    report[defender.name] = rolled.filter((a) => missed.has(a.id)).map((a) => a.name);
+    if (!missed.size) continue;
+
+    await defender.actor?.toggleStatusEffect?.("flatFooted", { active: true });
+    // Recorded so the round-1 sweep can tell an ambush from the opening-round
+    // rule, and so `isFlatFooted` sees the surprise trigger for a defender who
+    // goes on to win initiative (#37).
+    await defender.setFlag?.(SYSTEM_ID, FLAG_SURPRISED, true);
+    flatFooted.push(defender.name);
   }
 
   return { stealth, unnoticed: report, flatFooted };

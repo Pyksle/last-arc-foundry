@@ -161,6 +161,37 @@ export function isFlatFooted({
 }
 
 /**
+ * Which combatants the lifecycle should flat-foot when combat begins (§8).
+ *
+ * This exists so the lifecycle ASKS `isFlatFooted` rather than answering the
+ * same question a second time. `combat.mjs` used to inline "everyone except
+ * whoever is acting", a strict subset that disagreed with this file on exactly
+ * one case: a creature caught by the surprise round which then WON initiative
+ * was flat-footed by the rule and not by the code (#37).
+ *
+ * `detectsAttacker` is deliberately not consulted. It is per attacker/defender
+ * PAIR and a Foundry status is one flag on the actor, so it cannot be automated
+ * from here at all — the GM applies flat-footed by hand for those instance
+ * cases, which is the ruling on #37. What the lifecycle owes that GM is to not
+ * then clear the status out from under them; see `FLAG_FF_AUTO`.
+ *
+ * @param {Array<{id: string, surprised?: boolean}>} combatants
+ * @param {object} [options]
+ * @param {number} [options.round]
+ * @param {string|null} [options.actingId]  Whoever's turn it is — they have acted.
+ * @returns {string[]} ids that should be flat-footed
+ */
+export function flatFootedAtCombatStart(combatants, { round = 1, actingId = null } = {}) {
+  return combatants
+    .filter((c) => isFlatFooted({
+      round,
+      hasActed: c.id === actingId,
+      surprised: !!c.surprised
+    }))
+    .map((c) => c.id);
+}
+
+/**
  * Resolve surprise awareness for every attacker/defender PAIR (§8).
  *
  * This is the subtle part: awareness is decided by comparing each defender's
