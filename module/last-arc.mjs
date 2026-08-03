@@ -286,7 +286,8 @@ function registerPartials() {
   foundry.applications.handlebars.loadTemplates({
     laItemOrder: `systems/${SYSTEM_ID}/templates/actor/item-order.hbs`,
     laStatusPalette: `systems/${SYSTEM_ID}/templates/actor/status-palette.hbs`,
-    laEffectsPanel: `systems/${SYSTEM_ID}/templates/actor/effects-panel.hbs`
+    laEffectsPanel: `systems/${SYSTEM_ID}/templates/actor/effects-panel.hbs`,
+    laDamageMods: `systems/${SYSTEM_ID}/templates/actor/damage-mods.hbs`
   }).catch((err) => {
     // A missing partial fails at RENDER time, as "The partial laItemOrder could
     // not be found" from deep inside Handlebars, with nothing pointing back

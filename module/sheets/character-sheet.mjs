@@ -25,6 +25,7 @@ import { shareItem } from "../dice/share-item.mjs";
 import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
 import { markStatuses, toggleStatus } from "./status-palette.mjs";
+import { damageModTexts, repackDamageMods } from "./damage-mods.mjs";
 import {
   effectPanelRows, promptCreateEffect, editEffect, toggleEffect, deleteEffect
 } from "./effect-panel.mjs";
@@ -147,6 +148,17 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.languagesText = (sys.details.languages ?? []).join(", ");
 
     /**
+     * Weakness, resistance and immunity (#53).
+     *
+     * `applyDamage` reads `sys.damageMods` off whatever it is damaging, so a
+     * character's were already being honoured by the arithmetic — with no box
+     * anywhere to type them into. A race granting fire resistance had no home.
+     * The statblock has had these three since it was written; the same helper
+     * now serves both.
+     */
+    Object.assign(context, damageModTexts(sys));
+
+    /**
      * Proficiencies (issue #21). Both of these are ArrayFields of category
      * keys that WERE ALREADY BEING READ — `proficiencies.weapons` costs −5 on
      * every attack with a weapon whose category is missing, and
@@ -248,6 +260,11 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
      * `...weaponsChoice.<key>`. They are toggle buttons now and write their own
      * arrays, so there is nothing left to repack — see #onToggleProficiency.
      */
+
+    // The three damage-mod comma boxes, through the same parser the statblock
+    // uses so an unknown type is warned about identically on both (#53).
+    repackDamageMods(submit);
+
     return submit;
   }
 

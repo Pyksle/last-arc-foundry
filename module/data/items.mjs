@@ -112,19 +112,22 @@ export class LastArcWeaponData extends PhysicalItemData {
       capacity: new fields.NumberField({ initial: null, nullable: true, integer: true, min: 0 }),
 
       smithingDC: new fields.NumberField({ initial: 15, integer: true }),
-      smithingComponents: new fields.ArrayField(new fields.StringField(), { initial: [] }),
 
       /**
-       * Structured behavioural flags, alongside the free-text `features`.
+       * `smithingComponents` and `flags` were both removed here (#53).
        *
-       * Weapon features are numerous and idiosyncratic — parry bonuses, block
-       * penalties imposed, element substitution against resistant targets,
-       * Break Gauge effects on a natural 1, size reinterpretation for Small and
-       * Medium wielders. Several legendary weapons simply replicate a technick.
-       * Modelling them as an enum would be wrong; this is a flag array feeding
-       * the documented hook surface (§11).
+       * Each was an ArrayField with NO editor anywhere and NO reader anywhere —
+       * declared, unauthorable and unread, which is the exact shape this
+       * project keeps deleting. `flags` in particular described a hook surface
+       * for idiosyncratic weapon behaviour that was never built, and
+       * `smithingComponents` a crafting system that does not exist.
+       *
+       * Removed rather than exempted because the repo's own rule allows only
+       * two exemptions, DERIVED and ACTION, and neither is true here. When
+       * crafting or weapon hooks land, the field comes back WITH its feature —
+       * which is the point. Nothing can have been typed into either, so no data
+       * is at risk.
        */
-      flags: new fields.ArrayField(new fields.StringField(), { initial: [] })
     };
   }
 
@@ -315,7 +318,12 @@ export class LastArcTechnickData extends foundry.abstract.TypeDataModel {
       tree: new fields.StringField({ initial: "", blank: true, nullable: true }),
       /** Class-slot technicks are restricted to a class's bonus list. */
       classRestricted: new fields.BooleanField({ initial: false }),
-      classes: new fields.ArrayField(new fields.StringField(), { initial: [] }),
+      /**
+       * `classes` was removed here (#53) — see the note on the weapon fields.
+       * Which classes may take a technick or talent is real book data, but
+       * nothing read it and nothing could enter it. It returns with whatever
+       * enforces it.
+       */
 
       grants: grantsSchema(),
       flags: new fields.ArrayField(
@@ -620,8 +628,6 @@ export class LastArcClassData extends foundry.abstract.TypeDataModel {
       }),
       trainedSkills: new fields.NumberField({ initial: 4, integer: true, min: 0 }),
       /** Slugs of the technicks this class may take in its class-technick slots. */
-      bonusTechnickList: new fields.ArrayField(new fields.StringField(), { initial: [] }),
-      talentTrees: new fields.ArrayField(new fields.StringField(), { initial: [] }),
 
       /**
        * Advanced classes layer OVER a base class (§14, Ch.12). The demo gives
@@ -629,7 +635,6 @@ export class LastArcClassData extends foundry.abstract.TypeDataModel {
        * drop rather than a schema migration.
        */
       isAdvanced: new fields.BooleanField({ initial: false }),
-      baseClasses: new fields.ArrayField(new fields.StringField(), { initial: [] })
     };
   }
 }

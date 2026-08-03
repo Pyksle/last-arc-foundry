@@ -1,0 +1,32 @@
+{{!--
+  Weakness / resistance / immunity (#53).
+
+  Shared by both actor sheets. The character sheet had none of these until the
+  first Quench run pointed it out, while `applyDamage` had been reading them off
+  characters all along — so the arithmetic honoured resistances nobody could
+  enter. One partial rather than two copies, for the reason #44 exists.
+
+  Comma-separated rather than a picker: there are a dozen damage types and a
+  creature may be weak to several. Unknown entries are reported on submit
+  instead of being dropped, so a typo does not read as the box refusing to save.
+--}}
+<section class="la-panel la-panel--damagemods">
+  <h2 class="la-panel__title">{{localize "LASTARC.Section.DamageMods"}}</h2>
+  <div class="la-damagemods">
+    <label class="la-damagemod">
+      <span>{{localize "LASTARC.Field.Weakness"}}</span>
+      <input type="text" name="system.damageMods.weakness" value="{{weaknessText}}"
+             placeholder="{{localize 'LASTARC.Field.DamageTypeList'}}">
+    </label>
+    <label class="la-damagemod">
+      <span>{{localize "LASTARC.Field.Resistance"}}</span>
+      <input type="text" name="system.damageMods.resistance" value="{{resistanceText}}"
+             placeholder="{{localize 'LASTARC.Field.DamageTypeList'}}">
+    </label>
+    <label class="la-damagemod">
+      <span>{{localize "LASTARC.Field.Immunity"}}</span>
+      <input type="text" name="system.damageMods.immunity" value="{{immunityText}}"
+             placeholder="{{localize 'LASTARC.Field.DamageTypeList'}}">
+    </label>
+  </div>
+</section>

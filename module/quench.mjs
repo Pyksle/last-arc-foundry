@@ -96,6 +96,25 @@ async function settle(ms = 300) {
  * in WHEN Foundry fires its hooks and what is current at that moment,
  * which no pure test can see.
  */
+/**
+ * Wait until `check()` is true, or give up.
+ *
+ * A fixed `settle()` is a guess about how long a document write takes, and the
+ * flat-footed round-boundary test flickered on exactly that guess: the
+ * lifecycle sets a combatant flag when combat starts and unsets it when that
+ * combatant acts, and a test moving in milliseconds can read between the two.
+ * At a real table turns are seconds apart and this cannot happen — the race is
+ * the test's, not the rule's — but a test that passes four times in five is
+ * worse than no test, because it teaches you to ignore it.
+ */
+async function until(check, { tries = 20, wait = 50 } = {}) {
+  for (let i = 0; i < tries; i++) {
+    if (check()) return true;
+    await settle(wait);
+  }
+  return check();
+}
+
 async function withEncounter(fn) {
   const a = await Actor.create({ name: "Q First", type: "character",
     system: { classes: [{ name: "rogue", levels: 1 }] } });
@@ -103,11 +122,41 @@ async function withEncounter(fn) {
     system: { classes: [{ name: "warrior", levels: 1 }] } });
   const combat = await Combat.create({});
   try {
-    const cs = await combat.createEmbeddedDocuments("Combatant",
+    await combat.createEmbeddedDocuments("Combatant",
       [{ actorId: a.id }, { actorId: b.id }]);
-    // Explicit initiative so turn order is deterministic: lowest first.
-    await combat.updateEmbeddedDocuments("Combatant",
-      [{ _id: cs[0].id, initiative: 1 }, { _id: cs[1].id, initiative: 9 }]);
+
+    /**
+     * Initiative assigned BY ACTOR, never by position in the returned array.
+     *
+     * This read `cs[0]` and `cs[1]` and assumed they matched the order the
+     * combatants were requested in. They do not reliably, and when they came
+     * back swapped, `a` was handed initiative 9 — so `b` acted first and every
+     * assertion about whose turn it is, or who is flat-footed, failed for a
+     * reason it was not testing.
+     *
+     * It presented as flakiness, and I spent a while treating it as one: three
+     * tests failed on the suite's first real run, one of them convincingly
+     * enough to look like a genuine bug in the #37 round sweep, and the waits I
+     * added made it *less* frequent, which is the worst possible feedback. The
+     * cause was never timing. Lowest acts first, so `a` must get the 1.
+     */
+    const byActor = (actor) => combat.combatants.find((c) => c.actorId === actor.id);
+    await combat.updateEmbeddedDocuments("Combatant", [
+      { _id: byActor(a).id, initiative: 1 },
+      { _id: byActor(b).id, initiative: 9 }
+    ]);
+
+    /**
+     * Then wait for the ordering key to land. `updateCombatant` copies
+     * initiative into a `turnOrder` flag asynchronously, because Hold Turn needs
+     * order to be able to diverge from the rolled die — so starting combat
+     * immediately can still sort on a flag that is not written yet. This one IS
+     * a race, unlike the above.
+     */
+    // Spread first: `combatants` is a Foundry Collection, which has `find`
+    // but not `every`.
+    await until(() =>
+      [...combat.combatants].every((c) => c.getFlag("last-arc", "turnOrder") != null));
     const result = await fn(combat, a, b);
     await settle();   // let in-flight hook writes finish before teardown
     return result;
@@ -1001,17 +1050,43 @@ function registerSheetBatch(quench) {
         ];
 
         /** Collect every bound control name from a rendered sheet. */
+        /**
+         * Every path this sheet can actually edit.
+         *
+         * TWO mechanisms, because the codebase legitimately uses both. A named
+         * input is the obvious one. The other is a TOGGLE BUTTON routed through
+         * an action — proficiencies and a weapon's damage types are edited that
+         * way, and a button carries no `name`, so this used to report four
+         * perfectly working controls as missing.
+         *
+         * That mattered more than a wrong answer usually does: this suite had
+         * never been run, so the false positives sat unnoticed from #21 and #32
+         * until the first real run, and the first thing anyone running it would
+         * have done is chase four non-bugs. A guard that cries wolf does not get
+         * run twice.
+         *
+         * `data-edits` is how such a control declares its path. It is deliberate
+         * rather than inferred — `data-prof="weapons"` means `proficiencies.
+         * weapons` only if you already know the convention, and a guard that
+         * has to know each convention is a guard that goes stale again.
+         */
         async function boundPaths(doc) {
           await doc.sheet.render(true);
           await new Promise((r) => setTimeout(r, 350));
-          const names = [...doc.sheet.element.querySelectorAll(
-            "input[name], select[name], textarea[name], prose-mirror[name]"
-          )].map((n) => n.getAttribute("name"));
-          await doc.sheet.close({ animate: false });
+          const el = doc.sheet.element;
 
-          return new Set(names
+          const named = [...el.querySelectorAll(
+            "input[name], select[name], textarea[name], prose-mirror[name]"
+          )].map((n) => n.getAttribute("name"))
             .filter((n) => n?.startsWith("system."))
-            .map((n) => n.slice("system.".length)));
+            .map((n) => n.slice("system.".length));
+
+          const declared = [...el.querySelectorAll("[data-edits]")]
+            .map((n) => n.dataset.edits)
+            .filter(Boolean);
+
+          await doc.sheet.close({ animate: false });
+          return new Set([...named, ...declared]);
         }
 
         /** A path counts as covered if bound exactly, or as an object prefix. */
@@ -1534,6 +1609,12 @@ function registerCombatBatch(quench) {
             await settle();
             await combat.nextTurn();     // b acts; its round-1 status clears
             await settle();
+
+            // Wait for the lifecycle's own bookkeeping to land rather than
+            // guessing at it — see `until`.
+            const bc = combat.combatants.find((c) => c.actorId === b.id);
+            await until(() => !bc.getFlag("last-arc", "flatFootedRound1"));
+
             await combat.nextTurn();     // round 2, a acts
             await settle();
             assert.isFalse(b.statuses.has("flatFooted"), "clean slate to start from");
@@ -1935,6 +2016,17 @@ function registerCombatBatch(quench) {
           this.timeout(20_000);
           await withEncounter(async (combat, a) => {
             await withTechnick(a);
+            /**
+             * Settle BEFORE starting combat (#53).
+             *
+             * `withEncounter` writes initiative and the `updateCombatant` hook
+             * that seeds turn order is async, so starting immediately can leave
+             * the tracker sorting on stale values — a different combatant acts
+             * first and this actor is flat-footed, which refuses the dodge for
+             * a reason the test is not about. Caught on the suite's first real
+             * run; `canDodge` itself was verified correct against a live actor.
+             */
+            await settle();
             await combat.startCombat();
             await settle();
 
@@ -1953,6 +2045,7 @@ function registerCombatBatch(quench) {
           this.timeout(20_000);
           await withEncounter(async (combat, a) => {
             await withTechnick(a);
+            await settle();
             await combat.startCombat();
             await settle();
 
@@ -1963,7 +2056,14 @@ function registerCombatBatch(quench) {
             await combat.nextTurn();
             await settle();
             await combat.nextTurn();   // back round to a
-            await settle();
+
+            /**
+             * `beginTurn` clears the turn state through an async flag write, so
+             * the reset is not visible the instant the turn advances. Wait for
+             * it rather than guessing — `until` gives up and the assertion below
+             * still fails if the reset genuinely never happens.
+             */
+            await until(() => DODGE.canDodge(a).allowed);
 
             assert.isTrue(DODGE.canDodge(a).allowed,
               "the cap never clears, so the technick is once per combat");
@@ -2128,15 +2228,24 @@ function registerCombatBatch(quench) {
               name: "ZZ tune", type: "performance",
               system: {
                 kind: "enhancing",
+                /**
+                 * DC 1, not 15. The performer is a bare test actor with no
+                 * Perform bonus, so a DC of 15 was decided by the die: about a
+                 * third of runs matched NO tier, `outcome` came back null, and
+                 * the assertion threw on `.dc` rather than failing cleanly.
+                 * A test that passes seven times in ten is not a test. The
+                 * point here is that the unreachable tier loses, and DC 1
+                 * makes that deterministic (#53).
+                 */
                 outcomes: [
-                  { dc: 15, skillBonus: 1, bonusScope: "weaponSkills" },
+                  { dc: 1, skillBonus: 1, bonusScope: "weaponSkills" },
                   { dc: 500, skillBonus: 5, bonusScope: "weaponSkills" }
                 ]
               }
             }]);
 
             const result = await MAGIC.performItem(pc, perf);
-            assert.equal(result.outcome.dc, 15, "the unreachable tier must not win");
+            assert.equal(result.outcome?.dc, 1, "the unreachable tier must not win");
             assert.isTrue(result.landed);
           });
         });

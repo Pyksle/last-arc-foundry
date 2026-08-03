@@ -258,26 +258,7 @@
     <p class="la-break__legend">{{localize "LASTARC.Break.AppliesTo"}}</p>
   </section>
 
-  <section class="la-panel">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.DamageMods"}}</h2>
-    <div class="la-damagemods">
-      <label class="la-damagemod">
-        <span>{{localize "LASTARC.Field.Weakness"}}</span>
-        <input type="text" name="system.damageMods.weakness" value="{{weaknessText}}"
-               placeholder="{{localize 'LASTARC.Field.DamageTypeList'}}">
-      </label>
-      <label class="la-damagemod">
-        <span>{{localize "LASTARC.Field.Resistance"}}</span>
-        <input type="text" name="system.damageMods.resistance" value="{{resistanceText}}"
-               placeholder="{{localize 'LASTARC.Field.DamageTypeList'}}">
-      </label>
-      <label class="la-damagemod">
-        <span>{{localize "LASTARC.Field.Immunity"}}</span>
-        <input type="text" name="system.damageMods.immunity" value="{{immunityText}}"
-               placeholder="{{localize 'LASTARC.Field.DamageTypeList'}}">
-      </label>
-    </div>
-  </section>
+  {{> laDamageMods}}
 
   {{> laStatusPalette}}
 

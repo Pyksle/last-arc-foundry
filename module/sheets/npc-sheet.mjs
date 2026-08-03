@@ -21,6 +21,7 @@ import { shareItem } from "../dice/share-item.mjs";
 import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
 import { markStatuses, toggleStatus } from "./status-palette.mjs";
+import { damageModTexts, repackDamageMods } from "./damage-mods.mjs";
 import {
   effectPanelRows, promptCreateEffect, editEffect, toggleEffect, deleteEffect
 } from "./effect-panel.mjs";
@@ -161,9 +162,8 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     // Damage modifiers are arrays in the schema but comma lists in the UI —
     // statblocks are transcribed by hand and typing beats a multi-select.
-    context.weaknessText = sys.damageMods.weakness.join(", ");
-    context.resistanceText = sys.damageMods.resistance.join(", ");
-    context.immunityText = sys.damageMods.immunity.join(", ");
+    // Shared with the character sheet (#53), which had no boxes at all.
+    Object.assign(context, damageModTexts(sys));
 
     context.damageTypeOptions = ROWS.damageTypeOptions((k) => game.i18n.localize(k));
 
@@ -310,22 +310,7 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   _prepareSubmitData(event, form, formData, updateData) {
     const submit = super._prepareSubmitData(event, form, formData, updateData);
 
-    for (const key of ["weakness", "resistance", "immunity"]) {
-      const path = `system.damageMods.${key}`;
-      const raw = submit[path];
-      if (typeof raw !== "string") continue;
-
-      const parsed = raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-      const valid = parsed.filter((t) => LASTARC.allDamageTypes.includes(t));
-      const unknown = parsed.filter((t) => !LASTARC.allDamageTypes.includes(t));
-
-      if (unknown.length) {
-        ui.notifications?.warn(
-          game.i18n.format("LASTARC.Warning.UnknownDamageType", { types: unknown.join(", ") })
-        );
-      }
-      submit[path] = valid;
-    }
+    repackDamageMods(submit);
 
     return submit;
   }
