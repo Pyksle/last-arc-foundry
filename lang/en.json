@@ -895,5 +895,6 @@
   "LASTARC.Dodge.AlreadyUsed": "Already dodged this turn.",
   "LASTARC.Dodge.DamageDodged": "This attack was dodged.",
   "LASTARC.TechnickFlag.dodge": "Dodge",
-  "LASTARC.TechnickFlagHint.dodge": "Grants the Dodge reaction: an Acrobatics check against an incoming attack roll, once per turn, in light armour or none. Beating the attack roll makes it count as not having beaten your Reflex."
+  "LASTARC.TechnickFlagHint.dodge": "Grants the Dodge reaction: an Acrobatics check against an incoming attack roll, once per turn, in light armour or none. Beating the attack roll makes it count as not having beaten your Reflex.",
+  "LASTARC.Tooltip.EditImage": "Click to choose a different image."
 }

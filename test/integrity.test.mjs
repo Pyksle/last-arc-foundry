@@ -175,8 +175,68 @@ describe("sheet registration", () => {
 });
 
 describe("sheet wiring", () => {
+  /**
+   * Actions Foundry itself provides on `DocumentSheetV2`, which our sheets
+   * inherit and must NOT redeclare.
+   *
+   * Verified against `client/applications/api/document-sheet.mjs` in v13:
+   * `configureSheet`, `copyUuid`, `editImage`, `importDocument`. Only the ones
+   * we actually use are listed — an unused entry here would be a hole.
+   *
+   * This list is why the portrait could not be changed for so long (#52). The
+   * markup carried `data-edit="img"`, which is the ApplicationV1 convention;
+   * V2 needs `data-action="editImage"` as well, and adding it correctly would
+   * have failed this guard for looking undeclared. Better to name the core
+   * actions than to leave the guard right and the sheet broken.
+   */
+  const CORE_ACTIONS = new Set(["editImage"]);
+
+  /**
+   * Every editable image carries BOTH halves of the V2 contract (#52).
+   *
+   * The portrait markup was `<img data-edit="img">` and nothing else, which is
+   * the ApplicationV1 convention: V1 bound `img[data-edit]` in
+   * `activateListeners`. ApplicationV2 does not. It dispatches the inherited
+   * `editImage` action, reads `dataset.edit` for the path, and requires the
+   * element to be an IMG — so half the contract silently did nothing, on all
+   * three sheets, for the whole life of the project.
+   *
+   * Nothing could catch it: `data-edit` is not an action, so the wiring guard
+   * never looked at it, and the failure is a click that does nothing rather
+   * than an error. Reported by the GM, who could not change their portrait.
+   */
+  test("an editable image has both data-edit and data-action=editImage", () => {
+    const broken = [];
+    for (const { name, source } of templates) {
+      if (name.startsWith("templates/chat/")) continue;
+      for (const m of source.matchAll(/<img\b[^>]*>/g)) {
+        const tag = m[0];
+        const hasEdit = /data-edit=/.test(tag);
+        const hasAction = /data-action="editImage"/.test(tag);
+        if (hasEdit !== hasAction) {
+          broken.push(`${name}: ${hasEdit ? "data-edit without the action" : "the action without data-edit"}`);
+        }
+      }
+    }
+    assert.deepEqual(broken, [],
+      "ApplicationV2 needs both halves — one alone is a click that does nothing:\n  "
+      + broken.join("\n  "));
+  });
+
+  test("at least one image on each sheet is editable at all", () => {
+    // Guarding the guard: the check above is satisfied by a template with no
+    // images whatsoever, which is how a portrait could go missing entirely.
+    for (const name of ["templates/actor/character-header.hbs",
+      "templates/actor/npc-sheet.hbs", "templates/item/item-sheet.hbs"]) {
+      const src = templates.find((t) => t.name === name)?.source ?? "";
+      assert.match(src, /data-action="editImage"/,
+        `${name} offers no way to change the document image`);
+    }
+  });
+
   test("every data-action in a SHEET template is declared in DEFAULT_OPTIONS.actions", () => {
     const declared = new Set([
+      ...CORE_ACTIONS,
       ...[...sheetSource.matchAll(/(\w+):\s*LastArcCharacterSheet\.#on/g)].map((m) => m[1]),
       ...[...npcSheetSource.matchAll(/(\w+):\s*LastArcNpcSheet\.#on/g)].map((m) => m[1]),
       ...[...itemSheetSource.matchAll(/(\w+):\s*LastArcItemSheet\.#on/g)].map((m) => m[1])
