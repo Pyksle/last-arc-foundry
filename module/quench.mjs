@@ -126,6 +126,23 @@ async function withEncounter(fn) {
       [{ actorId: a.id }, { actorId: b.id }]);
 
     /**
+     * ACTIVATE IT. A freshly created Combat is not `game.combat`.
+     *
+     * Everything that reads per-turn state — `previousBlocks`,
+     * `dodgedThisTurn`, the action tracker — looks the combatant up through
+     * `game.combat`, deliberately: turn state belongs to an encounter, and the
+     * same actor can be in two. So an inactive combat means those lookups find
+     * nothing and every counter silently reads zero.
+     *
+     * This is what the last two "flaky" failures actually were. They passed
+     * whenever a stale active combat happened to be lying around from an
+     * earlier aborted run, and failed the moment the world was clean — which is
+     * precisely backwards from how a real defect behaves, and is why they read
+     * as a race for so long.
+     */
+    await combat.activate();
+
+    /**
      * Initiative assigned BY ACTOR, never by position in the returned array.
      *
      * This read `cs[0]` and `cs[1]` and assumed they matched the order the
@@ -2155,6 +2172,19 @@ function registerCombatBatch(quench) {
             const combat = await Combat.create({});
             try {
               await combat.createEmbeddedDocuments("Combatant", [{ actorId: pc.id }]);
+              /**
+               * ACTIVATE. `previousBlocks` finds its combatant through
+               * `game.combat`, because turn state belongs to an encounter and
+               * an actor can be in two — so an inactive combat reads as "not in
+               * combat" and the counter silently stays zero.
+               *
+               * This test passed for months of never being run, and then only
+               * when a stale active combat happened to be left over from an
+               * earlier aborted run. Failing on a CLEAN world and passing on a
+               * dirty one is exactly backwards, which is why it read as
+               * flakiness for so long.
+               */
+              await combat.activate();
 
               assert.equal(BLOCK.previousBlocks(pc), 0);
               await BLOCK.rollBlock(pc, { attackTotal: 99 });
