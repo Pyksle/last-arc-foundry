@@ -54,7 +54,23 @@ export function createTurnState() {
      * allowed more than once per turn, so this is a count rather than the
      * boolean `reactionUsed` beside it.
      */
-    blocksUsed: 0
+    blocksUsed: 0,
+
+    /**
+     * Whether the Dodge technick has been used this turn (#50).
+     *
+     * DECLARED HERE, and that is the whole point. `setTurnState` persists this
+     * object through `setFlag`, which MERGES — so a key that `createTurnState`
+     * omits is never cleared, no matter that `beginTurn` builds a fresh object
+     * without it. Dodge shipped in 0.41.0 writing `dodgeUsed` and never
+     * declaring it, so the cap cleared for nobody: one dodge per COMBAT rather
+     * than one per turn.
+     *
+     * The unit test passed throughout, because `beginTurn` genuinely does drop
+     * the key — the loss happened one layer down, in the merge. Caught by the
+     * Quench suite against live documents (#53).
+     */
+    dodgeUsed: false
   };
 }
 

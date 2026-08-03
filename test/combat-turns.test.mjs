@@ -8,6 +8,8 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { LASTARC } from "../module/config.mjs";
 import {
@@ -454,6 +456,69 @@ describe("action catalogue integrity", () => {
   test("only minor actions bank toward sequences", () => {
     for (const [key, def] of Object.entries(ACTIONS)) {
       if (def.banks) assert.equal(def.slot, "minor", `${key} banks but is not a minor action`);
+    }
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Every key written into turn state must be DECLARED in `createTurnState` (#53).
+ *
+ * `setTurnState` persists the object through `combatant.setFlag`, and Foundry's
+ * setFlag MERGES. So a key that `createTurnState` does not declare survives
+ * `beginTurn` forever: the fresh object simply has nothing at that key, and the
+ * merge keeps the old value.
+ *
+ * Dodge shipped in 0.41.0 writing `dodgeUsed` without declaring it, so its
+ * once-per-turn cap cleared for nobody — one dodge per COMBAT. Every unit test
+ * passed, because `beginTurn` really does build an object without the key. The
+ * loss happened one layer down, and only a live document could show it.
+ *
+ * This checks the layer the unit tests could not: what is written, against what
+ * is declared.
+ */
+describe("§53 turn state cannot leak a key past the turn boundary", () => {
+  const read = (p) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.url)), "utf8");
+
+  /** Keys any module writes alongside a spread into `setTurnState`. */
+  function writtenKeys() {
+    const files = ["module/dice/block.mjs", "module/dice/dodge.mjs", "module/combat.mjs"];
+    const keys = new Set();
+    for (const f of files) {
+      for (const m of read(f).matchAll(/setTurnState\([^,]+,\s*\{([^}]*)\}/g)) {
+        for (const k of m[1].matchAll(/(?:^|,)\s*(\w+)\s*:/g)) keys.add(k[1]);
+      }
+    }
+    return keys;
+  }
+
+  test("the scan finds the keys it is meant to police", () => {
+    // If this drops to zero the test below passes vacuously, which is how a
+    // guard silently stops guarding.
+    const found = writtenKeys();
+    assert.ok(found.has("dodgeUsed"), `expected dodgeUsed among ${[...found].join(", ")}`);
+    assert.ok(found.has("blocksUsed"), `expected blocksUsed among ${[...found].join(", ")}`);
+  });
+
+  test("every written key has a default, so beginTurn can clear it", () => {
+    const declared = createTurnState();
+    const undeclared = [...writtenKeys()].filter((k) => !(k in declared));
+
+    assert.deepEqual(undeclared, [],
+      "these are written into turn state and not declared in createTurnState, so " +
+      "setFlag's merge keeps them across the turn boundary forever:\n  " +
+      undeclared.join("\n  "));
+  });
+
+  test("and beginTurn really does reset each of them", () => {
+    // Guarding the guard: declaring a key is only useful if beginTurn resets it.
+    const dirty = { ...createTurnState() };
+    for (const k of writtenKeys()) dirty[k] = 99;
+
+    const fresh = beginTurn(dirty);
+    for (const k of writtenKeys()) {
+      assert.notEqual(fresh[k], 99, `${k} survived beginTurn`);
     }
   });
 });

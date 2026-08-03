@@ -199,10 +199,28 @@ describe("§50 the gates the spec left out", () => {
    * scratch — so it clears itself. If that ever stopped being true, one dodge
    * would lock the technick off for the rest of the encounter.
    */
-  test("the turn state genuinely forgets it at the start of a turn", () => {
+  /**
+   * This test used to assert `undefined`, and that assertion WAS the bug.
+   *
+   * `beginTurn` omitting the key looked like clearing it. It is not: turn state
+   * is persisted through `setFlag`, which MERGES, so a key the fresh object
+   * does not carry is simply left at its old value. Dodge therefore cleared for
+   * nobody — one dodge per COMBAT — while this test passed, because the pure
+   * function really did drop the key.
+   *
+   * `false` is the meaningful assertion: the reset must be a VALUE that
+   * overwrites, not an absence that merges away. Found by the Quench suite
+   * against live documents (#53).
+   */
+  test("the turn state actively resets it, rather than merely omitting it", () => {
     const used = { ...AE.createTurnState(), dodgeUsed: true, blocksUsed: 2 };
-    assert.equal(AE.beginTurn(used).dodgeUsed, undefined,
-      "a used dodge survives into the next turn, so the technick is once per combat");
+    const fresh = AE.beginTurn(used);
+
+    assert.equal(fresh.dodgeUsed, false,
+      "omitting the key lets setFlag's merge keep the old value — the cap would " +
+      "never clear and the technick would be once per combat");
+    assert.ok("dodgeUsed" in AE.createTurnState(),
+      "it must be DECLARED, or beginTurn has nothing to overwrite with");
   });
 
   test("banked progress still survives that reset", () => {
