@@ -23,6 +23,7 @@ import * as CB from "./combat.mjs";
 import * as MAGIC from "./dice/magic.mjs";
 import * as D from "./derivation.mjs";
 import * as BLOCK from "./dice/block.mjs";
+import * as DODGE from "./dice/dodge.mjs";
 import * as HEAL from "./dice/healing.mjs";
 import * as ORDER from "./item-order.mjs";
 import { effectPanelRows, toggleEffect, deleteEffect } from "./sheets/effect-panel.mjs";
@@ -79,6 +80,42 @@ async function withNpc(data, fn) {
  */
 async function settle(ms = 300) {
   await new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * MODULE SCOPE, beside `withActor` and `settle`, and not inside a describe.
+ *
+ * It lived inside the `turn lifecycle` block, so a sibling batch that reached
+ * for it got a ReferenceError at run time — and `npm test` cannot see that,
+ * because none of this file executes outside Foundry. The dodge batch in #50
+ * was written against it and would have thrown on the first turn-based case.
+ */
+/**
+ * Build a live 2-combatant encounter and tear it down afterwards.
+ * These need real turn advancement — the bugs they guard were entirely
+ * in WHEN Foundry fires its hooks and what is current at that moment,
+ * which no pure test can see.
+ */
+async function withEncounter(fn) {
+  const a = await Actor.create({ name: "Q First", type: "character",
+    system: { classes: [{ name: "rogue", levels: 1 }] } });
+  const b = await Actor.create({ name: "Q Second", type: "character",
+    system: { classes: [{ name: "warrior", levels: 1 }] } });
+  const combat = await Combat.create({});
+  try {
+    const cs = await combat.createEmbeddedDocuments("Combatant",
+      [{ actorId: a.id }, { actorId: b.id }]);
+    // Explicit initiative so turn order is deterministic: lowest first.
+    await combat.updateEmbeddedDocuments("Combatant",
+      [{ _id: cs[0].id, initiative: 1 }, { _id: cs[1].id, initiative: 9 }]);
+    const result = await fn(combat, a, b);
+    await settle();   // let in-flight hook writes finish before teardown
+    return result;
+  } finally {
+    await combat.delete();
+    await a.delete();
+    await b.delete();
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1382,33 +1419,6 @@ function registerCombatBatch(quench) {
         });
       });
       describe("turn lifecycle", function () {
-        /**
-         * Build a live 2-combatant encounter and tear it down afterwards.
-         * These need real turn advancement — the bugs they guard were entirely
-         * in WHEN Foundry fires its hooks and what is current at that moment,
-         * which no pure test can see.
-         */
-        async function withEncounter(fn) {
-          const a = await Actor.create({ name: "Q First", type: "character",
-            system: { classes: [{ name: "rogue", levels: 1 }] } });
-          const b = await Actor.create({ name: "Q Second", type: "character",
-            system: { classes: [{ name: "warrior", levels: 1 }] } });
-          const combat = await Combat.create({});
-          try {
-            const cs = await combat.createEmbeddedDocuments("Combatant",
-              [{ actorId: a.id }, { actorId: b.id }]);
-            // Explicit initiative so turn order is deterministic: lowest first.
-            await combat.updateEmbeddedDocuments("Combatant",
-              [{ _id: cs[0].id, initiative: 1 }, { _id: cs[1].id, initiative: 9 }]);
-            const result = await fn(combat, a, b);
-            await settle();   // let in-flight hook writes finish before teardown
-            return result;
-          } finally {
-            await combat.delete();
-            await a.delete();
-            await b.delete();
-          }
-        }
 
         /**
          * REGRESSION GUARD — the worst of the lifecycle bugs.
@@ -1827,6 +1837,106 @@ function registerCombatBatch(quench) {
       });
 
       /* -- Block (issue #12) ------------------------------------------------ */
+
+      /**
+       * Dodge (issue #50). The gates get the coverage, because they are what a
+       * reasonable implementation leaves out: the project spec described this
+       * as plain "Acrobatics vs the attack roll", which would have handed the
+       * reaction to every character in the world.
+       */
+      describe("dodge", function () {
+        const withTechnick = (pc) => pc.createEmbeddedDocuments("Item", [{
+          name: "ZZ evasion", type: "technick",
+          system: { flags: ["dodge"], active: true }
+        }]);
+
+        it("refuses without the technick and allows with it", async function () {
+          await withActor({}, async (pc) => {
+            assert.isFalse(DODGE.canDodge(pc).allowed, "no technick, no dodge");
+            assert.equal(DODGE.canDodge(pc).reason, "LASTARC.Dodge.NoTechnick");
+
+            await withTechnick(pc);
+            assert.isTrue(DODGE.canDodge(pc).allowed);
+          });
+        });
+
+        /**
+         * The condition a player will have forgotten. Heavy armour goes on in
+         * the morning and the reaction is offered mid-combat hours later.
+         */
+        it("refuses in armour heavier than light", async function () {
+          await withActor({}, async (pc) => {
+            await withTechnick(pc);
+            await pc.createEmbeddedDocuments("Item", [{
+              name: "ZZ plate", type: "armour",
+              system: { type: "heavy", equipped: true }
+            }]);
+
+            const check = DODGE.canDodge(pc);
+            assert.isFalse(check.allowed);
+            assert.equal(check.reason, "LASTARC.Dodge.Armour");
+
+            const armour = pc.items.find((i) => i.type === "armour");
+            await armour.update({ "system.type": "light" });
+            assert.isTrue(DODGE.canDodge(pc).allowed, "light armour is allowed");
+          });
+        });
+
+        it("a flat-footed defender cannot dodge", async function () {
+          await withActor({}, async (pc) => {
+            await withTechnick(pc);
+            await pc.toggleStatusEffect("flatFooted", { active: true });
+
+            const check = DODGE.canDodge(pc);
+            assert.isFalse(check.allowed);
+            assert.equal(check.reason, "LASTARC.Dodge.FlatFooted");
+          });
+        });
+
+        /**
+         * The cap that needs turn state to exist at all, and the one a source
+         * scan cannot prove. It is charged on a FAILED dodge too — the attempt
+         * is what costs — so this rolls against an impossible attack total.
+         */
+        it("is once per turn, spent even when it fails", async function () {
+          this.timeout(20_000);
+          await withEncounter(async (combat, a) => {
+            await withTechnick(a);
+            await combat.startCombat();
+            await settle();
+
+            assert.isTrue(DODGE.canDodge(a).allowed, "first dodge of the turn");
+
+            await DODGE.rollDodge(a, { attackTotal: 999 });   // cannot succeed
+            await settle();
+
+            const check = DODGE.canDodge(a);
+            assert.isFalse(check.allowed, "a failed dodge still spends the turn's dodge");
+            assert.equal(check.reason, "LASTARC.Dodge.AlreadyUsed");
+          });
+        });
+
+        it("and comes back on the next turn", async function () {
+          this.timeout(20_000);
+          await withEncounter(async (combat, a) => {
+            await withTechnick(a);
+            await combat.startCombat();
+            await settle();
+
+            await DODGE.rollDodge(a, { attackTotal: 999 });
+            await settle();
+            assert.isFalse(DODGE.canDodge(a).allowed);
+
+            await combat.nextTurn();
+            await settle();
+            await combat.nextTurn();   // back round to a
+            await settle();
+
+            assert.isTrue(DODGE.canDodge(a).allowed,
+              "the cap never clears, so the technick is once per combat");
+          });
+        });
+      });
 
       describe("block", function () {
         it("refuses without an equipped shield, and allows with one", async function () {

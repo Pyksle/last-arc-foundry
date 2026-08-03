@@ -652,6 +652,16 @@ export function cardContexts() {
     "templates/chat/healing-card.hbs": { name: "ZZ probe", results: [] },
     "templates/chat/item-card.hbs": { name: "ZZ probe" },
     "templates/chat/block-card.hbs": { shieldName: "ZZ probe", parts: [] },
+    /**
+     * A FAILED dodge (#50). The failure branch is the one worth previewing:
+     * it carries the oxblood verdict, and a card that only ever gets rendered
+     * in its success state is a card whose bad-news layout nobody has seen.
+     */
+    "templates/chat/dodge-card.hbs": {
+      skillLabel: "Acrobatics", total: 14, natural: 9, dodged: false,
+      attackTotal: 21, attackerName: "ZZ probe",
+      parts: [{ label: "LASTARC.Skill.acrobatics", value: 5 }]
+    },
     "templates/chat/performance-card.hbs": {
       name: "ZZ probe", parts: [], achieved: true, landed: true,
       canApplyEffect: true, unappliableRiders: []

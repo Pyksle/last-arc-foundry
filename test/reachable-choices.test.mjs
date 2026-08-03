@@ -255,6 +255,9 @@ describe("no decoy technick flags", () => {
   const readers = ["module/dice/attack.mjs", "module/dice/magic.mjs",
                    "module/derivation.mjs", "module/action-economy.mjs",
                    "module/combat.mjs",
+                   // Dodge gates a whole reaction rather than modifying a roll,
+                   // so it is read where that reaction lives (#50).
+                   "module/dice/dodge.mjs",
                    // The study flags are counted during derivation rather than
                    // tested for in a dice pipeline — they gate how many spells
                    // and performances may be known, not a roll.

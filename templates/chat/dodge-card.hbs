@@ -1,0 +1,48 @@
+{{!-- Dodge result (issue #50). Shaped like the Block card deliberately: the two
+      reactions answer the same question and a defender should not have to read
+      two different layouts to find out whether the attack landed.
+
+      No image, unlike Block — a Dodge is made with the character's own body, so
+      there is no item whose icon belongs here. --}}
+<div class="lastarc-card lastarc-card--dodge">
+
+  <header class="lastarc-card__head">
+    <div class="lastarc-card__title">
+      <span class="lastarc-card__weapon">{{localize "LASTARC.Card.Dodge"}}</span>
+      <span class="lastarc-card__sub">{{skillLabel}}</span>
+    </div>
+    <div class="lastarc-card__total" data-tooltip="{{breakdown}}">{{total}}</div>
+  </header>
+
+  <div class="lastarc-card__natural">
+    <span class="lastarc-card__die">d20: <strong>{{natural}}</strong></span>
+    {{#if parts.length}}
+      <span class="lastarc-card__parts">
+        {{#each parts}}
+          <span class="lastarc-part" data-tooltip="{{localize this.label}}">
+            {{lasignal this.value}}
+          </span>
+        {{/each}}
+      </span>
+    {{/if}}
+  </div>
+
+  <p class="lastarc-verdict {{#if dodged}}lastarc-verdict--good{{else}}lastarc-verdict--bad{{/if}}">
+    {{#if dodged}}
+      {{localize "LASTARC.Card.Dodged"}}
+    {{else}}
+      {{localize "LASTARC.Card.DodgeFailed"}}
+    {{/if}}
+    <span class="lastarc-vs">
+      {{total}} {{localize "LASTARC.Card.Versus"}} {{attackTotal}}
+      {{#if attackerName}}({{attackerName}}){{/if}}
+    </span>
+  </p>
+
+  {{!-- The cap is worth stating on every card rather than only when it bites:
+        unlike Block's running penalty, there is no second attempt to warn
+        about, and a player deciding whether to spend it needs to know it is
+        the only one they get. --}}
+  <p class="lastarc-note">{{localize "LASTARC.Card.DodgeOncePerTurn"}}</p>
+
+</div>

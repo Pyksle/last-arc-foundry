@@ -2137,7 +2137,8 @@
 
 /* Block offer, injected per-viewer into an attack card (issue #12). Sized like
    the hero-point spends beside it, since both are "you may answer this". */
-.lastarc-block-offer {
+.lastarc-block-offer,
+.lastarc-dodge-offer {
   display: block;
   width: 100%;
   margin-top: 0.35rem;
@@ -2147,7 +2148,12 @@
   padding: 0.25rem 0.4rem;
   cursor: pointer;
 }
-.lastarc-block-offer:disabled { cursor: not-allowed; opacity: 0.55; }
+/* Both offers can appear on one card — a defender with a shield AND the Dodge
+   technick chooses between them — so they share a shape and stack. A disabled
+   one stays visible carrying its reason: "you already dodged this turn" is the
+   thing the player needs told, and a vanished button tells them nothing. */
+.lastarc-block-offer:disabled,
+.lastarc-dodge-offer:disabled { cursor: not-allowed; opacity: 0.55; }
 
 /* An attack a later Block stopped. Struck through rather than hidden: the roll
    happened and the log should still say so. */

@@ -18,6 +18,7 @@ import {
 } from "./dice/hero-points.mjs";
 import { repostCheckAfterReroll } from "./dice/rolls.mjs";
 import { rollBlock, canBlock } from "./dice/block.mjs";
+import { rollDodge, canDodge } from "./dice/dodge.mjs";
 import { describeDamage } from "./dice/breakdown.mjs";
 import { applyPerformanceEffect } from "./effects.mjs";
 
@@ -26,6 +27,7 @@ export function registerChatListeners() {
     offerHeroReroll(message, element);
     offerGrantedRerolls(message, element);
     offerBlock(message, element);
+    offerDodge(message, element);
     markBlockedAttack(message, element);
     refreshBlockedAttack(message);
 
@@ -268,6 +270,53 @@ function offerBlock(message, element) {
 }
 
 /**
+ * Offer a Dodge to the defender of an attack that beat their Reflex (#50).
+ *
+ * Sibling of `offerBlock`, and silent for the same reason in a different case.
+ * Block stays quiet for a defender who owns no shield; this stays quiet for one
+ * without the technick — which is MOST characters, since the book gates Dodge
+ * behind it. A Dodge button on every attack card for the rest of the campaign
+ * would be worse than no button.
+ *
+ * Everything else — wrong armour, flat-footed, already dodged this turn — draws
+ * a disabled button carrying the reason. Those are states a character with the
+ * technick can get into and out of, and the armour one in particular is a rule
+ * a player will have forgotten they were breaking.
+ */
+function offerDodge(message, element) {
+  const flags = message.flags?.["last-arc"] ?? {};
+  if (flags.type !== "attack" && flags.type !== "spell") return;
+  if (flags.targetsDefence !== "ref") return;
+  if (flags.attackTotal == null) return;
+
+  const defender = game.actors.get(flags.targetId);
+  if (!defender?.isOwner) return;
+
+  // Already answered — one reaction per triggering attack, and a Block that
+  // already stopped it leaves nothing to dodge.
+  if (blockFor(message)) return;
+
+  const check = canDodge(defender);
+  if (!check.hasTechnick) return;         // no technick: silence, not a dead button
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "lastarc-dodge-offer";
+  button.dataset.action = "lastarcDodge";
+  button.dataset.actorId = defender.id;
+  button.textContent = game.i18n.localize("LASTARC.Dodge.Offer");
+
+  if (!check.allowed) {
+    button.disabled = true;
+    button.dataset.tooltip = game.i18n.localize(check.reason);
+  } else {
+    button.dataset.tooltip = game.i18n.localize("LASTARC.Dodge.OfferTooltip");
+  }
+
+  element.querySelector(".message-content")?.appendChild(button);
+}
+
+/**
  * Strike through an attack that was subsequently blocked.
  *
  * Computed on every client from a LATER block message rather than by editing
@@ -279,8 +328,8 @@ function markBlockedAttack(message, element) {
   const flags = message.flags?.["last-arc"] ?? {};
   if (flags.type !== "attack" && flags.type !== "spell") return;
 
-  const block = blockFor(message);
-  if (!block?.flags?.["last-arc"]?.blocked) return;
+  const reaction = blockFor(message);
+  if (!negatedAttack(reaction)) return;
 
   element.querySelector(".lastarc-card")?.classList.add("is-blocked");
   element.querySelectorAll("[data-action='lastarcRollDamage']").forEach((b) => {
@@ -302,30 +351,45 @@ function markBlockedAttack(message, element) {
  */
 function refreshBlockedAttack(message) {
   const flags = message.flags?.["last-arc"] ?? {};
-  if (flags.type !== "block" || !flags.blocksMessageId) return;
+  if (!REACTION_TYPES.includes(flags.type) || !flags.blocksMessageId) return;
 
   const attack = game.messages?.get(flags.blocksMessageId);
   if (attack) ui.chat?.updateMessage?.(attack);
 }
 
 /**
- * The block message answering this one, if any.
+ * The reaction message answering this one, if any — a Block OR a Dodge.
  *
  * Walks backward from the end of the log and stops early: a chat log runs to
  * thousands of messages over a campaign and a full scan on every render would
- * be felt. A block always follows its attack closely, so the window is small.
+ * be felt. A reaction always follows its attack closely, so the window is small.
+ *
+ * Both reactions are found by one lookup because both NEGATE the attack in the
+ * same way, and the attack card has to grey its Damage button either way. Two
+ * lookups would have meant a dodged attack keeping a live Damage button — the
+ * bug Block already solved, reintroduced for the reaction added afterwards.
  */
 function blockFor(message) {
   const messages = game.messages?.contents ?? [];
   const start = Math.max(0, messages.length - BLOCK_SEARCH_WINDOW);
   for (let i = messages.length - 1; i >= start; i--) {
     const f = messages[i].flags?.["last-arc"];
-    if (f?.type === "block" && f.blocksMessageId === message.id) return messages[i];
+    if (!REACTION_TYPES.includes(f?.type)) continue;
+    if (f.blocksMessageId === message.id) return messages[i];
   }
   return null;
 }
 
-/** How far back to look for a block answering an attack. */
+/** Did that reaction actually stop the attack? */
+const negatedAttack = (reaction) => {
+  const f = reaction?.flags?.["last-arc"];
+  return !!(f?.blocked || f?.dodged);
+};
+
+/** Message types that answer an attack. */
+const REACTION_TYPES = ["block", "dodge"];
+
+/** How far back to look for a reaction answering an attack. */
 const BLOCK_SEARCH_WINDOW = 50;
 
 async function onChatAction(event, message) {
@@ -343,6 +407,7 @@ async function onChatAction(event, message) {
       case "lastarcHeroBonus": return await onHeroBonus(button, message);
       case "lastarcPreventDeath": return await onPreventDeath(button);
       case "lastarcBlock": return await onBlock(button, message);
+      case "lastarcDodge": return await onDodge(button, message);
       case "lastarcApplyPerformance": return await onApplyPerformance(message);
     }
   } catch (err) {
@@ -468,6 +533,18 @@ async function onBlock(button, message) {
   button.disabled = true;
 
   await rollBlock(actor, {
+    attackTotal: flags.attackTotal,
+    attackerName: flags.attackerName ?? null,
+    sourceMessageId: message.id
+  });
+}
+
+async function onDodge(button, message) {
+  const actor = resolveActor(button);
+  const flags = message.flags?.["last-arc"] ?? {};
+  button.disabled = true;
+
+  await rollDodge(actor, {
     attackTotal: flags.attackTotal,
     attackerName: flags.attackerName ?? null,
     sourceMessageId: message.id

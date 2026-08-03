@@ -362,6 +362,18 @@ LASTARC.repeatableTechnicks = [
 LASTARC.technickFlags = [
   "weaponFinesse",        // substitute Agi for Str on light/thrown/unarmed/natural
   "preciseShot",          // negates the -5 for shooting into melee
+  /**
+   * The Dodge reaction (issue #50): an Acrobatics check that, on beating the
+   * incoming attack roll, makes it count as not having beaten your Reflex.
+   *
+   * A FLAG rather than something everyone can do. `ACTIONS.dodge` sat in the
+   * action catalogue with nothing behind it while the attack card told every
+   * defender they could Dodge, and the project spec described it as plain
+   * "Acrobatics vs the attack roll" — so the obvious implementation would have
+   * handed it to the whole table. The book gates it on the technick, on light
+   * or no armour, and at once per turn. See `dice/dodge.mjs`.
+   */
+  "dodge",
   "tripleCrit",           // ranged crit multiplier x3 instead of x2
   "doubledExplosions",    // each exploding die generates 2 rather than 1 (Backstab)
   /**

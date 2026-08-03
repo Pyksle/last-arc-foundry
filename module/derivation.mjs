@@ -1191,6 +1191,23 @@ export function blockModifiers({
  * the opposite of the meet-it-beat-it rule used everywhere else in this system
  * and is the single most likely thing to be implemented wrongly here.
  */
+export function resolveDodge({ dodgeTotal, attackTotal }) {
+  /**
+   * Same comparison as a Block, and stated separately rather than aliased.
+   *
+   * The technick wording is the same shape — the check must BEAT the attack
+   * roll, so a tie goes to the attacker. Both are opposed reactions and both
+   * invert the meet-it-or-beat-it rule used everywhere else in this system,
+   * which makes this the single most likely line in either to be got wrong.
+   *
+   * Kept as its own function because the two reactions are not the same rule:
+   * Block carries a cumulative penalty for repeat use, Dodge is capped at once
+   * per turn, and a shared implementation would invite one rule's limit to be
+   * "fixed" onto the other.
+   */
+  return { dodged: dodgeTotal > attackTotal, dodgeTotal, attackTotal };
+}
+
 export function resolveBlock({ blockTotal, attackTotal }) {
   return { blocked: blockTotal > attackTotal, blockTotal, attackTotal };
 }
