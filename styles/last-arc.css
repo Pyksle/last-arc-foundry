@@ -2554,3 +2554,16 @@
 .la-effect.is-disabled .la-effect__name { font-style: italic; }
 .la-effect.is-disabled .la-effect__img,
 .la-effect.is-disabled .la-effect__changes { opacity: 0.45; }
+
+/* Editable images (#52).
+
+   The portrait never looked clickable — no cursor change at all — which is a
+   fair part of why nobody noticed for so long that clicking it did nothing.
+   An affordance that works should say so.
+
+   `is-locked` is the other half: FILES_BROWSE defaults to the TRUSTED role, so
+   an ordinary player's click opens nothing, because Foundry's picker returns
+   silently when the permission is missing. There the cursor stays put and the
+   tooltip names the permission to ask the GM for. */
+img[data-action="editImage"] { cursor: pointer; }
+img[data-action="editImage"].is-locked { cursor: default; }

@@ -4,7 +4,9 @@
   <header class="la-header la-header--item">
     <div class="la-header__portrait">
       <img src="{{document.img}}" alt="{{document.name}}" data-edit="img"
-           data-action="editImage" data-tooltip="{{localize 'LASTARC.Tooltip.EditImage'}}">
+           data-action="editImage"
+           class="{{#unless canBrowseFiles}}is-locked{{/unless}}"
+           data-tooltip="{{#if canBrowseFiles}}{{localize 'LASTARC.Tooltip.EditImage'}}{{else}}{{localize 'LASTARC.Tooltip.EditImageBlocked'}}{{/if}}">
     </div>
     <div class="la-header__fields">
       <div class="la-field la-field--name">

@@ -228,6 +228,10 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       context.noDamageType = chosen.length === 0;
     }
 
+    // See character-sheet.mjs: a player without FILES_BROWSE gets a picker that
+    // silently declines to open, so the icon must not claim to be clickable.
+    context.canBrowseFiles = game.user?.can("FILES_BROWSE") ?? false;
+
     return context;
   }
 

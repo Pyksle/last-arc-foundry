@@ -896,5 +896,6 @@
   "LASTARC.Dodge.DamageDodged": "This attack was dodged.",
   "LASTARC.TechnickFlag.dodge": "Dodge",
   "LASTARC.TechnickFlagHint.dodge": "Grants the Dodge reaction: an Acrobatics check against an incoming attack roll, once per turn, in light armour or none. Beating the attack roll makes it count as not having beaten your Reflex.",
-  "LASTARC.Tooltip.EditImage": "Click to choose a different image."
+  "LASTARC.Tooltip.EditImage": "Click to choose a different image.",
+  "LASTARC.Tooltip.EditImageBlocked": "Your account cannot browse files, so this cannot be changed here. Ask your GM to enable File Browsing for your role under Game Settings → Configure Permissions — and File Upload too, if you want to add your own artwork."
 }

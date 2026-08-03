@@ -438,6 +438,12 @@ export function buildContext() {
      */
     config: LASTARC,
     editable: true,
+    /**
+     * The preview renders the UNBLOCKED state: a GM's view, which is what a
+     * layout review is for. The blocked variant differs only in a tooltip and
+     * a cursor, and `test/integrity.test.mjs` checks both branches exist.
+     */
+    canBrowseFiles: true,
     fields: {},
     enrichedBiography: "<p>A synthetic biography, for layout only.</p>",
     languagesText: "ZZ trade cant, ZZ high tongue",
@@ -498,6 +504,7 @@ export function buildContext() {
  */
 export function itemContext(type) {
   return {
+    canBrowseFiles: true,
     /**
      * The item sheet's own context, from the SAME code the sheet runs (#44).
      *

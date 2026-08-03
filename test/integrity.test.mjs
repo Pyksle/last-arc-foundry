@@ -223,6 +223,42 @@ describe("sheet wiring", () => {
       + broken.join("\n  "));
   });
 
+  /**
+   * The blocked branch exists and says something useful (#52).
+   *
+   * `FILES_BROWSE` defaults to the TRUSTED role, so an ordinary PLAYER cannot
+   * open a picker — and `FilePicker#browse()` RETURNS silently when the
+   * permission is missing. No error, no notification, nothing in the console.
+   * Verified in a live v13 world: GM works, player gets nothing at all.
+   *
+   * The system cannot grant the permission and must not try. What it can do is
+   * stop the image claiming to be clickable and name what to ask the GM for —
+   * a player cannot discover this on their own.
+   */
+  test("an image that cannot be edited explains itself", () => {
+    for (const name of ["templates/actor/character-header.hbs",
+      "templates/actor/npc-sheet.hbs", "templates/item/item-sheet.hbs"]) {
+      const src = templates.find((t) => t.name === name)?.source ?? "";
+      assert.match(src, /canBrowseFiles/,
+        `${name} does not vary on whether this user can browse files`);
+      assert.match(src, /LASTARC\.Tooltip\.EditImageBlocked/,
+        `${name} leaves a blocked player with no explanation`);
+    }
+    for (const key of ["LASTARC.Tooltip.EditImage", "LASTARC.Tooltip.EditImageBlocked"]) {
+      assert.ok(lang[key], `${key} is missing`);
+    }
+    assert.match(lang["LASTARC.Tooltip.EditImageBlocked"], /Configure Permissions/,
+      "the tooltip must name where the GM changes it, or it is just a refusal");
+  });
+
+  test("every sheet that renders the flag also supplies it", () => {
+    // A template branching on a context key nothing sets takes the FALSE branch
+    // forever, which here would tell a GM they lack a permission they have.
+    for (const src of [sheetSource, npcSheetSource, itemSheetSource]) {
+      assert.match(src, /context\.canBrowseFiles = game\.user\?\.can\("FILES_BROWSE"\)/);
+    }
+  });
+
   test("at least one image on each sheet is editable at all", () => {
     // Guarding the guard: the check above is satisfied by a template with no
     // images whatsoever, which is how a portrait could go missing entirely.

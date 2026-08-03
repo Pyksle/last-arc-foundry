@@ -208,6 +208,21 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.actionEconomy = this.#prepareActionEconomy();
     context.effects = effectPanelRows(this.document, localize);
 
+    /**
+     * Can this user open a file picker at all (#52)?
+     *
+     * `FILES_BROWSE` defaults to the TRUSTED role, so an ordinary PLAYER cannot
+     * — and `FilePicker#browse()` simply RETURNS when they lack it. No error,
+     * no notification, nothing in the console: the click does nothing and the
+     * player has no way to learn why. Verified in a live v13 world; the GM's
+     * report was "GMs can do it fine, players can't".
+     *
+     * The system cannot grant the permission and should not try. What it can do
+     * is stop the portrait claiming to be clickable and say what to ask for.
+     */
+    context.canBrowseFiles = game.user?.can("FILES_BROWSE") ?? false;
+
+
     return context;
   }
 
