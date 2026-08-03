@@ -1844,6 +1844,39 @@ function registerCombatBatch(quench) {
        * as plain "Acrobatics vs the attack roll", which would have handed the
        * reaction to every character in the world.
        */
+      /**
+       * Speed penalties add rather than compound (#51). The pure arithmetic is
+       * unit tested; this proves the DERIVED value on a real document follows
+       * it, which is where the two mechanisms used to meet.
+       */
+      describe("movement penalties", function () {
+        it("slowed and encumbered add, and Slow's floor catches the total", async function () {
+          await withActor({ system: { movement: { base: 6 } } }, async (pc) => {
+            await pc.toggleStatusEffect("slowed", { active: true });
+            assert.equal(pc.system.movement.value, 3, "slowed alone halves 6 to 3");
+
+            // Heavy armour counts as encumbered (§11) and contributes the same
+            // quarter, so this is the combination the book's sentence settles.
+            await pc.createEmbeddedDocuments("Item", [{
+              name: "ZZ plate", type: "armour",
+              system: { type: "heavy", equipped: true }
+            }]);
+
+            assert.equal(pc.system.movement.value, 1,
+              "3/4 reduction leaves 1, not the 2 that multiplying gives");
+          });
+        });
+
+        it("two halves reach zero and are floored to one square", async function () {
+          await withActor({ system: { movement: { base: 6 } } }, async (pc) => {
+            await pc.toggleStatusEffect("slowed", { active: true });
+            await pc.toggleStatusEffect("severedLeg", { active: true });
+            assert.equal(pc.system.movement.value, 1,
+              "one half plus one half is all of it; Slow's stated floor is 1 square");
+          });
+        });
+      });
+
       describe("dodge", function () {
         const withTechnick = (pc) => pc.createEmbeddedDocuments("Item", [{
           name: "ZZ evasion", type: "technick",

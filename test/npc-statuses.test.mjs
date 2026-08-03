@@ -97,7 +97,7 @@ describe("§ statuses reach a statblock, not just a character", () => {
   test("speed statuses reach an NPC's movement", () => {
     const body = derived(npc);
     assert.match(body, /statuses\.speedZero/, "a grabbed monster still moves");
-    assert.match(body, /statuses\.speedMultiplier/, "a slowed monster moves at full speed");
+    assert.match(body, /statuses\.speedMinimum/, "a slowed monster ignores Slow's one-square floor");
   });
 
   /**
@@ -142,7 +142,7 @@ describe("§ statuses reach a statblock, not just a character", () => {
     // still pass while testing nothing anyone can feel.
     assert.equal(D.aggregateStatuses(["exhaustion"]).defences.fort, -10);
     assert.equal(D.aggregateStatuses(["grabbed"]).attackPenalty, -2);
-    assert.equal(D.aggregateStatuses(["slowed"]).speedMultiplier, 0.5);
+    assert.equal(D.aggregateStatuses(["slowed"]).speedReduction, 0.5);
     assert.equal(D.aggregateStatuses(["sleep"]).agiDenied, true);
   });
 });

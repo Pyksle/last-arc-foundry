@@ -865,7 +865,6 @@ export function aggregateStatuses(statusIds = []) {
     noAbilities: false,
     treatedAsSize: null,
     speedMinimum: 0,
-    speedMultiplier: null,
     bonusDamageDice: {},
     incomingAttackBonus: 0
   };
@@ -886,9 +885,6 @@ export function aggregateStatuses(statusIds = []) {
     out.noAbilities ||= !!def.noAbilities;
     if (def.treatedAsSize) out.treatedAsSize = def.treatedAsSize;
     if (def.speedMinimum) out.speedMinimum = Math.max(out.speedMinimum, def.speedMinimum);
-    if (def.speedMultiplier != null) {
-      out.speedMultiplier = (out.speedMultiplier ?? 1) * def.speedMultiplier;
-    }
 
     // Per-skill penalties, e.g. slow's −10 to Acrobatics and Athletics. Summed
     // rather than replaced so two sources both land.

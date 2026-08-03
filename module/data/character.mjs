@@ -519,16 +519,19 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       this.movement.fly = 0;
       this.movement.hover = false;
     } else {
-      this.movement.value = D.speedAfterPenalties(baseSpeed, reductions);
+      /**
+       * ONE additive pool (issue #51). Encumbrance, heavy armour, Slow and a
+       * severed leg are all penalties to base speed, and the book says such
+       * penalties add rather than compound. Slow used to be applied afterwards
+       * as a multiplier on the already-reduced number, so slowed-and-encumbered
+       * at base 6 gave 2 squares where the rule gives 1.
+       */
+      const reduced = D.speedAfterPenalties(baseSpeed, reductions);
 
-      // Slow halves movement to a MINIMUM of 1 square (§12, book p.189). Applied
-      // after the fractional reductions and floored separately, because the
-      // floor is a stated rule rather than a rounding artefact — a speed-2
-      // creature must end at 1, not 0.
-      if (statuses.speedMultiplier || statuses.speedMinimum) {
-        const halved = Math.floor(this.movement.value * (statuses.speedMultiplier ?? 1));
-        this.movement.value = Math.max(statuses.speedMinimum ?? 0, halved);
-      }
+      // Slow's floor of 1 square is a STATED rule, not a rounding artefact, so
+      // it is applied to the total rather than folded into the reduction — a
+      // creature whose penalties would take it to 0 still moves 1.
+      this.movement.value = Math.max(statuses.speedMinimum ?? 0, reduced);
       if (reductions.length) {
         this.movement.fly = 0;      // encumbered: no flying, lose hover (§4.6)
         this.movement.hover = false;

@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import { LASTARC } from "../module/config.mjs";
+import * as D from "../module/derivation.mjs";
 import {
   aggregateStatuses,
   effectiveDamageMods,
@@ -315,7 +316,7 @@ describe("§12 status payloads verified against the book (p.188-189)", () => {
 
   test("slow halves movement AND penalises Acrobatics and Athletics", () => {
     const s = LASTARC.statusEffects.slowed;
-    assert.equal(s.speedMultiplier, 0.5);
+    assert.equal(s.speedReduction, 0.5);
     assert.equal(s.speedMinimum, 1, "floors at 1 square, a stated rule not a rounding artefact");
     assert.equal(s.skillPenalties.acrobatics, -10);
     assert.equal(s.skillPenalties.athletics, -10);
@@ -348,7 +349,7 @@ describe("§12 status payloads verified against the book (p.188-189)", () => {
 
     const s = aggregateStatuses(["slowed"]);
     assert.equal(s.skillPenalties.acrobatics, -10);
-    assert.equal(s.speedMultiplier, 0.5);
+    assert.equal(s.speedReduction, 0.5);
     assert.equal(s.speedMinimum, 1);
   });
 
@@ -570,6 +571,113 @@ describe("no status poisons the defence chain", () => {
     });
     for (const key of ["ref", "fort", "will"]) {
       assert.ok(Number.isFinite(d[key]), `${key} is ${d[key]}`);
+    }
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Movement penalties ADD; they do not compound (issue #51).
+ *
+ * The book states it in as many words, in the encumbrance rules: multiple
+ * sources of movement speed penalties are additive, not multiplicative. Two
+ * mechanisms had grown up for the same idea — encumbrance and heavy armour
+ * contributed a fractional reduction to a summed pool, while Slow and a severed
+ * leg carried a MULTIPLIER applied afterwards to the already-reduced number.
+ *
+ * Each is right on its own, which is why it survived: the divergence only shows
+ * when two of them land together, and that is precisely the case the book's
+ * sentence exists to settle.
+ *
+ * The numbers below come from the book, not from the implementation. The
+ * encumbrance pair are its own worked examples.
+ */
+describe("§51 speed penalties are one additive pool", () => {
+  const reductionOf = (...ids) => D.aggregateStatuses(ids).speedReduction;
+
+  test("the book's own encumbrance examples", () => {
+    // "3/4 normal (4 squares if your base speed is 6 squares, or 3 if 4)".
+    assert.equal(D.speedAfterPenalties(6, [0.25]), 4);
+    assert.equal(D.speedAfterPenalties(4, [0.25]), 3);
+  });
+
+  test("each penalty alone is unchanged by the move to one pool", () => {
+    assert.equal(D.speedAfterPenalties(6, [reductionOf("slowed")]), 3, "slow halves 6 to 3");
+    assert.equal(D.speedAfterPenalties(6, [reductionOf("severedLeg")]), 3);
+  });
+
+  /** THE CASE THAT WAS WRONG. Multiplied it gave 2; the rule gives 1. */
+  test("slowed AND encumbered add to three quarters, not five eighths", () => {
+    assert.equal(D.speedAfterPenalties(6, [0.25, reductionOf("slowed")]), 1);
+    assert.notEqual(
+      D.speedAfterPenalties(6, [0.25, reductionOf("slowed")]),
+      Math.floor(Math.floor(6 * 0.75) * 0.5),
+      "this is the multiplicative answer and must not be what we produce"
+    );
+  });
+
+  test("heavy armour counts too — it is the same quarter", () => {
+    // The character model pushes 0.25 for heavy armour beside encumbrance.
+    assert.equal(D.speedAfterPenalties(6, [0.25, 0.25, reductionOf("slowed")]), 0,
+      "before Slow's floor is applied");
+  });
+
+  test("two halves take you to zero, and Slow's floor catches you", () => {
+    const both = D.aggregateStatuses(["slowed", "severedLeg"]);
+    assert.equal(both.speedReduction, 1, "one half plus one half, added");
+    assert.equal(D.speedAfterPenalties(6, [both.speedReduction]), 0);
+    assert.equal(Math.max(both.speedMinimum, 0), 1,
+      "Slow's stated one-square floor applies to the total, so movement is 1");
+  });
+
+  /**
+   * The mechanism is gone, not merely unused. A multiplier left in the
+   * aggregate would be an invitation to reach for it again, and the next
+   * status to do so would silently reintroduce compounding.
+   */
+  test("nothing carries a speed multiplier any more", () => {
+    const all = { ...LASTARC.statusEffects, ...LASTARC.curses };
+    for (const [id, def] of Object.entries(all)) {
+      assert.ok(!("speedMultiplier" in def),
+        `${id} carries speedMultiplier — speed penalties must join the additive pool`);
+    }
+    assert.ok(!("speedMultiplier" in D.aggregateStatuses([])),
+      "the aggregate still exposes a multiplier for someone to use");
+  });
+
+  /**
+   * BOTH models, and both halves of the calculation.
+   *
+   * The first version of this suite tested `speedAfterPenalties` and the
+   * payloads and stopped there — so a mutation dropping Slow's floor from the
+   * character model, and another making the NPC model ignore status reductions
+   * entirely, both passed. The arithmetic being right is not the same as the
+   * models using it.
+   */
+  test("both models feed the pool and apply Slow's floor", () => {
+    for (const name of ["character", "npc"]) {
+      const src = readFileSync(
+        new URL(`../module/data/${name}.mjs`, import.meta.url), "utf8"
+      );
+      assert.match(src, /statuses\.speedReduction/,
+        `${name}: status speed reductions never reach the additive pool`);
+      assert.match(src, /Math\.max\(statuses\.speedMinimum \?\? 0, reduced\)/,
+        `${name}: Slow's stated one-square floor is not applied to the total, so ` +
+        "a creature slowed past zero stops moving entirely");
+    }
+  });
+
+  test("every status that slows you does it through the one pool", () => {
+    const all = { ...LASTARC.statusEffects, ...LASTARC.curses };
+    const slowing = Object.entries(all)
+      .filter(([, def]) => def.speedReduction || def.speedZero || def.speedMinimum);
+    assert.ok(slowing.length >= 3, "expected at least slow, severed leg and encumbrance");
+
+    for (const [id, def] of slowing) {
+      if (def.speedZero) continue;   // an absolute stop, not a fraction
+      assert.ok(typeof def.speedReduction === "number",
+        `${id} slows you by some other means than the additive pool`);
     }
   });
 });

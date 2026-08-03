@@ -343,14 +343,12 @@ export class LastArcNpcData extends foundry.abstract.TypeDataModel {
     if (statuses.speedZero) {
       this.movement.value = 0;
     } else {
-      this.movement.value = D.speedAfterPenalties(
+      // One additive pool, and Slow's stated floor applied to the total (#51).
+      const reduced = D.speedAfterPenalties(
         this.movement.base,
         statuses.speedReduction ? [statuses.speedReduction] : []
       );
-      if (statuses.speedMultiplier || statuses.speedMinimum) {
-        const scaled = Math.floor(this.movement.value * (statuses.speedMultiplier ?? 1));
-        this.movement.value = Math.max(statuses.speedMinimum ?? 0, scaled);
-      }
+      this.movement.value = Math.max(statuses.speedMinimum ?? 0, reduced);
       // `fly` and `hover` are authored inputs on a statblock, not derived
       // values, so `blocksFlying` cannot be applied by writing them — same
       // rule-4 reason as the maxima above.

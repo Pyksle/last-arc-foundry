@@ -563,9 +563,15 @@ LASTARC.statusEffects = {
    * Book p.189. Movement halved to a MINIMUM OF 1 SQUARE — the floor matters,
    * since a speed-1 creature would otherwise round to zero — plus a −10 to
    * Acrobatics and Athletics, which the first version omitted entirely.
+   *
+   * A REDUCTION of one half, not a multiplier by one half (issue #51). The two
+   * are the same number alone and diverge the moment anything else slows you:
+   * the book says movement penalties are ADDITIVE, not multiplicative, and a
+   * multiplier applied on top of the encumbrance pool multiplied them. Slowed
+   * and encumbered at base 6 gave 2 squares where the rule gives 1.
    */
   slowed: {
-    speedMultiplier: 0.5,
+    speedReduction: 0.5,
     speedMinimum: 1,
     skillPenalties: { acrobatics: -10, athletics: -10 }
   },
@@ -614,7 +620,13 @@ LASTARC.statusEffects = {
   severedLeg: {
     permanent: true,
     attributeCheckPenalty: { agi: -5 },
-    speedMultiplier: 0.5,
+    /**
+     * A reduction, for the same reason as `slowed` (#51) — and the book words
+     * it that way itself: the Peg Leg entry describes this as "the penalty to
+     * your base speed", reduced from one half to one quarter. A penalty of a
+     * half is what this is, and two of them must add rather than compound.
+     */
+    speedReduction: 0.5,
     maxBulkMultiplier: 0.5,
     blocksCharge: true
   },
