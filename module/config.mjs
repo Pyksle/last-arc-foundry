@@ -30,8 +30,20 @@ LASTARC.attributes = {
  */
 LASTARC.attributeOrder = ["str", "vit", "agi", "int", "mnd", "chr"];
 
-/** Stated modifier range is −5..+5; see §15 A3 and `clampAttributeModifier`. */
-LASTARC.attributeModifierClamp = { min: -5, max: 5 };
+/**
+ * The modifier range, −5 to +10 (the GM's ruling on #51).
+ *
+ * It was −5..+5, on a spec note reading "text says modifiers span −5 to +5, but
+ * racial caps reach 22, which formulaically yields +6". THE PREMISE WAS WRONG:
+ * the book's own Attribute Modifiers table does not stop at +5, it runs to
+ * 22-23 → +6, 24-25 → +7, 26-27 → +8. The higher modifiers are printed, not a
+ * formula artefact the text contradicts.
+ *
+ * And they are reachable — creature statblocks reach Str 31, which the formula
+ * makes +10 and the old clamp delivered as +5. The GM's ruling is +10, which is
+ * where the published creatures top out.
+ */
+LASTARC.attributeModifierClamp = { min: -5, max: 10 };
 
 /* -------------------------------------------------------------------------- */
 /*  Break Gauge (§6)                                                           */

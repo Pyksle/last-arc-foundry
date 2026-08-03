@@ -17,8 +17,8 @@ import {
   heroPointPreventDeath, HERO_SPEND, rerollWithoutCost
 } from "./dice/hero-points.mjs";
 import { repostCheckAfterReroll } from "./dice/rolls.mjs";
-import { rollBlock, canBlock } from "./dice/block.mjs";
-import { rollDodge, canDodge } from "./dice/dodge.mjs";
+import { rollBlock, canBlock, repostBlockAfterReroll } from "./dice/block.mjs";
+import { rollDodge, canDodge, repostDodgeAfterReroll } from "./dice/dodge.mjs";
 import { describeDamage } from "./dice/breakdown.mjs";
 import { applyPerformanceEffect } from "./effects.mjs";
 
@@ -481,7 +481,13 @@ function rollModifier(flags) {
  * how skill checks were left behind when attacks were fixed.
  */
 async function rebuildAfterReroll(actor, flags, roll) {
-  for (const rebuild of [repostAttackAfterReroll, repostCheckAfterReroll]) {
+  for (const rebuild of [
+    repostAttackAfterReroll, repostCheckAfterReroll,
+    // The two opposed reactions (#50). A rerolled Block or Dodge whose card is
+    // not rebuilt leaves the table with two die faces and no answer to the only
+    // question being asked: did the attack land?
+    repostBlockAfterReroll, repostDodgeAfterReroll
+  ]) {
     if (await rebuild(actor, flags, roll)) return true;
   }
   return false;

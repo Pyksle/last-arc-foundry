@@ -157,13 +157,50 @@ export async function rollDodge(actor, {
     await setTurnState(combatant, { ...spent.state, dodgeUsed: true });
   }
 
-  await postDodgeCard({ actor, roll, parts, result, attackerName, sourceMessageId });
+  await postDodgeCard({
+    actor, roll, mod: total, parts, result, attackerName, sourceMessageId
+  });
 
   return { roll, parts, total, result };
 }
 
+/**
+ * Re-post a Dodge after a reroll (#50, reported by the GM).
+ *
+ * A Dodge is an Acrobatics CHECK, so a trait that rerolls Acrobatics applies to
+ * it — and Tree's does. Two things were missing and both are on the card's
+ * flags: `skillKey`, without which a SCOPED grant never matched and no button
+ * appeared at all; and `mod` plus `attackTotal`, without which the reroll could
+ * be offered but not resolved.
+ *
+ * That second half is the same lesson as #48. `rebuildAfterReroll` walks a list
+ * of rebuilders and, finding none that owned this card, fell through to the
+ * plain "original 9, rerolled 17" message — a record of the dice with no
+ * verdict. For a reaction that is worse than useless: the whole question is
+ * whether the attack landed, and the player would have to compare against a
+ * number on someone else's card by hand.
+ */
+export async function repostDodgeAfterReroll(actor, flags, roll) {
+  if (flags?.type !== "dodge") return false;
+
+  const result = D.resolveDodge({
+    dodgeTotal: roll.total, attackTotal: flags.attackTotal ?? 0
+  });
+
+  await postDodgeCard({
+    actor, roll,
+    mod: flags.mod ?? 0,
+    parts: flags.parts ?? [],
+    result,
+    attackerName: flags.attackerName ?? null,
+    sourceMessageId: flags.blocksMessageId ?? null,
+    rerolled: true
+  });
+  return true;
+}
+
 async function postDodgeCard({
-  actor, roll, parts, result, attackerName, sourceMessageId
+  actor, roll, mod, parts, result, attackerName, sourceMessageId, rerolled = false
 }) {
   const content = await foundry.applications.handlebars.renderTemplate(
     "systems/last-arc/templates/chat/dodge-card.hbs",
@@ -188,6 +225,20 @@ async function postDodgeCard({
         type: "dodge",
         actorId: actor.id,
         dodged: result.dodged,
+        /**
+         * WHICH skill this was, so a trait that rerolls one named skill can
+         * recognise it (#48's scoping). Without it a scoped grant compares
+         * against `undefined` and no button is drawn — reported by the GM on a
+         * character whose racial trait rerolls Acrobatics.
+         */
+        skillKey: DODGE_SKILL,
+        /**
+         * Everything needed to REBUILD this card after a reroll. `mod` is the
+         * load-bearing one: without it the reroll is a naked d20 and its total
+         * is not the number that gets compared to the attack.
+         */
+        mod, parts, attackTotal: result.attackTotal, attackerName,
+        ...(rerolled ? { rerolled: true } : {}),
         /**
          * Named the same as Block's, so one lookup finds either reaction.
          * A dodged attack has to grey its own Damage button on every client,

@@ -225,10 +225,28 @@ export class LastArcNpcData extends foundry.abstract.TypeDataModel {
   }
 
   prepareDerivedData() {
+    /**
+     * Read once per prepare rather than per attribute. Same fallback as the
+     * character model's, and the same reason for the try/catch: derivation runs
+     * before `game.settings` exists during world load.
+     */
+    let clampMods = true;
+    try {
+      clampMods = game.settings.get("last-arc", "clampAttributeModifier");
+    } catch { /* settings not ready — the default stands */ }
+
     for (const key of Object.keys(LASTARC.attributes)) {
       const attr = this.attributes[key];
       attr.total = attr.value;
-      attr.mod = D.attributeModifier(attr.value, true);
+      /**
+       * The SETTING, not a hardcoded true (#51).
+       *
+       * This read `attributeModifier(attr.value, true)`, so a GM who turned
+       * `clampAttributeModifier` off got unclamped characters and still-clamped
+       * monsters. A setting that silently applies to half the actors in a world
+       * is worse than no setting at all.
+       */
+      attr.mod = D.attributeModifier(attr.value, clampMods);
     }
 
     const step = D.clampStep(this.breakGauge.step);

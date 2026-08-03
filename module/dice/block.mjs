@@ -182,8 +182,44 @@ export async function rollBlock(actor, {
   return { roll, mods, result, skillKey: check.skillKey, previousBlocks: used };
 }
 
+/**
+ * Re-post a Block after a reroll (#50).
+ *
+ * The same gap Dodge had, found because Dodge made it visible: a Block is an
+ * opposed roll made with a weapon skill, so a trait rerolling that skill
+ * applies — and the card declared neither which skill it used nor the modifier
+ * it was rolled with. A scoped grant therefore never appeared, and an unscoped
+ * one produced a bare pair of die faces with no verdict.
+ *
+ * Fixed alongside Dodge rather than after it. The two reactions answer the same
+ * question with the same card shape, and letting one learn this while the other
+ * did not is how the pair would drift.
+ */
+export async function repostBlockAfterReroll(actor, flags, roll) {
+  if (flags?.type !== "block") return false;
+
+  const result = D.resolveBlock({
+    blockTotal: roll.total, attackTotal: flags.attackTotal ?? 0
+  });
+
+  await postBlockCard({
+    actor,
+    shield: { name: flags.shieldName ?? "", img: flags.shieldImg ?? "" },
+    roll,
+    mods: { total: flags.mod ?? 0, parts: flags.parts ?? [] },
+    result,
+    check: { skillKey: flags.skillKey },
+    used: flags.previousBlocks ?? 0,
+    attackerName: flags.attackerName ?? null,
+    sourceMessageId: flags.blocksMessageId ?? null,
+    rerolled: true
+  });
+  return true;
+}
+
 async function postBlockCard({
-  actor, shield, roll, mods, result, check, used, attackerName, sourceMessageId
+  actor, shield, roll, mods, result, check, used, attackerName, sourceMessageId,
+  rerolled = false
 }) {
   const content = await foundry.applications.handlebars.renderTemplate(
     "systems/last-arc/templates/chat/block-card.hbs",
@@ -213,6 +249,14 @@ async function postBlockCard({
         type: "block",
         actorId: actor.id,
         blocked: result.blocked,
+        /** Which weapon skill the shield was rolled with, for scoped grants. */
+        skillKey: check.skillKey ?? null,
+        /** Enough to rebuild this card after a reroll — see the note above. */
+        mod: mods.total, parts: mods.parts,
+        attackTotal: result.attackTotal, attackerName,
+        shieldName: shield.name, shieldImg: shield.img,
+        previousBlocks: used,
+        ...(rerolled ? { rerolled: true } : {}),
         // Names the attack card this answers, so that card can grey out its
         // Damage button on every client without anyone needing permission to
         // edit someone else's message.

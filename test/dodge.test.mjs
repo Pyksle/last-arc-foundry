@@ -388,3 +388,115 @@ describe("§50 a declared reaction is offered or explained", () => {
     assert.match(sources, /offerDodge\b/);
   });
 });
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A reaction is a d20 CHECK, so traits that reroll that skill apply to it.
+ *
+ * Reported by the GM against 0.41.0: Dodge rolls Acrobatics, and a player whose
+ * racial trait rerolls Acrobatics got no offer on the card. Two things were
+ * missing, both on the flags.
+ *
+ *   1. `skillKey`. `offerGrantedRerolls` filters `!g.skill || g.skill ===
+ *      flags.skillKey`, so a SCOPED grant compared against `undefined` and no
+ *      button was drawn at all.
+ *   2. `mod` and `attackTotal`. Without them the reroll could be offered and
+ *      not resolved — `rebuildAfterReroll` walks a list of rebuilders, found
+ *      none that owned the card, and fell through to a plain "original 9,
+ *      rerolled 17" message. For a reaction that is worse than useless: the
+ *      only question is whether the attack landed.
+ *
+ * BLOCK had exactly the same gap and is fixed in the same change. Dodge merely
+ * made it visible, because the trait that found it is scoped to Acrobatics.
+ */
+describe("§50 a rerolled reaction rebuilds its verdict", () => {
+  const block = read("module/dice/block.mjs");
+
+  /**
+   * The REPOST function's body, not the whole file.
+   *
+   * Three of these assertions first passed a mutation that gutted the rebuild,
+   * because the phrases they searched for also occur in the ORIGINAL roll path
+   * a hundred lines above — `rollBlock` returns `skillKey: check.skillKey`, and
+   * `rollDodge` calls `resolveDodge({ dodgeTotal: roll.total …})`. Searching a
+   * whole file for a phrase proves the phrase exists somewhere, which is not
+   * the claim being made.
+   */
+  const repostOf = (src, name) => {
+    const i = src.indexOf(`export async function repost${name}AfterReroll`);
+    assert.ok(i > -1, `repost${name}AfterReroll does not exist`);
+    return src.slice(i, src.indexOf("\nasync function post", i));
+  };
+  const dodgeRepost = repostOf(dodge, "Dodge");
+  const blockRepost = repostOf(block, "Block");
+
+  test("both cards name the skill they were rolled with", () => {
+    // Scoped to the FLAGS block, not the file: `rollBlock` also returns a
+    // `skillKey` in its result object, which is not the card's flag.
+    const flagsOf = (src, type) => src.slice(src.indexOf(`type: "${type}"`),
+      src.indexOf(`type: "${type}"`) + 900);
+    assert.match(flagsOf(dodge, "dodge"), /skillKey: DODGE_SKILL/,
+      "a scoped grant cannot recognise a Dodge, so no reroll button appears");
+    assert.match(flagsOf(block, "block"), /skillKey: check\.skillKey/,
+      "same for a Block, which is rolled with a weapon skill");
+  });
+
+  test("both carry what a rebuild needs", () => {
+    for (const [name, src] of [["dodge", dodge], ["block", block]]) {
+      assert.match(src, /attackTotal: result\.attackTotal/,
+        `${name}: the reroll cannot be re-resolved without the attack total`);
+      assert.match(src, /mod[,:]/,
+        `${name}: without the modifier the reroll is a naked d20`);
+    }
+  });
+
+  test("both are in the rebuild chain", () => {
+    const fn = chat.slice(chat.indexOf("async function rebuildAfterReroll"));
+    assert.match(fn.slice(0, 600), /repostBlockAfterReroll/);
+    assert.match(fn.slice(0, 600), /repostDodgeAfterReroll/);
+  });
+
+  test("each rebuilder declines a card that is not its own", () => {
+    // The chain relies on this: a rebuilder that claimed everything would stop
+    // the ones after it ever running.
+    assert.match(dodge, /if \(flags\?\.type !== "dodge"\) return false;/);
+    assert.match(block, /if \(flags\?\.type !== "block"\) return false;/);
+  });
+
+  test("the rebuilt verdict is re-resolved, not carried over", () => {
+    // The whole point: a reroll that turns a failure into a success has to say
+    // so. Copying the old outcome would print the new number and the old word.
+    assert.match(dodgeRepost, /resolveDodge\(\{\s*dodgeTotal: roll\.total/,
+      "the rebuilt dodge card reuses the old verdict");
+    assert.match(blockRepost, /resolveBlock\(\{\s*blockTotal: roll\.total/,
+      "the rebuilt block card reuses the old verdict");
+    for (const [name, body] of [["dodge", dodgeRepost], ["block", blockRepost]]) {
+      assert.doesNotMatch(body, /flags\.(dodged|blocked)/,
+        `${name}: the rebuild reads the stored outcome instead of re-resolving`);
+    }
+  });
+
+  test("the rebuilt card is marked as already rerolled", () => {
+    // Or every reroll button reappears on it and one reroll becomes as many as
+    // the player has patience for — the bug fixed in #48 for skill checks.
+    for (const [name, src] of [["dodge", dodge], ["block", block]]) {
+      assert.match(src, /\.\.\.\(rerolled \? \{ rerolled: true \} : \{\}\)/,
+        `${name}: the rebuilt card does not carry the reroll marker`);
+    }
+  });
+
+  test("and still answers the same attack, so the strike-through survives", () => {
+    for (const [name, src] of [["dodge", dodge], ["block", block]]) {
+      assert.match(src, /sourceMessageId: flags\.blocksMessageId/,
+        `${name}: the rebuilt card forgets which attack it answered, so a ` +
+        "successful reroll would not grey the Damage button");
+    }
+  });
+
+  test("the skill a Dodge names is a real one that grants can be scoped to", () => {
+    assert.ok(LASTARC.allSkills[
+      dodge.match(/DODGE_SKILL = "(\w+)"/)[1]
+    ], "DODGE_SKILL is not a key in allSkills, so no grant could ever match it");
+  });
+});

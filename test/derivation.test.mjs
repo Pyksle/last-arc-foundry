@@ -8,6 +8,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import * as readFs from "node:fs";
 
 import { LASTARC } from "../module/config.mjs";
 import { compareTurnOrder } from "../module/initiative.mjs";
@@ -85,9 +86,56 @@ describe("§2 attribute modifiers", () => {
     assert.equal(attributeModifier(1), -5);
   });
 
-  test("A3: clamp holds the ceiling at +5 for racial caps above 20", () => {
-    assert.equal(attributeModifier(22, true), 5);
-    assert.equal(attributeModifier(22, false), 6);
+  /**
+   * The book's published Attribute Modifiers table, end to end (#51).
+   *
+   * This test used to assert the opposite — that the clamp held the ceiling at
+   * +5 — on a spec note claiming the text spans −5 to +5. The book's own table
+   * does not stop there: it runs to 22-23 → +6, 24-25 → +7, 26-27 → +8, and
+   * creature statblocks reach Str 31. The GM's ruling on #51 is a ceiling of
+   * +10, which is where the published creatures top out.
+   */
+  test("every score in the book's table maps to its printed modifier", () => {
+    const printed = {
+      1: -5, 2: -4, 3: -4, 4: -3, 5: -3, 6: -2, 7: -2, 8: -1, 9: -1,
+      10: 0, 11: 0, 12: 1, 13: 1, 14: 2, 15: 2, 16: 3, 17: 3, 18: 4, 19: 4,
+      20: 5, 21: 5, 22: 6, 23: 6, 24: 7, 25: 7, 26: 8, 27: 8
+    };
+    for (const [score, mod] of Object.entries(printed)) {
+      assert.equal(attributeModifier(Number(score)), mod, `score ${score}`);
+    }
+  });
+
+  test("the ceiling is +10 and the floor −5", () => {
+    assert.equal(attributeModifier(30), 10, "a Str 30 creature hits the ceiling");
+    assert.equal(attributeModifier(31), 10, "and does not pass it");
+    assert.equal(attributeModifier(31, false), 10, "unclamped agrees here");
+    assert.equal(attributeModifier(0), -5);
+    assert.equal(attributeModifier(-4, false), -7, "the raw formula still runs unclamped");
+  });
+
+  /**
+   * BOTH models must honour the setting. `npc.mjs` hardcoded the clamp on, so a
+   * GM who turned it off got unclamped characters and still-clamped monsters —
+   * a setting silently applying to half the actors in a world.
+   */
+  test("neither model hardcodes the clamp", () => {
+    const { readFileSync } = readFs;
+    for (const name of ["character", "npc"]) {
+      /**
+       * Comments stripped, and this failed until they were — for the SECOND
+       * time tonight. The note recording the fix quotes the call it replaced,
+       * so a raw scan reads the explanation as the defect. Any guard that
+       * counts occurrences in a file rather than in the code has this hole.
+       */
+      const src = readFileSync(new URL(`../module/data/${name}.mjs`, import.meta.url), "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, " ")
+        .replace(/(^|[^:])\/\/.*$/gm, "$1 ");
+      assert.doesNotMatch(src, /attributeModifier\([^)]*,\s*true\s*\)/,
+        `${name}.mjs hardcodes the clamp instead of reading the setting`);
+      assert.match(src, /clampAttributeModifier/,
+        `${name}.mjs never consults the setting`);
+    }
   });
 });
 
