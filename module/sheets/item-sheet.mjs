@@ -10,6 +10,7 @@
 import { LASTARC } from "../config.mjs";
 import * as ROWS from "../sheet-rows.mjs";
 import * as D from "../derivation.mjs";
+import * as AMMO from "../ammunition.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -158,7 +159,16 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // ArrayFields of plain strings get one comma-separated box rather than a
     // row-adding widget. They are short, unordered lists of free text, and a
     // full editor for them would cost more clicks than typing.
-    if (item.type === "ammunition") context.fitsText = sys.fits.join(", ");
+    if (item.type === "ammunition") {
+      context.fitsText = sys.fits.join(", ");
+      // Offered on every ammunition item, not only when the world uses the
+      // die. A GM setting up a stack should not have to switch the world
+      // setting on to be able to type into the field the schema declares —
+      // and an unreachable field is the defect this project keeps producing.
+      context.ammoDieOptions = AMMO.AMMO_DIE_STATES.map((value) => ({
+        value, label: `LASTARC.AmmoDie.${value}`
+      }));
+    }
     if (item.type === "race") {
       context.sensesText = sys.senses.join(", ");
       context.languagesText = sys.languages.join(", ");

@@ -32,6 +32,11 @@ import {
 import { situationalOptions } from "../dice/situational.mjs";
 import * as ROWS from "../sheet-rows.mjs";
 import { applyHealing } from "../dice/healing.mjs";
+import * as AMMO from "../ammunition.mjs";
+import {
+  ammoMode, ammoTrackingOn, loadedAmmo, reloadWeapon, reloadCost,
+  recoverableFor, recoverAmmunition, lootAmmunition
+} from "../dice/ammunition.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -59,6 +64,9 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       moveItem: LastArcCharacterSheet.#onMoveItem,
       toggleEquip: LastArcCharacterSheet.#onToggleEquip,
       rollAttack: LastArcCharacterSheet.#onRollAttack,
+      reloadWeapon: LastArcCharacterSheet.#onReloadWeapon,
+      recoverAmmo: LastArcCharacterSheet.#onRecoverAmmo,
+      lootAmmo: LastArcCharacterSheet.#onLootAmmo,
       castSpell: LastArcCharacterSheet.#onCastSpell,
       performItem: LastArcCharacterSheet.#onPerform,
       addPersistent: LastArcCharacterSheet.#onAddPersistent,
@@ -435,7 +443,18 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
         totalBulk: Math.round((item.system.bulk * (item.system.quantity ?? 1)) * 10) / 10,
         equipped: !!item.system.equipped,
         equippable: EQUIPPABLE.has(item.type),
-        broken: item.system.breakGauge?.destroyed
+        broken: item.system.breakGauge?.destroyed,
+        /**
+         * The ammo die and its Loot control, under the die system only.
+         *
+         * Looting is the die system's entire answer to Ammunition Recovery —
+         * "looting ammo increases your die by 1 step" — so it belongs beside
+         * the stack rather than on the end-of-encounter card, which under the
+         * die has nothing to offer.
+         */
+        ammoDie: item.type === "ammunition" && ammoMode() === "die"
+          ? `LASTARC.AmmoDie.${item.system.ammoDie}`
+          : null
       });
     }
 
@@ -465,6 +484,18 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.highArcanaOptions = ROWS.highArcanaOptions((k) => game.i18n.localize(k));
     context.bulkState = sys.bulk.state === "none" ? null : sys.bulk.state;
     context.bulkStateLabel = context.bulkState ? `LASTARC.Status.${context.bulkState}` : null;
+
+    /**
+     * Ammunition Recovery, reachable from the sheet as well as the card.
+     *
+     * The end-of-encounter card is where the table's attention is, but a card
+     * scrolls away and an encounter that ends without one — a fight the GM
+     * never opened a Combat for — would leave the recovery unclaimable. The
+     * button is present exactly while there is something to claim.
+     */
+    context.ammoRecovery = ammoMode() === "units"
+      ? recoverableFor(this.document).map((r) => ({ name: r.item.name, units: r.units }))
+      : [];
   }
 
   /**
@@ -478,6 +509,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
    */
   #prepareAttacks(sys) {
     const out = [];
+    const mode = ammoMode();
 
     // Same manual order as every other panel (issue #9). Iterating the raw
     // collection here would have left the Attacks panel rendering in database
@@ -519,11 +551,65 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
          */
         damageTypeLabels: (item.system.damageType?.length
           ? item.system.damageType
-          : ["blunt"]).map((t) => `LASTARC.DamageType.${t}`)
+          : ["blunt"]).map((t) => `LASTARC.DamageType.${t}`),
+
+        /**
+         * What this weapon is loaded with, when the world tracks ammunition.
+         *
+         * Null when it does not, and the template draws nothing at all — no
+         * greyed control, no empty column. A table that never opted in must not
+         * be able to tell from the sheet that this feature exists.
+         */
+        ammo: this.#attackAmmo(item, mode)
       });
     }
 
     return out;
+  }
+
+  /**
+   * The ammunition readout for one weapon row.
+   *
+   * Deliberately reports EMPTY loudly rather than hiding the row's Attack
+   * button. A crossbow you cannot fire is a thing the player needs to see and
+   * act on — the fix is one click on Reload — where a button that has silently
+   * stopped working reads as the system being broken. Same argument as the
+   * disabled hero-point reroll (#46).
+   */
+  #attackAmmo(weapon, mode) {
+    if (mode === "off" || !AMMO.requiresAmmunition(weapon.system.category)) return null;
+
+    const capacity = weapon.system.capacity ?? null;
+    const { ammoId, count } = loadedAmmo(weapon);
+    const ammo = ammoId ? this.document.items.get(ammoId) : null;
+
+    if (!ammo) {
+      return {
+        empty: true, name: null, capacity,
+        label: capacity == null ? "LASTARC.Ammo.NoQuiver" : "LASTARC.Ammo.Unloaded",
+        reloadLabel: capacity == null ? "LASTARC.Ammo.Select" : "LASTARC.Ammo.Reload"
+      };
+    }
+
+    // Under the die the stack size IS the readout; under counting it is either
+    // the magazine or, for a bow, the quiver behind it.
+    const remaining = mode === "die"
+      ? game.i18n.localize(`LASTARC.AmmoDie.${ammo.system.ammoDie}`)
+      : (capacity == null
+        ? `${ammo.system.quantity ?? 0}`
+        : `${count}/${capacity}`);
+
+    return {
+      empty: capacity != null ? count <= 0 : (mode === "units" && (ammo.system.quantity ?? 0) <= 0),
+      name: ammo.name,
+      capacity,
+      remaining,
+      label: null,
+      reloadLabel: capacity == null ? "LASTARC.Ammo.Select" : "LASTARC.Ammo.Reload",
+      // Named on the button's tooltip so a player finds out that a Severed Arm
+      // has made reloading a primary action BEFORE they spend their turn.
+      slotLabel: capacity == null ? null : `LASTARC.Slot.${reloadCost(this.document)}`
+    };
   }
 
   /** One-line human summary of a technick's numeric payload, for the list row. */
@@ -923,7 +1009,11 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const extra = await situationalOptions(event, {
       rangeBands: isRanged
         ? D.rangeBandsFor(weapon.system.size, { isThrown: false })
-        : null
+        : null,
+      // Only for a weapon that actually eats arrows, in a world that counts
+      // them — which excludes staves, and excludes every table with tracking
+      // switched off.
+      ammoRounds: ammoTrackingOn() && AMMO.requiresAmmunition(weapon.system.category)
     });
     if (extra === null) return;
 
@@ -959,6 +1049,41 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
    * from token distance would silently get the defensive-casting penalty wrong
    * (which is −5 PER threat, so an error compounds).
    */
+  /**
+   * Reload a weapon with capacity, or choose which quiver a bow draws from.
+   *
+   * One button for both, because from the player's side it is one question —
+   * "which arrows am I using?" — and only the cost differs. The dialog says
+   * which it is doing.
+   */
+  static async #onReloadWeapon(event, target) {
+    const weapon = this.document.items.get(target.dataset.itemId);
+    if (!weapon) return;
+    await reloadWeapon(this.document, weapon);
+    this.render();
+  }
+
+  /** Ammunition Recovery — half of what this encounter cost, rounded down. */
+  static async #onRecoverAmmo() {
+    const rows = await recoverAmmunition(this.document);
+    if (!rows.length) {
+      ui.notifications?.info(game.i18n.localize("LASTARC.Ammo.NothingToRecover"));
+      return;
+    }
+    ui.notifications?.info(game.i18n.format("LASTARC.Ammo.Recovered", {
+      summary: rows.map((r) => `${r.item.name} ×${r.units}`).join(", ")
+    }));
+    this.render();
+  }
+
+  /** Looting, under the ammo die: one step up the ladder. */
+  static async #onLootAmmo(event, target) {
+    const item = this.document.items.get(target.dataset.itemId);
+    if (!item) return;
+    await lootAmmunition(item);
+    this.render();
+  }
+
   static async #onCastSpell(event, target) {
     const spell = this.document.items.get(target.dataset.itemId);
     if (!spell) return;

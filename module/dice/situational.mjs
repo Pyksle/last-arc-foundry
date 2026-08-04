@@ -29,7 +29,7 @@
  *   must cancel the roll rather than roll at +0 — a dismissed dialog is "I did
  *   not mean to do that", and rolling anyway spends the moment.
  */
-export async function promptSituational({ title, rangeBands = null } = {}) {
+export async function promptSituational({ title, rangeBands = null, ammoRounds = false } = {}) {
   /**
    * The range band rides in this dialog rather than getting one of its own
    * (issue #36). Every shot is at SOME range, so a dedicated prompt would tax
@@ -52,8 +52,23 @@ export async function promptSituational({ title, rangeBands = null } = {}) {
         </select>
       </label>` : "";
 
+  /**
+   * How many units of ammunition this shot spends (book p.102).
+   *
+   * Rides in the same dialog and for the same reason as the range band: it is
+   * 1 for almost every shot ever fired, so a prompt of its own would tax every
+   * archer's turn to serve Rapid Shot's 2 and Volley's 5. Shown only when the
+   * world tracks ammunition AND the weapon needs it, so a table with tracking
+   * off never sees a box asking about arrows.
+   */
+  const roundsRow = ammoRounds ? `
+      <label>
+        <span>${game.i18n.localize("LASTARC.Ammo.Rounds")}</span>
+        <input type="number" name="rounds" value="1" min="1" step="1">
+      </label>` : "";
+
   const content = `
-    <div class="la-situational">${bandRow}
+    <div class="la-situational">${bandRow}${roundsRow}
       <label>
         <span>${game.i18n.localize("LASTARC.Situational.Value")}</span>
         <input type="number" name="value" value="0"${rangeBands ? "" : " autofocus"}>
@@ -73,7 +88,10 @@ export async function promptSituational({ title, rangeBands = null } = {}) {
       callback: (event, button) => ({
         value: Number(button.form.elements.value.value) || 0,
         note: button.form.elements.note.value.trim(),
-        rangeBand: button.form.elements.rangeBand?.value ?? null
+        rangeBand: button.form.elements.rangeBand?.value ?? null,
+        rounds: button.form.elements.rounds
+          ? Math.max(1, Math.trunc(Number(button.form.elements.rounds.value) || 1))
+          : null
       })
     },
     rejectClose: false
@@ -97,10 +115,10 @@ export async function promptSituational({ title, rangeBands = null } = {}) {
  * Returns null when the prompt was dismissed, which callers must treat as
  * "do not roll".
  */
-export async function situationalOptions(event, { title, rangeBands = null } = {}) {
+export async function situationalOptions(event, { title, rangeBands = null, ammoRounds = false } = {}) {
   if (!event?.altKey) return {};
 
-  const picked = await promptSituational({ title, rangeBands });
+  const picked = await promptSituational({ title, rangeBands, ammoRounds });
   if (!picked) return null;
 
   return {
@@ -108,7 +126,11 @@ export async function situationalOptions(event, { title, rangeBands = null } = {
     // Shown in place of the generic "Situational" label when given, so the card
     // records WHY the number was there and the table can check it later.
     situationalNote: picked.note || null,
-    rangeBand: picked.rangeBand
+    rangeBand: picked.rangeBand,
+    // Omitted rather than defaulted to 1 when the box was not shown: `rollAttack`
+    // already floors it at one, and passing an explicit 1 from a dialog that
+    // never asked would look like a choice the player made.
+    ...(picked.rounds != null ? { rounds: picked.rounds } : {})
   };
 }
 

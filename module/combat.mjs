@@ -516,10 +516,19 @@ export async function rollGroupInitiative(combatants) {
  *
  * @param {Combatant} combatant
  * @param {string} actionKey  Key into AE.ACTIONS.
+ * @param {object} [options]
+ * @param {string} [options.slot] Override the catalogue's slot for this one
+ *   spend. Reload is the reason it exists: the book prices it as a secondary,
+ *   Quick Reload makes it a minor and a Severed Arm makes it a primary, so the
+ *   cost is a property of the CHARACTER and not of the action. Editing
+ *   `ACTIONS.reload` per actor would be a global mutation; passing the answer
+ *   in keeps the catalogue a constant.
  */
-export async function spendAction(combatant, actionKey) {
-  const def = AE.ACTIONS[actionKey];
-  if (!def) throw new Error(`Unknown action: ${actionKey}`);
+export async function spendAction(combatant, actionKey, { slot = null } = {}) {
+  const catalogued = AE.ACTIONS[actionKey];
+  if (!catalogued) throw new Error(`Unknown action: ${actionKey}`);
+
+  const def = slot ? { ...catalogued, slot } : catalogued;
 
   const state = getTurnState(combatant);
   const flatFooted = combatant.actor?.statuses?.has("flatFooted") ?? false;

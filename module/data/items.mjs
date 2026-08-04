@@ -13,6 +13,7 @@
  */
 
 import { LASTARC } from "../config.mjs";
+import * as AMMO from "../ammunition.mjs";
 
 const fields = foundry.data.fields;
 
@@ -720,12 +721,34 @@ export class LastArcAmmunitionData extends PhysicalItemData {
   static defineSchema() {
     return {
       ...commonFields(),
-      ...physicalFields({ bulk: 0.1 }),
+      /**
+       * PER UNIT, and 0.01 rather than 0.1.
+       *
+       * "Every 10 units of ammunition weighs 1/10 bulk" (p.102), and `quantity`
+       * on this item counts arrows, not stacks — a player types 40 because they
+       * have forty arrows, and the sheet multiplies bulk by quantity. At the
+       * old 0.1 a full quiver weighed 4 bulk, the same as two suits of armour,
+       * which is ten times what the book asks and enough to push a character
+       * into the encumbered band on arrows alone.
+       */
+      ...physicalFields({ bulk: 0.01 }),
       /** Weapon categories this ammunition fits. */
       fits: new fields.ArrayField(new fields.StringField(), { initial: ["bows"] }),
       damageBonus: new fields.NumberField({ initial: 0, integer: true }),
       damageType: new fields.StringField({
         initial: "piercing", choices: LASTARC.allDamageTypes
+      }),
+      /**
+       * How much of this stack is left, under the OPTIONAL ammo die (p.102).
+       *
+       * Sits beside `quantity` rather than replacing it because the two systems
+       * are alternatives chosen per world, and a table that switches should not
+       * lose the numbers it had. Whichever is not in play is simply not read;
+       * neither is derived from the other, because the die has no unit count
+       * the rules would let us invent.
+       */
+      ammoDie: new fields.StringField({
+        initial: "d12", choices: AMMO.AMMO_DIE_STATES
       })
     };
   }

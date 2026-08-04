@@ -866,7 +866,17 @@ export function aggregateStatuses(statusIds = []) {
     treatedAsSize: null,
     speedMinimum: 0,
     bonusDamageDice: {},
-    incomingAttackBonus: 0
+    incomingAttackBonus: 0,
+    /**
+     * Steps to move a reload UP the action ladder — a Severed Arm's "increase
+     * the reload action by 1 step" (book p.170).
+     *
+     * `severedArm` has carried `reloadStepIncrease: 1` in the config since the
+     * dismemberment table was transcribed, and until ammunition existed
+     * NOTHING read it. It was the config half of an orphan: a rule written
+     * down, correct, and wired to nothing. `reloadSlot` is the other half.
+     */
+    reloadStepIncrease: 0
   };
 
   for (const id of ids) {
@@ -893,6 +903,7 @@ export function aggregateStatuses(statusIds = []) {
     }
     out.incomingAttackBonus += def.incomingAttackBonus ?? 0;
     out.speedReduction += def.speedReduction ?? 0;
+    out.reloadStepIncrease += def.reloadStepIncrease ?? 0;
 
     out.agiDenied ||= !!def.agiDenied;
     out.noActions ||= !!def.noActions;
