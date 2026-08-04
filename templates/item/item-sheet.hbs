@@ -705,6 +705,14 @@
                  data-tooltip="{{localize 'LASTARC.Tooltip.AmmoFits'}}">
           <label>{{localize "LASTARC.Field.Fits"}}</label>
         </div>
+        <div class="la-field">
+          <select name="system.ammoDie" data-tooltip="{{localize 'LASTARC.Tooltip.AmmoDie'}}">
+            {{#each ammoDieOptions}}
+              <option value="{{this.value}}" {{#if (laeq this.value ../system.ammoDie)}}selected{{/if}}>{{localize this.label}}</option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.AmmoDie"}}</label>
+        </div>
       </div>
     </section>
   {{/if}}

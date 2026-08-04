@@ -93,6 +93,34 @@
     <p class="lastarc-note">{{attackNotes}}</p>
   {{/if}}
 
+  {{!-- What the shot cost. Present only when the world tracks ammunition and
+        the weapon spends it — every other card is unchanged.
+
+        NOTE: the colours here are literal, like the rest of this card. Chat
+        messages render OUTSIDE .last-arc so the palette variables never reach
+        them, and a prefers-color-scheme rule on a .lastarc-* colour is
+        forbidden outright (test/contrast). --}}
+  {{#if ammo}}
+    <p class="lastarc-note lastarc-ammo {{#if ammo.exhausted}}lastarc-ammo--out{{/if}}">
+      {{localize "LASTARC.Ammo.Spent"}}
+      <strong>{{ammo.name}} ×{{ammo.spent}}</strong>
+      {{#if ammo.dieRoll}}
+        · {{localize "LASTARC.Ammo.DieRoll"}} <strong>{{ammo.dieRoll}}</strong>
+        {{#if ammo.shrank}}
+          · {{localize ammo.dieBeforeLabel}} → <strong>{{localize ammo.dieAfterLabel}}</strong>
+        {{else}}
+          · {{localize ammo.dieAfterLabel}}
+        {{/if}}
+      {{else}}
+        {{#if ammo.magazine}}
+          · {{localize "LASTARC.Ammo.Loaded"}} <strong>{{ammo.loaded}}/{{ammo.capacity}}</strong>
+        {{else}}
+          · {{localize "LASTARC.Ammo.Left"}} <strong>{{ammo.remaining}}</strong>
+        {{/if}}
+      {{/if}}
+    </p>
+  {{/if}}
+
   {{#if outcome.hit}}
     {{!-- `hasAttackIndex` is a precomputed boolean, not an inline comparison:
           attack index 0 is legitimate and would test as falsy on its own. --}}

@@ -267,6 +267,17 @@ LASTARC.weaponCategories = [
 LASTARC.rangedWeaponCategories = new Set(["bows", "crossbows", "staves"]);
 
 /**
+ * Categories that spend ammunition (book p.102).
+ *
+ * A STRICT SUBSET of the ranged categories, and deliberately its own list.
+ * "Bows and crossbows require ammunition to attack" — staves sit in the ranged
+ * set, roll at range, and are exempted by name: "staves do not require ammo to
+ * use technicks and abilities such as Rapid Shot". Deriving this from
+ * `rangedWeaponCategories` would jam every wand on an empty quiver.
+ */
+LASTARC.ammunitionCategories = new Set(["bows", "crossbows"]);
+
+/**
  * Ranged groups that add the wielder's Strength to damage (issue #36).
  *
  * Bows "rely on the wielder's strength"; crossbows are defined in the same list
@@ -374,6 +385,16 @@ LASTARC.repeatableTechnicks = [
 LASTARC.technickFlags = [
   "weaponFinesse",        // substitute Agi for Str on light/thrown/unarmed/natural
   "preciseShot",          // negates the -5 for shooting into melee
+  /**
+   * Quick Reload: "you can reload a ranged weapon, with capacity, as a minor
+   * action." One step down the reload ladder — see `reloadSlot`.
+   *
+   * A flag rather than a `grants` entry because what it changes is which action
+   * slot pays, and `grants` only carries numbers added to derived stats. It is
+   * also the mirror of a penalty already in the config: a Severed Arm carries
+   * `reloadStepIncrease`, which moves the same value the other way.
+   */
+  "quickReload",
   /**
    * The Dodge reaction (issue #50): an Acrobatics check that, on beating the
    * incoming attack roll, makes it count as not having beaten your Reflex.

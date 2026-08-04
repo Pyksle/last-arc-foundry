@@ -5,6 +5,50 @@ An unofficial Foundry VTT v13+ implementation of *Last Arc: Tactics Analogue*.
 > **This system ships with empty compendia.** No game content is distributed. See
 > [Content](#content) below.
 
+## Quick deploy
+
+Five minutes, from nothing to a playable world.
+
+1. **Install the system.** In Foundry's setup screen: *Game Systems → Install
+   System*, and paste this into the **Manifest URL** box at the bottom:
+
+   ```
+   https://raw.githubusercontent.com/Pyksle/last-arc-foundry/main/system.json
+   ```
+
+2. **Create a world** with *Last Arc: Tactics Analogue* as its game system, and
+   launch it.
+
+3. **Say yes to the compendium prompt.** On first load a GM is asked whether to
+   create the standard set of **world** compendiums — Races, Classes, Technicks,
+   Talents, Weapons, Armour & Shields, Accessories & Consumables, Spells,
+   Performances, Bestiary. Click yes.
+
+   This matters more than it looks. The system deliberately ships **no packs of
+   its own**, because Foundry replaces the entire system folder on every update
+   and takes anything stored inside it. World compendiums are never touched by a
+   system update. If you dismissed the prompt, tick **Create the Last Arc
+   compendium set** in the system settings, or run
+   `game.lastarc.createWorldCompendiums()` from a macro.
+
+4. **Type your content in.** There is no importer and there will not be one —
+   see [Content](#content). Every panel on the character and NPC sheets has an
+   *Add* row at its foot; clicking it asks for a name and opens the item's sheet
+   so you can enter the numbers your book prints. Drag finished items into the
+   world compendiums to reuse them.
+
+5. **Check the optional rules** under *Game Settings → Configure Settings → Last
+   Arc*. Every documented ambiguity in the book is a switch there with a stated
+   default. The ones most tables want to decide up front are **Ammunition
+   tracking** (off by default) and **Break Threshold uses post-DR damage**.
+
+Updating later is the normal Foundry flow — the manifest URL above always points
+at the current release, so *Update System* finds it.
+
+**Requirements:** Foundry **v13**. Nothing else; no companion modules are
+needed. [Quench](#integration-tests-against-a-headless-foundry) is for
+development only.
+
 ## Status
 
 Playable. Every subsystem below has been driven end to end in a live world, not
@@ -40,18 +84,14 @@ only unit tested.
   how content gets in — see [Content](#content)
 - Manual ordering of every item list, and Second Wind tracked as boxes you tick
   and untick yourself
+- **Ammunition**, off by default and switchable to either of the book's two
+  systems: counted units with end-of-encounter recovery, or the optional ammo
+  die. Crossbow capacity, reloading at the action cost your technicks and
+  injuries dictate, and one ammunition type loaded at a time
 
 Not implemented: a bulk importer for the rulebook (there is no legal source to
 import from), airships (out of scope), and advanced classes / Aeons / optional
 rules, which the demo does not include.
-
-## Install
-
-Paste this manifest URL into Foundry's *Install System* dialog:
-
-```
-https://raw.githubusercontent.com/Pyksle/last-arc-foundry/main/system.json
-```
 
 ## Content
 

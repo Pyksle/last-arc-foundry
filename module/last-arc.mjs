@@ -24,6 +24,9 @@ import { registerCombat, holdTurn, spendAction, resetActions, rollGroupInitiativ
   from "./combat.mjs";
 import * as INIT from "./initiative.mjs";
 import * as AE from "./action-economy.mjs";
+import * as AMMO from "./ammunition.mjs";
+import { AMMO_MODES } from "./ammunition.mjs";
+import { registerAmmunition } from "./dice/ammunition.mjs";
 import { registerQuenchBatches } from "./quench.mjs";
 import { createWorldCompendiums, offerContentSetup, registerContentSettings }
   from "./world-content.mjs";
@@ -54,6 +57,7 @@ Hooks.once("init", () => {
     heroPoints,
     initiative: INIT,
     actionEconomy: AE,
+    ammunition: AMMO,
     holdTurn,
     spendAction,
     resetActions,
@@ -83,6 +87,7 @@ Hooks.once("init", () => {
   registerStatusEffects();
   registerChatListeners();
   registerCombat();
+  registerAmmunition();
 
   // Integration tests. The hook only fires when Quench is installed and active,
   // so a normal user never sees any of this.
@@ -219,6 +224,29 @@ function registerSettings() {
     name: "LASTARC.Setting.breakGaugeAffectsThreshold.name",
     hint: "LASTARC.Setting.breakGaugeAffectsThreshold.hint",
     initial: false
+  });
+
+  /**
+   * Ammunition tracking (book p.102).
+   *
+   * OFF BY DEFAULT, and that is a decision rather than an oversight. The book
+   * presents counting arrows as the assumed rule and the ammo die as its
+   * optional replacement, but tracking either one is bookkeeping a table opts
+   * into. Shipping this switched on would have changed how every existing bow
+   * and crossbow behaves in worlds whose players never asked for it — the
+   * feature would arrive as a bug report about crossbows that will not fire.
+   *
+   * A choice rather than two booleans: the systems are alternatives, not
+   * layers, and two switches would let a table select both and get an
+   * arithmetic no page of the book describes.
+   */
+  game.settings.register(SYSTEM_ID, "ammoTracking", {
+    name: "LASTARC.Setting.ammoTracking.name",
+    hint: "LASTARC.Setting.ammoTracking.hint",
+    scope: "world", config: true, type: String, default: "off",
+    choices: Object.fromEntries(
+      AMMO_MODES.map((m) => [m, `LASTARC.AmmoMode.${m}`])
+    )
   });
 
   // A6 — Combo chaining depth.

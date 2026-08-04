@@ -27,6 +27,8 @@ import * as DODGE from "./dice/dodge.mjs";
 import * as HEAL from "./dice/healing.mjs";
 import * as ORDER from "./item-order.mjs";
 import { effectPanelRows, toggleEffect, deleteEffect } from "./sheets/effect-panel.mjs";
+import * as AMMO from "./ammunition.mjs";
+import * as AMMOSTORE from "./dice/ammunition.mjs";
 
 const SYSTEM_ID = "last-arc";
 
@@ -37,7 +39,27 @@ export function registerQuenchBatches() {
     registerActiveEffectBatch(quench);
     registerSheetBatch(quench);
     registerCombatBatch(quench);
+    registerAmmunitionBatch(quench);
   });
+}
+
+/**
+ * Run a body with the world's ammunition tracking temporarily switched on.
+ *
+ * ALWAYS RESTORED, in a `finally`. This is a WORLD setting: a batch that
+ * aborted midway and left it on would silently change how every bow and
+ * crossbow in the GM's actual world behaves, and the next person to open a
+ * character sheet would find a feature they never enabled. That is a worse
+ * failure mode than any assertion in the batch.
+ */
+async function withAmmoTracking(mode, fn) {
+  const previous = game.settings.get(SYSTEM_ID, "ammoTracking");
+  await game.settings.set(SYSTEM_ID, "ammoTracking", mode);
+  try {
+    return await fn();
+  } finally {
+    await game.settings.set(SYSTEM_ID, "ammoTracking", previous);
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -2381,5 +2403,450 @@ function registerCombatBatch(quench) {
 
     },
     { displayName: "Last Arc — Combat" }
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Ammunition                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Ammunition against live documents (book p.102).
+ *
+ * The node suite proves the arithmetic. What it structurally cannot see is the
+ * half that has already bitten this project twice:
+ *
+ *   - FLAGS MERGE. `setFlag` on an object keeps keys you did not write. That is
+ *     what made Dodge once per COMBAT rather than once per turn (#53), and the
+ *     encounter's ammunition tally is exactly the same shape. A unit test that
+ *     asserts "the new object omits the key" passes while the merge keeps it.
+ *   - A SCHEMA THAT REJECTS ITS OWN STORED VALUE. A document holding a value
+ *     the schema no longer accepts will not open, and nothing offline notices.
+ *
+ * Every test here restores the world's tracking setting in a `finally`.
+ */
+function registerAmmunitionBatch(quench) {
+  quench.registerBatch(
+    `${SYSTEM_ID}.ammunition`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      /** A character with a crossbow, a bow, and two kinds of bolt. */
+      async function withArcher(fn) {
+        return withActor({}, async (pc) => {
+          const [xbow, bow, bolts, other] = await pc.createEmbeddedDocuments("Item", [
+            { name: "ZZ crossbow", type: "weapon",
+              system: { category: "crossbows", capacity: 5, equipped: true } },
+            { name: "ZZ bow", type: "weapon",
+              system: { category: "bows", equipped: true } },
+            { name: "ZZ bolts", type: "ammunition",
+              system: { fits: ["crossbows"], quantity: 20 } },
+            { name: "ZZ black bolts", type: "ammunition",
+              system: { fits: ["crossbows"], quantity: 20 } }
+          ]);
+          // BY NAME, not by position: createEmbeddedDocuments does not
+          // reliably return documents in the order requested, and assuming it
+          // does is what made three combat tests look flaky (#53).
+          const byName = (n) => pc.items.find((i) => i.name === n);
+          return fn(pc, {
+            xbow: byName("ZZ crossbow"), bow: byName("ZZ bow"),
+            bolts: byName("ZZ bolts"), other: byName("ZZ black bolts")
+          });
+        });
+      }
+
+      describe("the setting", function () {
+        it("is registered and defaults to off", function () {
+          const setting = game.settings.settings.get(`${SYSTEM_ID}.ammoTracking`);
+          assert.exists(setting, "ammoTracking is not registered");
+          assert.equal(setting.default, "off",
+            "switching this on by default would change every existing bow and " +
+            "crossbow in worlds that never asked for it");
+        });
+
+        it("offers exactly the three modes, each with a label", function () {
+          const setting = game.settings.settings.get(`${SYSTEM_ID}.ammoTracking`);
+          assert.deepEqual(Object.keys(setting.choices), [...AMMO.AMMO_MODES]);
+          for (const key of Object.values(setting.choices)) {
+            assert.notEqual(game.i18n.localize(key), key, `${key} is untranslated`);
+          }
+        });
+      });
+
+      describe("the ammo die survives the schema", function () {
+        /**
+         * A document holding a value its schema rejects WILL NOT OPEN. The
+         * states below are not all die sizes — "last" and "empty" are stored in
+         * the same field — so a `choices` list built from the ladder alone
+         * would brick any stack that ran low.
+         */
+        it("every state the rules can produce is storable and reads back", async function () {
+          await withActor({}, async (pc) => {
+            for (const state of AMMO.AMMO_DIE_STATES) {
+              const [item] = await pc.createEmbeddedDocuments("Item", [
+                { name: `ZZ ammo ${state}`, type: "ammunition",
+                  system: { ammoDie: state } }
+              ]);
+              assert.equal(item.system.ammoDie, state,
+                `${state} did not survive the schema — a stack in this state ` +
+                "would refuse to open");
+            }
+          });
+        });
+
+        it("shrinking a d4 stores a state the schema accepts", async function () {
+          await withActor({}, async (pc) => {
+            const [item] = await pc.createEmbeddedDocuments("Item", [
+              { name: "ZZ ammo", type: "ammunition", system: { ammoDie: "d4" } }
+            ]);
+            await item.update({ "system.ammoDie": AMMO.shrinkAmmoDie("d4") });
+            assert.equal(item.system.ammoDie, AMMO.AMMO_LAST_PIECE);
+          });
+        });
+      });
+
+      describe("loading a weapon", function () {
+        it("round-trips through the weapon's flag", async function () {
+          await withArcher(async (pc, kit) => {
+            await AMMOSTORE.setLoadedAmmo(kit.xbow, { ammoId: kit.bolts.id, count: 5 });
+            const loaded = AMMOSTORE.loadedAmmo(kit.xbow);
+            assert.equal(loaded.ammoId, kit.bolts.id);
+            assert.equal(loaded.count, 5);
+          });
+        });
+
+        /**
+         * THE MERGE, stated as a test rather than as a comment.
+         *
+         * Every write states both keys precisely because a partial write would
+         * leave the other one standing. Swapping ammunition while writing only
+         * `ammoId` would keep the old magazine count, and the weapon would
+         * report five bolts of a type it does not have loaded.
+         */
+        it("writing a new load replaces BOTH keys, not just the one that changed",
+          async function () {
+            await withArcher(async (pc, kit) => {
+              await AMMOSTORE.setLoadedAmmo(kit.xbow, { ammoId: kit.bolts.id, count: 5 });
+              await AMMOSTORE.setLoadedAmmo(kit.xbow, { ammoId: kit.other.id, count: 0 });
+
+              const loaded = AMMOSTORE.loadedAmmo(kit.xbow);
+              assert.equal(loaded.ammoId, kit.other.id);
+              assert.equal(loaded.count, 0,
+                "the old count survived the write — flags MERGE, so every key " +
+                "has to be stated");
+            });
+          });
+
+        it("a deleted ammunition item reads as nothing loaded, not as a ghost count",
+          async function () {
+            await withArcher(async (pc, kit) => {
+              await AMMOSTORE.setLoadedAmmo(kit.xbow, { ammoId: kit.bolts.id, count: 5 });
+              await kit.bolts.delete();
+
+              const context = AMMOSTORE.ammoContext(pc, kit.xbow);
+              assert.isNull(context.ammoId);
+              assert.equal(context.loaded, 0);
+            });
+          });
+
+        it("only lists ammunition that fits", async function () {
+          await withArcher(async (pc, kit) => {
+            const forBow = AMMOSTORE.ammunitionFor(pc, kit.bow).map((i) => i.name);
+            assert.notInclude(forBow, "ZZ bolts", "bolts do not fit a bow");
+
+            const forXbow = AMMOSTORE.ammunitionFor(pc, kit.xbow).map((i) => i.name);
+            assert.include(forXbow, "ZZ bolts");
+            assert.include(forXbow, "ZZ black bolts");
+          });
+        });
+      });
+
+      describe("firing", function () {
+        it("a loaded crossbow fires and an empty one refuses", async function () {
+          await withAmmoTracking("units", async () => {
+            await withArcher(async (pc, kit) => {
+              await AMMOSTORE.setLoadedAmmo(kit.xbow, { ammoId: kit.bolts.id, count: 1 });
+              assert.isTrue(AMMOSTORE.checkAmmo(pc, kit.xbow).ok);
+
+              const spent = await AMMOSTORE.spendAmmo(pc, kit.xbow, { units: 1 });
+              assert.equal(spent.spent, 1);
+              assert.equal(AMMOSTORE.loadedAmmo(kit.xbow).count, 0);
+
+              const after = AMMOSTORE.checkAmmo(pc, kit.xbow);
+              assert.isFalse(after.ok, "an empty crossbow must not fire");
+              assert.equal(after.reason, "LASTARC.Ammo.NeedsReload");
+            });
+          });
+        });
+
+        it("firing a crossbow does not also drain the pack", async function () {
+          await withAmmoTracking("units", async () => {
+            await withArcher(async (pc, kit) => {
+              await AMMOSTORE.setLoadedAmmo(kit.xbow, { ammoId: kit.bolts.id, count: 5 });
+              const before = kit.bolts.system.quantity;
+
+              await AMMOSTORE.spendAmmo(pc, kit.xbow, { units: 1 });
+
+              assert.equal(kit.bolts.system.quantity, before,
+                "the pack was already charged at reload time; charging it again " +
+                "costs a crossbowman two bolts per shot");
+            });
+          });
+        });
+
+        it("a bow draws straight out of the quiver", async function () {
+          await withAmmoTracking("units", async () => {
+            await withArcher(async (pc, kit) => {
+              const [arrows] = await pc.createEmbeddedDocuments("Item", [
+                { name: "ZZ arrows", type: "ammunition",
+                  system: { fits: ["bows"], quantity: 10 } }
+              ]);
+              await AMMOSTORE.setLoadedAmmo(kit.bow, { ammoId: arrows.id, count: 0 });
+
+              await AMMOSTORE.spendAmmo(pc, kit.bow, { units: 2 });
+              assert.equal(arrows.system.quantity, 8);
+            });
+          });
+        });
+
+        it("a staff is never asked for ammunition, though it is ranged",
+          async function () {
+            await withAmmoTracking("units", async () => {
+              await withActor({}, async (pc) => {
+                const [staff] = await pc.createEmbeddedDocuments("Item", [
+                  { name: "ZZ staff", type: "weapon",
+                    system: { category: "staves", equipped: true } }
+                ]);
+                assert.isTrue(AMMOSTORE.checkAmmo(pc, staff).ok,
+                  "the book exempts staves by name; asking 'is it ranged?' jams " +
+                  "every wand on an empty quiver");
+                assert.isNull(await AMMOSTORE.spendAmmo(pc, staff, { units: 1 }));
+              });
+            });
+          });
+
+        it("tracking off spends nothing and refuses nothing", async function () {
+          await withAmmoTracking("off", async () => {
+            await withArcher(async (pc, kit) => {
+              // Nothing loaded at all, which under tracking would be the
+              // hardest possible refusal.
+              assert.isTrue(AMMOSTORE.checkAmmo(pc, kit.xbow).ok);
+              assert.isNull(await AMMOSTORE.spendAmmo(pc, kit.xbow, { units: 1 }));
+              assert.equal(kit.bolts.system.quantity, 20);
+            });
+          });
+        });
+
+        it("under the die a shot rolls and can shrink the stack", async function () {
+          await withAmmoTracking("die", async () => {
+            await withArcher(async (pc, kit) => {
+              await kit.bolts.update({ "system.ammoDie": "d4" });
+              await AMMOSTORE.setLoadedAmmo(kit.xbow, { ammoId: kit.bolts.id, count: 5 });
+
+              const report = await AMMOSTORE.spendAmmo(pc, kit.xbow, { units: 1 });
+              assert.exists(report.roll, "the ammo die has to actually be rolled");
+              assert.equal(report.roll.formula, "1d4");
+
+              // Whichever way the die fell, the stored state must be one the
+              // schema accepts and must match what the rules say for that roll.
+              const expected = AMMO.consumeAmmoDie({
+                die: "d4", roll: report.roll.total, units: 1
+              }).die;
+              assert.equal(kit.bolts.system.ammoDie, expected);
+              assert.include(AMMO.AMMO_DIE_STATES, kit.bolts.system.ammoDie);
+            });
+          });
+        });
+      });
+
+      describe("reloading", function () {
+        it("costs a secondary action, and a minor with Quick Reload",
+          async function () {
+            await withActor({}, async (pc) => {
+              assert.equal(AMMOSTORE.reloadCost(pc), "secondary");
+
+              await pc.createEmbeddedDocuments("Item", [
+                { name: "ZZ quick", type: "technick", system: { flags: ["quickReload"] } }
+              ]);
+              assert.equal(AMMOSTORE.reloadCost(pc), "minor");
+            });
+          });
+
+        /**
+         * The status half of the ladder, read off a LIVE actor. `severedArm`
+         * has carried `reloadStepIncrease` in the config since the
+         * dismemberment table was transcribed and nothing read it until now.
+         */
+        it("a severed arm makes it a primary action", async function () {
+          await withActor({}, async (pc) => {
+            await pc.toggleStatusEffect("severedArm", { active: true });
+            assert.isTrue(pc.statuses.has("severedArm"));
+            assert.equal(AMMOSTORE.reloadCost(pc), "primary");
+          });
+        });
+
+        it("a switched-off technick does not grant Quick Reload", async function () {
+          await withActor({}, async (pc) => {
+            await pc.createEmbeddedDocuments("Item", [
+              { name: "ZZ quick", type: "technick",
+                system: { flags: ["quickReload"], active: false } }
+            ]);
+            assert.equal(AMMOSTORE.reloadCost(pc), "secondary");
+          });
+        });
+      });
+
+      describe("recovery", function () {
+        it("hands back half of each type, rounded down", async function () {
+          await withAmmoTracking("units", async () => {
+            await withArcher(async (pc, kit) => {
+              await pc.setFlag(SYSTEM_ID, "ammoSpent", {
+                [kit.bolts.id]: 6, [kit.other.id]: 3
+              });
+
+              const before = { bolts: kit.bolts.system.quantity,
+                other: kit.other.system.quantity };
+              await AMMOSTORE.recoverAmmunition(pc);
+
+              assert.equal(kit.bolts.system.quantity, before.bolts + 3);
+              assert.equal(kit.other.system.quantity, before.other + 1,
+                "each type is halved separately — halving the total would hand " +
+                "back four of one type");
+            });
+          });
+        });
+
+        /**
+         * THE #53 MERGE, one layer down and against a real document.
+         *
+         * `setFlag(..., {})` over `{abc: 6}` leaves `{abc: 6}` standing, so the
+         * recovery would be claimable again after every subsequent encounter,
+         * compounding forever. The unit test cannot see this: it asserts on
+         * source text, and only a live document proves the clear took.
+         */
+        it("the encounter tally is genuinely cleared, not merged over",
+          async function () {
+            await withAmmoTracking("units", async () => {
+              await withArcher(async (pc, kit) => {
+                await pc.setFlag(SYSTEM_ID, "ammoSpent", { [kit.bolts.id]: 6 });
+                await AMMOSTORE.recoverAmmunition(pc);
+
+                assert.isEmpty(AMMOSTORE.ammoSpentBy(pc),
+                  "the tally survived the clear — flags merge, so it has to be " +
+                  "unset rather than overwritten");
+
+                const again = await AMMOSTORE.recoverAmmunition(pc);
+                assert.isEmpty(again, "a second claim must hand back nothing");
+              });
+            });
+          });
+
+        it("firing records the spend that recovery reads", async function () {
+          await withAmmoTracking("units", async () => {
+            await withArcher(async (pc, kit) => {
+              await AMMOSTORE.setLoadedAmmo(kit.xbow, { ammoId: kit.bolts.id, count: 5 });
+              await AMMOSTORE.spendAmmo(pc, kit.xbow, { units: 1 });
+              await AMMOSTORE.spendAmmo(pc, kit.xbow, { units: 2 });
+
+              assert.equal(AMMOSTORE.ammoSpentBy(pc)[kit.bolts.id], 3,
+                "the tally has to ACCUMULATE; a plain write would keep only the " +
+                "last shot");
+            });
+          });
+        });
+
+        it("spend against deleted ammunition recovers nothing rather than throwing",
+          async function () {
+            await withAmmoTracking("units", async () => {
+              await withArcher(async (pc, kit) => {
+                const id = kit.bolts.id;
+                await pc.setFlag(SYSTEM_ID, "ammoSpent", { [id]: 6 });
+                await kit.bolts.delete();
+
+                const rows = await AMMOSTORE.recoverAmmunition(pc);
+                assert.isEmpty(rows);
+              });
+            });
+          });
+
+        it("under the die nothing is tallied, because looting replaces recovery",
+          async function () {
+            await withAmmoTracking("die", async () => {
+              await withArcher(async (pc, kit) => {
+                await AMMOSTORE.setLoadedAmmo(kit.xbow, { ammoId: kit.bolts.id, count: 5 });
+                await AMMOSTORE.spendAmmo(pc, kit.xbow, { units: 1 });
+
+                assert.isEmpty(AMMOSTORE.ammoSpentBy(pc),
+                  "a Recover button under the die could only ever offer zero");
+              });
+            });
+          });
+
+        it("looting steps a real stack up and stops at d12", async function () {
+          await withArcher(async (pc, kit) => {
+            await kit.bolts.update({ "system.ammoDie": "d10" });
+            await AMMOSTORE.lootAmmunition(kit.bolts);
+            assert.equal(kit.bolts.system.ammoDie, "d12");
+
+            await AMMOSTORE.lootAmmunition(kit.bolts);
+            assert.equal(kit.bolts.system.ammoDie, "d12", "a full stack cannot go higher");
+          });
+        });
+      });
+
+      describe("the attack pipeline", function () {
+        it("refuses a dry crossbow WITHOUT rolling or posting a card",
+          async function () {
+            await withAmmoTracking("units", async () => {
+              await withArcher(async (pc, kit) => {
+                const before = game.messages.size;
+                const result = await ATK.rollAttack(pc, kit.xbow);
+
+                assert.isNull(result, "an unloaded crossbow must not roll");
+                assert.equal(game.messages.size, before,
+                  "a refused shot must not leave a card behind");
+              });
+            });
+          });
+
+        it("a loaded crossbow rolls, posts, and comes back a round lighter",
+          async function () {
+            await withAmmoTracking("units", async () => {
+              await withArcher(async (pc, kit) => {
+                await AMMOSTORE.setLoadedAmmo(kit.xbow, { ammoId: kit.bolts.id, count: 5 });
+
+                const result = await ATK.rollAttack(pc, kit.xbow);
+                try {
+                  assert.exists(result, "a loaded crossbow should fire");
+                  assert.equal(result.ammo.spent, 1);
+                  assert.equal(AMMOSTORE.loadedAmmo(kit.xbow).count, 4);
+
+                  const card = game.messages.contents.at(-1);
+                  assert.include(card.content, "ZZ bolts",
+                    "the card should say what the shot cost");
+                } finally {
+                  await game.messages.contents.at(-1)?.delete();
+                }
+              });
+            });
+          });
+
+        it("with tracking off the same crossbow fires with nothing loaded",
+          async function () {
+            await withAmmoTracking("off", async () => {
+              await withArcher(async (pc, kit) => {
+                const result = await ATK.rollAttack(pc, kit.xbow);
+                try {
+                  assert.exists(result, "an opted-out table must be unaffected");
+                  assert.isNull(result.ammo);
+                } finally {
+                  await game.messages.contents.at(-1)?.delete();
+                }
+              });
+            });
+          });
+      });
+    },
+    { displayName: "Last Arc — Ammunition" }
   );
 }

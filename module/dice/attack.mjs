@@ -13,6 +13,7 @@ import { describeCheck } from "./breakdown.mjs";
 import { situationalLabel } from "./situational.mjs";
 import * as DT from "./damage-type.mjs";
 import { rollCheckD20 } from "./d20.mjs";
+import { checkAmmo, spendAmmo } from "./ammunition.mjs";
 
 /* -------------------------------------------------------------------------- */
 /*  Attack resolution — pure                                                   */
@@ -429,6 +430,34 @@ export async function rollAttack(actor, weapon, options = {}) {
     throw new Error(`Actor has no "${skillKey}" skill for a ${wield} attack.`);
   }
 
+  /**
+   * Ammunition, BEFORE the dice (book p.102).
+   *
+   * Gated here rather than in the two sheets that call this, for the reason
+   * this file already learned the hard way with `targetConditions`: one rule
+   * with two call sites gets wired at one of them. An empty crossbow that
+   * fires anyway is not a cosmetic bug — it is the whole feature absent while
+   * appearing present.
+   *
+   * `rounds` is how many units the shot costs, and it is asked rather than
+   * inferred. Rapid Shot spends 2, Volley 5, Decoy Shot 1, and the Pinaka
+   * reduces Rapid Shot's to 1 for 2 MP — none of which the system can tell
+   * from an attack click, because none of them is a mode the character is in.
+   * Same reasoning as the situational box: the player states it, the system
+   * does the arithmetic and shows its work.
+   *
+   * Silently free when tracking is off, which is the default, so nothing below
+   * costs a table that never opted in anything at all.
+   */
+  const rounds = Math.max(1, Math.trunc(Number(options.rounds) || 1));
+  const ammo = checkAmmo(actor, weapon, { units: rounds });
+  if (!ammo.ok) {
+    ui.notifications?.warn(
+      game.i18n.format(ammo.reason, { weapon: weapon.name, count: rounds })
+    );
+    return null;
+  }
+
   const mods = attackModifiers({
     skillMod: profile.skillMod,
     weaponAtkBonus: weapon.system.atkBonus ?? 0,
@@ -451,10 +480,21 @@ export async function rollAttack(actor, weapon, options = {}) {
     isCharge: !!options.isCharge
   });
 
+  /**
+   * Spent AFTER the d20, so the card can report both in one place.
+   *
+   * The order is not mechanically significant — `checkAmmo` above already
+   * guaranteed the shot is payable — but the spend can itself roll dice (the
+   * ammo die), and rolling those before the attack would put them in the log
+   * ahead of the shot they belong to.
+   */
+  const ammoSpent = await spendAmmo(actor, weapon, { units: rounds });
+
   await postAttackCard({
-    actor, weapon, roll, mods, outcome, options, wield, isMelee, discardedNatural
+    actor, weapon, roll, mods, outcome, options, wield, isMelee, discardedNatural,
+    ammo: ammoSpent
   });
-  return { roll, mods, outcome, wield, skillKey, isMelee };
+  return { roll, mods, outcome, wield, skillKey, isMelee, ammo: ammoSpent };
 }
 
 /**
@@ -901,7 +941,8 @@ export async function repostAttackAfterReroll(actor, flags, roll) {
 
 async function postAttackCard({
   actor, weapon, attack, attackIndex = null, roll, mods, outcome, options,
-  wield = null, isMelee = null, discardedNatural = null, rerolled = false
+  wield = null, isMelee = null, discardedNatural = null, rerolled = false,
+  ammo = null
 }) {
   const isNpc = attack != null;
 
@@ -951,7 +992,25 @@ async function postAttackCard({
         ? (attack.isMelee ? (attack.reach || null) : (attack.range || null))
         : null,
       reachLabel: isNpc && attack.isMelee ? "LASTARC.Field.Reach" : "LASTARC.Field.Range",
-      attackNotes: isNpc ? (attack.notes || null) : null
+      attackNotes: isNpc ? (attack.notes || null) : null,
+
+      /**
+       * What the shot cost, when anything did.
+       *
+       * The ammo die's own roll is rendered as text rather than pushed into
+       * `rolls`. Everything that offers a reroll on this card reads
+       * `message.rolls[0]`, and the hero-point path REPLACES the roll array —
+       * so a second roll riding along would either be lost on a reroll or,
+       * worse, become the one a reroll operated on.
+       */
+      ammo: ammo ? {
+        ...ammo,
+        dieRoll: ammo.roll?.total ?? null,
+        dieBeforeLabel: `LASTARC.AmmoDie.${ammo.dieBefore}`,
+        dieAfterLabel: `LASTARC.AmmoDie.${ammo.dieAfter}`,
+        // A magazine reads "4/15"; a quiver reads a bare count.
+        magazine: ammo.capacity != null
+      } : null
     }
   );
 

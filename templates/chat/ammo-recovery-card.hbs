@@ -1,0 +1,33 @@
+{{!-- Ammunition Recovery, offered when an encounter ends (book p.102).
+
+      An OFFER, not a grant. The book says a player "may immediately recover"
+      half of what they spent, and whether the arrows are retrievable at all is
+      a ruling — shots into a river, or into something that ran off, are gone.
+      So the card states the arithmetic and waits to be clicked.
+
+      One card for the whole table rather than one per player, because the
+      recovery happens at a single moment and a four-player fight would
+      otherwise end in four near-identical cards. Each row's button checks
+      ownership when clicked; a player can claim their own and a GM anyone's. --}}
+<div class="lastarc-card lastarc-card--ammo">
+
+  <header class="lastarc-card__head">
+    <div class="lastarc-card__title">
+      <span class="lastarc-card__weapon">{{localize "LASTARC.Ammo.RecoveryTitle"}}</span>
+      <span class="lastarc-card__sub">{{localize "LASTARC.Ammo.RecoverySub"}}</span>
+    </div>
+  </header>
+
+  {{#each rows}}
+    <div class="lastarc-ammo-row">
+      <span class="lastarc-ammo-row__name">{{this.name}}</span>
+      <span class="lastarc-ammo-row__items">
+        {{~#each this.items}}{{#unless @first}}, {{/unless}}{{this.name}} ×{{this.units}}{{/each~}}
+      </span>
+      <button type="button" data-action="lastarcRecoverAmmo" data-actor-id="{{this.actorId}}">
+        {{localize "LASTARC.Ammo.Recover"}}
+      </button>
+    </div>
+  {{/each}}
+
+</div>

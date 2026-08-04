@@ -550,6 +550,26 @@
           <span class="la-attack__type">
             {{~#each this.damageTypeLabels}}{{#unless @first}} / {{/unless}}{{localize this}}{{/each~}}
           </span>
+
+          {{!-- Ammunition. Absent entirely unless the world tracks it, so a
+                table that never opted in sees the row exactly as before. An
+                empty weapon is marked rather than hidden — the Attack button
+                will refuse, and the player needs to see why before they click
+                it, not after. --}}
+          {{#if this.ammo}}
+            <span class="la-attack__ammo {{#if this.ammo.empty}}is-empty{{/if}}">
+              {{#if this.ammo.name}}
+                {{this.ammo.name}} <strong>{{this.ammo.remaining}}</strong>
+              {{else}}
+                {{localize this.ammo.label}}
+              {{/if}}
+            </span>
+            <button type="button" class="la-attack__reload" data-action="reloadWeapon"
+                    data-item-id="{{this.id}}"
+                    data-tooltip="{{#if this.ammo.slotLabel}}{{localize this.ammo.slotLabel}}{{else}}{{localize 'LASTARC.Ammo.SelectHint'}}{{/if}}">
+              {{localize this.ammo.reloadLabel}}
+            </button>
+          {{/if}}
         </div>
       {{else}}
         <p class="la-note">{{localize "LASTARC.Note.NoWeapons"}}</p>
@@ -760,6 +780,16 @@
           <span class="la-item__type">{{this.typeLabel}}</span>
           <span class="la-item__bulk">{{this.totalBulk}}</span>
           {{#if this.quantity}}<span class="la-item__qty">×{{this.quantity}}</span>{{/if}}
+          {{!-- Under the ammo die the stack is a die, not a count, and looting
+                is the only way it goes back up. --}}
+          {{#if this.ammoDie}}
+            <span class="la-item__ammodie">{{localize this.ammoDie}}</span>
+            <button type="button" class="la-item__loot" data-action="lootAmmo"
+                    data-item-id="{{this.id}}"
+                    data-tooltip="{{localize 'LASTARC.Ammo.LootHint'}}">
+              {{localize "LASTARC.Ammo.Loot"}}
+            </button>
+          {{/if}}
           {{#if this.equippable}}
             <button type="button" class="la-item__equip" data-action="toggleEquip"
                     data-item-id="{{this.id}}"
@@ -777,6 +807,21 @@
         <p class="la-note">{{localize "LASTARC.Note.NoItems"}}</p>
       {{/each}}
     </div>
+
+    {{!-- Ammunition Recovery (book p.102). Present only while there is
+          something to claim, so it is not a permanent button that usually does
+          nothing. The end-of-encounter card offers the same thing; this is the
+          path for a fight that never had a Combat opened for it. --}}
+    {{#if ammoRecovery.length}}
+      <div class="la-ammo-recovery">
+        <span>{{localize "LASTARC.Ammo.RecoverAvailable"}}
+          {{~#each ammoRecovery}} {{this.name}} ×{{this.units}}{{#unless @last}},{{/unless}}{{/each}}</span>
+        <button type="button" data-action="recoverAmmo"
+                data-tooltip="{{localize 'LASTARC.Ammo.RecoverHint'}}">
+          {{localize "LASTARC.Ammo.Recover"}}
+        </button>
+      </div>
+    {{/if}}
 
     <button type="button" class="la-panel__add" data-action="createItem" data-group="inventory"
             data-tooltip="{{localize 'LASTARC.Tooltip.CreateItem'}}">

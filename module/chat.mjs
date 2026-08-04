@@ -21,6 +21,7 @@ import { rollBlock, canBlock, repostBlockAfterReroll } from "./dice/block.mjs";
 import { rollDodge, canDodge, repostDodgeAfterReroll } from "./dice/dodge.mjs";
 import { describeDamage } from "./dice/breakdown.mjs";
 import { applyPerformanceEffect } from "./effects.mjs";
+import { recoverAmmunition } from "./dice/ammunition.mjs";
 
 export function registerChatListeners() {
   Hooks.on("renderChatMessageHTML", (message, element) => {
@@ -409,6 +410,7 @@ async function onChatAction(event, message) {
       case "lastarcBlock": return await onBlock(button, message);
       case "lastarcDodge": return await onDodge(button, message);
       case "lastarcApplyPerformance": return await onApplyPerformance(message);
+      case "lastarcRecoverAmmo": return await onRecoverAmmo(button);
     }
   } catch (err) {
     console.error("Last Arc | Chat action failed", err);
@@ -678,6 +680,36 @@ async function onComboAttack(button, message) {
  * they aimed at, and "whatever happens to be selected" is how the wrong four
  * people get a bonus.
  */
+/**
+ * Claim Ammunition Recovery from the end-of-encounter card.
+ *
+ * Ownership is checked HERE rather than by hiding the button, so a player who
+ * clicks someone else's row is told why nothing happened. The card is one
+ * message for the whole table; drawing a different set of buttons per viewer
+ * would mean re-rendering it per client for no gain.
+ */
+async function onRecoverAmmo(button) {
+  const actor = game.actors.get(button.dataset.actorId);
+  if (!actor) return;
+
+  if (!actor.isOwner) {
+    ui.notifications?.warn(game.i18n.format("LASTARC.Ammo.NotYours", { name: actor.name }));
+    return;
+  }
+
+  const rows = await recoverAmmunition(actor);
+  if (!rows.length) {
+    // Already claimed — the tally is cleared by the first click, and the card
+    // stays on screen afterwards because chat messages do not re-render.
+    ui.notifications?.info(game.i18n.localize("LASTARC.Ammo.NothingToRecover"));
+    return;
+  }
+
+  ui.notifications?.info(game.i18n.format("LASTARC.Ammo.Recovered", {
+    summary: rows.map((r) => `${r.item.name} ×${r.units}`).join(", ")
+  }));
+}
+
 async function onApplyPerformance(message) {
   const flags = message.flags?.["last-arc"] ?? {};
   const riders = flags.effectRiders ?? [];

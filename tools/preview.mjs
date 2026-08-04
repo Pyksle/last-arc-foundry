@@ -23,6 +23,7 @@ import { LASTARC } from "../module/config.mjs";
 import * as D from "../module/derivation.mjs";
 import * as ROWS from "../module/sheet-rows.mjs";
 import { effectRows } from "../module/effects.mjs";
+import * as AMMO from "../module/ammunition.mjs";
 
 export const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const lang = JSON.parse(readFileSync(join(root, "lang/en.json"), "utf8"));
@@ -335,7 +336,22 @@ export function buildContext() {
         atkTotal: 4, damage: "1d12", damageFlat: 8, damageTypeLabel: "LASTARC.DamageType.slashing" },
       { id: "w3", name: "Siege Maul", img: "", unusable: true,
         wieldLabel: "LASTARC.Derived.Unusable", wieldTooltip: "LASTARC.Tooltip.WeaponUnusable",
-        atkTotal: 0, damage: "3d10", damageFlat: 0, damageTypeLabel: "LASTARC.DamageType.blunt" }
+        atkTotal: 0, damage: "3d10", damageFlat: 0, damageTypeLabel: "LASTARC.DamageType.blunt" },
+      /**
+       * Two ammunition states, so BOTH branches of the ammo readout are in the
+       * render rather than being conditionals the preview never enters: a
+       * loaded magazine, and a weapon with nothing chosen at all.
+       */
+      { id: "w4", name: "ZZ crossbow", img: "", unusable: false,
+        wieldLabel: "LASTARC.Skill.ranged", wieldTooltip: "LASTARC.Tooltip.WieldDerived",
+        atkTotal: 5, damage: "2d8", damageFlat: 0, damageTypeLabel: "LASTARC.DamageType.piercing",
+        ammo: { empty: false, name: "ZZ bolts", capacity: 15, remaining: "4/15",
+          label: null, reloadLabel: "LASTARC.Ammo.Reload", slotLabel: "LASTARC.Slot.secondary" } },
+      { id: "w5", name: "ZZ bow", img: "", unusable: false,
+        wieldLabel: "LASTARC.Skill.ranged", wieldTooltip: "LASTARC.Tooltip.WieldDerived",
+        atkTotal: 5, damage: "1d10", damageFlat: 3, damageTypeLabel: "LASTARC.DamageType.piercing",
+        ammo: { empty: true, name: null, capacity: null,
+          label: "LASTARC.Ammo.NoQuiver", reloadLabel: "LASTARC.Ammo.Select", slotLabel: null } }
     ],
 
     // Two technicks: one whose prerequisites hold, one whose do not, so the
@@ -357,10 +373,18 @@ export function buildContext() {
       { id: "i3", name: "Cracked Buckler", img: "", typeLabel: "Shield", quantity: null,
         totalBulk: 1, equipped: false, equippable: true, broken: true },
       { id: "i4", name: "Potion of Mending", img: "", typeLabel: "Consumable", quantity: 4,
-        totalBulk: 0.4, equipped: false, equippable: false, broken: false }
+        totalBulk: 0.4, equipped: false, equippable: false, broken: false },
+      // Carries the ammo die, so the die readout and its Loot button are in the
+      // render rather than being a branch nobody sees until a world switches
+      // the optional rule on.
+      { id: "i5", name: "ZZ bolts", img: "", typeLabel: "Ammunition", quantity: 30,
+        totalBulk: 0.3, equipped: false, equippable: false, broken: false,
+        ammoDie: "LASTARC.AmmoDie.d8" }
     ],
     bulkState: "encumbered",
     bulkStateLabel: "LASTARC.Status.encumbered",
+    /** Something to claim, so the recovery strip renders. */
+    ammoRecovery: [{ name: "ZZ bolts", units: 3 }],
     /**
      * These three were ABSENT, so the Proficiencies and Statuses panels
      * rendered as empty boxes in every preview ever taken. That is the harness
@@ -527,6 +551,12 @@ export function itemContext(type) {
     strMultiplier: 1,
     decayText: "",
     fitsText: "",
+    // From the real state list, not stubbed as `[]` — an empty stub renders an
+    // empty dropdown, which is exactly the lie the reachable-choices guard
+    // exists to catch.
+    ammoDieOptions: AMMO.AMMO_DIE_STATES.map((value) => ({
+      value, label: `LASTARC.AmmoDie.${value}`
+    })),
     featuresText: "",
     sensesText: "",
     languagesText: "",

@@ -261,7 +261,11 @@ describe("no decoy technick flags", () => {
                    // The study flags are counted during derivation rather than
                    // tested for in a dice pipeline — they gate how many spells
                    // and performances may be known, not a roll.
-                   "module/data/character.mjs"].map(read).join("\n");
+                   "module/data/character.mjs",
+                   // Quick Reload changes which action slot pays for a reload
+                   // rather than modifying any roll, so it is read where
+                   // reloading lives.
+                   "module/dice/ammunition.mjs"].map(read).join("\n");
 
   test("every flag in the picker is read by the rules engine", () => {
     const decoys = LASTARC.technickFlags.filter((f) => !readers.includes(`"${f}"`));

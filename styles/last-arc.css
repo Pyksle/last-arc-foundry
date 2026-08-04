@@ -1717,8 +1717,12 @@
 
 .la-attack {
   display: grid;
-  /* order · img · name · wield · bonus · damage · type */
-  grid-template-columns: auto 1.5rem minmax(6rem, 1fr) auto 2.6rem auto auto;
+  /* order · img · name · wield · bonus · damage · type · ammo · reload
+     The last two are declared even though most rows have neither: `auto`
+     collapses an empty column to nothing, where leaving them out of the
+     template would push the ammo readout onto an implicit SECOND ROW and
+     shred the grid for every archer. */
+  grid-template-columns: auto 1.5rem minmax(6rem, 1fr) auto 2.6rem auto auto auto auto;
   align-items: center;
   gap: 0.5rem;
   padding: 0.2rem 0.3rem;
@@ -1771,6 +1775,73 @@
   line-height: 1.1;
 }
 .la-attack__damage { font-family: var(--la-font-num); font-size: 0.85rem; white-space: nowrap; }
+
+/* -- Ammunition on the attack row -------------------------------------------
+   Only rendered when the world tracks it. Empty is stated in oxblood rather
+   than by dimming the row: the Attack button will refuse the shot, and the
+   player has to be able to see WHY before clicking, not after. */
+.la-attack__ammo {
+  font-size: 0.6rem;
+  color: var(--la-ink-faint);
+  white-space: nowrap;
+}
+.la-attack__ammo strong { font-family: var(--la-font-num); color: var(--la-ink); }
+.la-attack__ammo.is-empty,
+.la-attack__ammo.is-empty strong { color: var(--la-oxblood); }
+
+.la-attack__reload,
+.la-item__loot {
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--la-rule) 70%, transparent);
+  border-radius: 999px;
+  color: var(--la-ink-faint);
+  font-family: var(--la-font-body);
+  font-size: 0.56rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.05rem 0.45rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.la-attack__reload:hover,
+.la-item__loot:hover { color: var(--la-bronze); border-color: var(--la-bronze); }
+
+.la-item__ammodie {
+  font-family: var(--la-font-num);
+  font-size: 0.62rem;
+  color: var(--la-ink-faint);
+  flex: 0 0 auto;
+}
+
+/* The recovery strip. Present only while there is something to claim, so it
+   reads as a prompt rather than as furniture. */
+.la-ammo-recovery {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.7rem;
+  color: var(--la-ink);
+  border: 1px solid color-mix(in srgb, var(--la-bronze) 55%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--la-bronze) 10%, transparent);
+}
+.la-ammo-recovery button {
+  background: none;
+  border: 1px solid var(--la-bronze);
+  border-radius: 999px;
+  color: var(--la-bronze);
+  font-family: var(--la-font-body);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.6rem;
+  cursor: pointer;
+  margin-left: auto;
+}
+
 .la-attack.is-unusable { opacity: 0.55; }
 .la-attack.is-unusable .la-attack__wield { color: var(--la-oxblood); border-color: var(--la-oxblood); }
 
@@ -2048,6 +2119,44 @@
 }
 .lastarc-rider--combo { color: #544015; background: rgba(176, 141, 79, 0.24); }
 .lastarc-rider--crit { color: #6b1c1c; background: rgba(176, 74, 74, 0.24); }
+
+/* -- Ammunition on the attack card -------------------------------------------
+   LITERAL HEX, chosen against the card's cream (#f5f0e4). A chat message is a
+   piece of paper, not a themed surface: it renders outside `.last-arc`, so the
+   palette variables never reach it, and a prefers-color-scheme rule on a
+   `.lastarc-*` colour is forbidden outright (test/contrast). */
+.lastarc-ammo { color: #4a4034; font-size: 0.72rem; }
+.lastarc-ammo strong { color: #1c1815; }
+.lastarc-ammo--out,
+.lastarc-ammo--out strong { color: #6b1c1c; }
+
+.lastarc-ammo-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  padding: 0.25rem 0;
+  border-top: 1px solid #d8ceb8;
+  font-size: 0.76rem;
+  color: #1c1815;
+}
+.lastarc-ammo-row__name { font-weight: 700; }
+.lastarc-ammo-row__items { color: #4a4034; }
+.lastarc-ammo-row button {
+  margin-left: auto;
+  background: rgba(176, 141, 79, 0.24);
+  border: 1px solid #8a6f3c;
+  border-radius: 999px;
+  color: #544015;
+  font-family: inherit;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.6rem;
+  cursor: pointer;
+  width: auto;
+  line-height: 1.6;
+}
 
 /* Deliberately prominent. The most likely rules error in this whole pipeline is
    treating an automatic hit as unblockable — Block and Dodge are opposed
