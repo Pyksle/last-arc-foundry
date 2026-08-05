@@ -490,8 +490,10 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     await this.document.update({ "system.skills": skills.filter((_, i) => i !== index) });
   }
 
+  // The event is passed through for its `altKey`, which marks the creature
+  // immune to the condition instead of applying it (#58).
   static async #onToggleStatus(event, target) {
-    await toggleStatus(this, target);
+    await toggleStatus(this, target, event);
   }
 
   static async #onAddDrop(event, target) {

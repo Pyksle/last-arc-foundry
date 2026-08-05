@@ -20,6 +20,7 @@ import { explodeDice, rollExplodingDice } from "./dice/explode.mjs";
 import * as heroPoints from "./dice/hero-points.mjs";
 import { registerChatListeners } from "./chat.mjs";
 import { warnUnsupportedTargets } from "./effects.mjs";
+import { guardStatusImmunity } from "./status-guard.mjs";
 import { registerCombat, holdTurn, spendAction, resetActions, rollGroupInitiative }
   from "./combat.mjs";
 import * as INIT from "./initiative.mjs";
@@ -142,7 +143,20 @@ function registerTokenDefaults() {
  * second edit as the first.
  */
 function registerEffectGuards() {
-  Hooks.on("preCreateActiveEffect", (effect) => warnUnsupportedTargets(effect));
+  Hooks.on("preCreateActiveEffect", (effect) => {
+    /**
+     * Condition immunity is checked FIRST and can cancel the creation outright
+     * (#58). Every route a status takes onto an actor — the token HUD, the
+     * sheet palette, `toggleStatusEffect`, a spell rider, a macro — ends here,
+     * which is why the rule lives at this one point rather than at the six call
+     * sites this system happens to own.
+     *
+     * Returning false from any listener cancels, so the warning below is
+     * skipped for a refused effect: it will not exist to have bad targets.
+     */
+    if (guardStatusImmunity(effect) === false) return false;
+    return warnUnsupportedTargets(effect);
+  });
   Hooks.on("preUpdateActiveEffect", (effect, changed) => {
     // `changed` carries the incoming edit; fall back to the stored effect when
     // the update does not touch `changes` at all.

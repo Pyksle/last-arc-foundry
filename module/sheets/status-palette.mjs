@@ -13,6 +13,7 @@
  * and the point of the exercise is that there is exactly one.
  */
 import { LASTARC } from "../config.mjs";
+import { readStatusImmunities, toggleStatusImmunity } from "../status-guard.mjs";
 
 /**
  * How many effects on this actor carry each status id.
@@ -42,10 +43,29 @@ function statusCounts(actor) {
 }
 
 /** Rows for one group of ids, marked with whether the actor currently has each. */
-function paletteRows(actor, ids, counts) {
+function paletteRows(actor, ids, counts, immunities = []) {
+  const immune = new Set(immunities);
   return ids.map((id) => ({
     id,
     active: (counts.get(id) ?? 0) > 0,
+    /**
+     * Immune to the CONDITION (#58), which is a different claim from immune to
+     * a damage type. Nothing may apply this one — see the create hook in
+     * `last-arc.mjs`, which is where the rule is enforced for the token HUD and
+     * macros as well as for this palette.
+     */
+    immune: immune.has(id),
+    /**
+     * The tooltip carries the gesture, because alt+click is invisible
+     * otherwise. Built here rather than in the template so the three states —
+     * plain, immune, and "you can make it immune" — are one decision with one
+     * set of lang keys instead of a nest of `{{#if}}` in two places.
+     */
+    tooltip: immune.has(id)
+      ? game.i18n.format("LASTARC.StatusImmunity.Tooltip",
+        { status: game.i18n.localize(`LASTARC.Status.${id}`) })
+      : game.i18n.format("LASTARC.StatusImmunity.ApplyTooltip",
+        { status: game.i18n.localize(`LASTARC.Status.${id}`) }),
     // Surfaced so a token that has silently accumulated three copies of the
     // same status says so, rather than looking identical to one copy. `count`
     // is only set when it is worth showing — a bare 1 on every active status
@@ -67,8 +87,11 @@ function paletteRows(actor, ids, counts) {
  */
 export function markStatuses(context, actor) {
   const counts = statusCounts(actor);
-  context.statusPalette = paletteRows(actor, Object.keys(LASTARC.statusEffects), counts);
-  context.cursePalette = paletteRows(actor, Object.keys(LASTARC.curses), counts);
+  const immunities = readStatusImmunities(actor?.system);
+  context.statusPalette = paletteRows(
+    actor, Object.keys(LASTARC.statusEffects), counts, immunities
+  );
+  context.cursePalette = paletteRows(actor, Object.keys(LASTARC.curses), counts, immunities);
 
   /**
    * An unlinked token's actor is a DIFFERENT DOCUMENT (CLAUDE.md §7), and NPCs
@@ -95,7 +118,7 @@ export function markStatuses(context, actor) {
  * surface as an exception in the console rather than as a button that visibly
  * does nothing.
  */
-export async function toggleStatus(sheet, target) {
+export async function toggleStatus(sheet, target, event = null) {
   const id = target.dataset.status;
   if (!LASTARC.allStatusIds.includes(id)) {
     console.warn(`Last Arc | "${id}" is not a registered status id; nothing toggled.`);
@@ -103,6 +126,30 @@ export async function toggleStatus(sheet, target) {
   }
 
   const actor = sheet.document;
+
+  /**
+   * ALT+CLICK MARKS IMMUNITY rather than applying the condition (#58).
+   *
+   * The gesture was the GM's own suggestion, and it is the right shape: a
+   * statblock's "Immune: sleep, fear" line is read off the same 33 tiles the
+   * condition itself is applied from, so a separate comma box elsewhere on the
+   * sheet would mean looking up the same status in two places. It is announced
+   * in each tile's tooltip, since an unlabelled modifier gesture is a feature
+   * nobody finds.
+   *
+   * Marking immunity does NOT strip a condition the creature already has.
+   * Immunity prevents application; it is not a cure, and silently deleting a
+   * condition the GM had deliberately placed would be the surprising reading.
+   */
+  if (event?.altKey) {
+    const next = toggleStatusImmunity(readStatusImmunities(actor.system), id);
+    await actor.update({ "system.statusImmunities": next });
+    ui.notifications?.info(game.i18n.format(
+      next.includes(id) ? "LASTARC.StatusImmunity.Marked" : "LASTARC.StatusImmunity.Cleared",
+      { name: actor.name, status: game.i18n.localize(`LASTARC.Status.${id}`) }
+    ));
+    return;
+  }
 
   /**
    * Turning a status OFF deletes every effect carrying it, not just the one

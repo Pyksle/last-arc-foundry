@@ -1367,6 +1367,35 @@
   opacity: 0.65;
 }
 .la-status.is-active .la-status__icon { opacity: 1; }
+
+/**
+ * Immune to the condition (#58) — set by alt+clicking the tile.
+ *
+ * This has to read as a DIFFERENT state from "off", not a fainter one. An
+ * inactive tile means the creature merely does not have the condition and one
+ * click would give it; an immune tile means nothing can apply it at all, and
+ * the create hook will refuse. Dimming further would have said "even more off".
+ *
+ * So the signal is categorical rather than a matter of degree: the badge loses
+ * its colour, and the name is struck through. The dashed border comes after
+ * `.is-active` deliberately — same specificity, later wins — because a creature
+ * can carry a condition it was only afterwards marked immune to, and in that
+ * pairing the immunity is the surprising fact and should be the one that shows.
+ */
+.la-status.is-immune {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--la-ink-soft) 55%, transparent);
+}
+.la-status.is-immune .la-status__icon {
+  filter: grayscale(1);
+  opacity: 0.4;
+}
+.la-status.is-immune .la-status__name {
+  text-decoration: line-through;
+  /* The name is 0.58rem; the default `auto` thickness disappears at that size. */
+  text-decoration-thickness: 1px;
+}
+
 .la-status__name {
   font-size: 0.58rem;
   line-height: 1.15;
@@ -2272,7 +2301,11 @@
 
 /* The die Misfortune threw away. Literal hex like everything else on a card —
    chat renders outside `.last-arc`, so the palette variables do not reach it. */
-.lastarc-misfortune {
+/* Scoped under .lastarc-card: a bare .lastarc-misfortune is (0,1,0) and the
+   `.lastarc-card span { color: inherit }` reset at (0,1,1) beats it, so the
+   discarded die drew in ordinary ink and only the strike-through said it had
+   been dropped. Same defect as the riders — see the note beside them. */
+.lastarc-card .lastarc-misfortune {
   font-family: var(--la-font-num, Georgia, serif);
   font-size: 0.8rem;
   color: #7a2e2e;
@@ -2280,7 +2313,7 @@
   margin-left: 0.3rem;
   cursor: help;
 }
-.lastarc-misfortune s { text-decoration-thickness: 2px; }
+.lastarc-card .lastarc-misfortune s { text-decoration-thickness: 2px; }
 .lastarc-part {
   border: 1px solid currentColor;
   border-radius: 999px;
@@ -2316,8 +2349,8 @@
   border-radius: 2px;
   border-left: 3px solid currentColor;
 }
-.lastarc-verdict--good { background: rgba(78, 135, 87, 0.28); color: #1f4327; }
-.lastarc-verdict--bad { background: rgba(176, 74, 74, 0.28); color: #6b1c1c; }
+.lastarc-card .lastarc-verdict--good { background: rgba(78, 135, 87, 0.28); color: #1f4327; }
+.lastarc-card .lastarc-verdict--bad { background: rgba(176, 74, 74, 0.28); color: #6b1c1c; }
 .lastarc-verdict--neutral {
   background: rgba(128, 128, 128, 0.18);
   font-style: italic;
@@ -2337,20 +2370,44 @@
   border-left: 3px solid currentColor;
   border-radius: 2px;
 }
-.lastarc-rider--combo { color: #544015; background: rgba(176, 141, 79, 0.24); }
-.lastarc-rider--crit { color: #6b1c1c; background: rgba(176, 74, 74, 0.24); }
+/**
+ * EVERY RIDER COLOUR IS SCOPED UNDER `.lastarc-card`, and it has to be.
+ *
+ * Riders are `<p>` elements, and the reset above — `.lastarc-card p { color:
+ * inherit }`, there to beat Foundry's own chat-log styling — is (0,1,1). A bare
+ * `.lastarc-rider--crit` is (0,1,0) and LOSES. So the combo, critical and
+ * healing riders had never once rendered in their own colour: they drew in the
+ * card's default ink, and `border-left: 3px solid currentColor` took the left
+ * bar down with them. Only the translucent plate behind the text showed, which
+ * is enough to look deliberate and is why nobody noticed for eleven releases.
+ *
+ * Found while adding the fourth one (#57), by measuring the COMPUTED colour in
+ * a browser rather than reading the declaration back. `test/contrast.test.mjs`
+ * had been vouching for all three the whole time — it parses declarations, so
+ * it was checking a value the cascade discarded.
+ *
+ * LITERAL HEX throughout, chosen against the card's cream (#f5f0e4): a chat
+ * message renders outside `.last-arc`, so the palette variables never reach it
+ * and a prefers-color-scheme rule here is forbidden outright (test/contrast).
+ */
+.lastarc-card .lastarc-rider--combo { color: #544015; background: rgba(176, 141, 79, 0.24); }
+.lastarc-card .lastarc-rider--crit { color: #6b1c1c; background: rgba(176, 74, 74, 0.24); }
+/* A rider the target's resistance or immunity stopped (#57). Deliberately cool
+   and quiet against the two above: it reports something that did NOT happen, so
+   it must not compete with the crit plate for attention. */
+.lastarc-card .lastarc-rider--negated { color: #2b4257; background: rgba(90, 122, 152, 0.22); }
 
 /* -- Ammunition on the attack card -------------------------------------------
    LITERAL HEX, chosen against the card's cream (#f5f0e4). A chat message is a
    piece of paper, not a themed surface: it renders outside `.last-arc`, so the
    palette variables never reach it, and a prefers-color-scheme rule on a
    `.lastarc-*` colour is forbidden outright (test/contrast). */
-.lastarc-ammo { color: #4a4034; font-size: 0.72rem; }
+.lastarc-card .lastarc-ammo { color: #4a4034; font-size: 0.72rem; }
 .lastarc-ammo strong { color: #1c1815; }
 .lastarc-ammo--out,
 .lastarc-ammo--out strong { color: #6b1c1c; }
 
-.lastarc-ammo-row {
+.lastarc-card .lastarc-ammo-row {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -2361,7 +2418,7 @@
   color: #1c1815;
 }
 .lastarc-ammo-row__name { font-weight: 700; }
-.lastarc-ammo-row__items { color: #4a4034; }
+.lastarc-card .lastarc-ammo-row__items { color: #4a4034; }
 .lastarc-ammo-row button {
   margin-left: auto;
   background: rgba(176, 141, 79, 0.24);
@@ -2459,7 +2516,9 @@
 .lastarc-card__desc-body p { margin: 0 0 0.4rem; }
 
 .lastarc-card__total.is-heal { color: #1f4327; }
-.lastarc-rider--heal { color: #1f4327; background: rgba(78, 135, 87, 0.24); }
+/* Scoped under .lastarc-card for the same reason as the riders above: the
+   `.lastarc-card p { color: inherit }` reset outranks a bare variant. */
+.lastarc-card .lastarc-rider--heal { color: #1f4327; background: rgba(78, 135, 87, 0.24); }
 /* A heal turned into damage by the zombified curse (§12). Reads as a wound,
    because that is what it is. */
 .lastarc-card--inverted .lastarc-card__total { color: #6b1c1c; }
@@ -2633,12 +2692,12 @@
 /* Same as the prerequisite above: literal hex, because a card is paper. The MP
    cost used `--la-bronze-bright`, which is #b08d4f — 2.73:1 on cream, so it
    would have failed the contrast suite had it ever resolved at all. */
-.lastarc-mana {
+.lastarc-card .lastarc-mana {
   font-family: var(--la-font-num, "Iowan Old Style", Georgia, serif);
   font-size: 0.8rem;
   color: #6f5628;
 }
-.lastarc-decay {
+.lastarc-card .lastarc-decay {
   margin: 0.15rem 0 0;
   font-size: 0.72rem;
   color: #6f6455;

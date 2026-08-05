@@ -213,7 +213,22 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
         immunity: new fields.ArrayField(new fields.StringField(), { initial: [] }),
         weakness: new fields.ArrayField(new fields.StringField(), { initial: [] }),
         dr: new fields.NumberField({ initial: 0, integer: true, min: 0 })
-      })
+      }),
+
+      /**
+       * Conditions this creature cannot be given at all (#58).
+       *
+       * Distinct from `damageMods.immunity`, which is about a DAMAGE TYPE and
+       * cancels riders carried by that damage. This is immunity to the
+       * condition itself, from any source whatsoever — the shape a statblock
+       * actually prints, and the thing a player has to keep track of by hand
+       * for their own race and gear otherwise.
+       *
+       * No `choices` on the element on purpose: a value the list later stops
+       * accepting makes the document refuse to open. Validated at read time in
+       * `status-guard.mjs` instead.
+       */
+      statusImmunities: new fields.ArrayField(new fields.StringField(), { initial: [] })
     };
   }
 

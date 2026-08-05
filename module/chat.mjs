@@ -810,6 +810,26 @@ function describeArithmetic(result) {
       n: result.bonus.results.length, dice, total: result.bonus.total
     }));
   }
+  /**
+   * Weakness and resistance, named (#57).
+   *
+   * These used to be invisible. `preDR` is measured AFTER both multipliers, so
+   * against a target with no DR the old line printed nothing whatsoever and a
+   * resisted 10 arrived as "Took 5" — which is exactly what a roll of 5 looks
+   * like. The GM reported the mitigation as not working; the arithmetic was
+   * right and had simply never said anything.
+   *
+   * Both are stated when both fired, rather than collapsing to a net ×0.75,
+   * because "weak AND resistant" is a situation worth seeing at the table.
+   */
+  if (result.weakened || result.resisted) {
+    const key = result.weakened && result.resisted ? "WeakAndResisted"
+      : result.weakened ? "Weakened" : "Resisted";
+    steps.push(game.i18n.format(`LASTARC.Card.${key}`, {
+      before: result.rolled, after: result.preDR
+    }));
+  }
+
   // preDR is after weakness/resistance and before reduction, so the gap on
   // either side names the two steps without either needing to be passed out.
   if (result.preDR !== undefined && result.postDR !== undefined

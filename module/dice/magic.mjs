@@ -25,6 +25,7 @@ import { describeCheck, describeDamage } from "./breakdown.mjs";
 import { situationalLabel } from "./situational.mjs";
 import { rollCheckD20 } from "./d20.mjs";
 import { performanceEffectChanges, performanceRiders } from "../effects.mjs";
+import { negatesSecondaryEffects, describeNegatedRider } from "../status-guard.mjs";
 import * as CB from "../combat.mjs";
 
 /** Re-exported: it is a derived value and lives with the other derived values. */
@@ -370,8 +371,21 @@ export async function performItem(actor, performance, options = {}) {
     }
 
     if (outcome.status && LASTARC.allStatusIds.includes(outcome.status)) {
-      await target.toggleStatusEffect?.(outcome.status, { active: true });
-      result.statusApplied = outcome.status;
+      /**
+       * A performance's damage is unaspected, so only a creature resistant or
+       * immune to unaspected shrugs off its rider — and only when the tier
+       * carries damage at all. A tier with no damage formula has no aspect for
+       * anything to be resistant TO, so its rider always lands (§5.5).
+       */
+      const { negated, reason } = negatesSecondaryEffects(
+        target, outcome.damage ? "unaspected" : null
+      );
+      if (negated) {
+        result.statusNegated = { status: outcome.status, reason, damageType: "unaspected" };
+      } else {
+        await target.toggleStatusEffect?.(outcome.status, { active: true });
+        result.statusApplied = outcome.status;
+      }
     }
   }
 
@@ -433,6 +447,10 @@ export async function performItem(actor, performance, options = {}) {
       statusLabel: result.statusApplied
         ? game.i18n.localize(`LASTARC.Status.${result.statusApplied}`)
         : null,
+      // The rider the target's resistance or immunity stopped (#57). Said out
+      // loud, because a condition that silently fails to appear looks exactly
+      // like a condition the system forgot.
+      statusNegatedLabel: describeNegatedRider(result.statusNegated),
       effectTagLabel: perf.effectTag
         ? game.i18n.localize(LASTARC.performanceEffectTags[perf.effectTag]?.label ?? "")
         : null,
@@ -700,8 +718,26 @@ export async function castSpell(actor, spell, options = {}) {
         game.i18n.format("LASTARC.Warning.UnknownStatus", { id: outcome.status })
       );
     } else {
-      await target.toggleStatusEffect?.(outcome.status, { active: true });
-      result.statusApplied = outcome.status;
+      /**
+       * A creature resistant to the spell's aspect is unaffected by the
+       * secondary effects of that damage, and an immune one takes no effects
+       * from the source at all (§5.5, p.169 — see `negatesSecondaryEffects`).
+       *
+       * This clause had been computed and never read since §5.5 was written:
+       * `applyDamageMitigation` returns `secondaryEffectsNegated`, two unit
+       * tests assert it, and nothing anywhere consumed it. So a fire-immune
+       * creature took 0 fire damage and was blinded by the same spell, which is
+       * what #57 reported.
+       */
+      const { negated, reason } = negatesSecondaryEffects(
+        target, sp.damageType, { dealsDamage: !!outcome.damage }
+      );
+      if (negated) {
+        result.statusNegated = { status: outcome.status, reason, damageType: sp.damageType };
+      } else {
+        await target.toggleStatusEffect?.(outcome.status, { active: true });
+        result.statusApplied = outcome.status;
+      }
     }
   }
 
@@ -797,6 +833,10 @@ async function postSpellCard({ actor, spell, result, target }) {
       statusLabel: result.statusApplied
         ? game.i18n.localize(`LASTARC.Status.${result.statusApplied}`)
         : null,
+      // The rider the target's resistance or immunity stopped (#57). Said out
+      // loud, because a condition that silently fails to appear looks exactly
+      // like a condition the system forgot.
+      statusNegatedLabel: describeNegatedRider(result.statusNegated),
       notes: result.outcome?.notes || null
     }
   );

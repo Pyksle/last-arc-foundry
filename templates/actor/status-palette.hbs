@@ -28,11 +28,16 @@
 
   <div class="la-statuses">
     {{#each statusPalette}}
+      {{!-- ALT+CLICK marks the creature immune to the condition rather than
+            applying it (#58). The gesture lives in the tooltip because a
+            modifier nobody is told about is a feature nobody finds; the class
+            is what draws the tile as struck through. --}}
       <button type="button"
-              class="la-status {{#if this.active}}is-active{{/if}}"
+              class="la-status {{#if this.active}}is-active{{/if}}
+                     {{#if this.immune}}is-immune{{/if}}"
               data-action="toggleStatus" data-status="{{this.id}}"
               aria-pressed="{{#if this.active}}true{{else}}false{{/if}}"
-              data-tooltip="{{this.label}}">
+              data-tooltip="{{this.tooltip}}">
         {{!-- The badge itself, in an `src`, and not a url() anywhere (#51).
 
               It was a CSS mask, with the path handed to the stylesheet as
@@ -67,11 +72,13 @@
   <h3 class="la-statuses__title">{{localize "LASTARC.Section.Curses"}}</h3>
   <div class="la-statuses">
     {{#each cursePalette}}
+      {{!-- Alt+click marks immunity here too — see the note on the row above. --}}
       <button type="button"
-              class="la-status la-status--curse {{#if this.active}}is-active{{/if}}"
+              class="la-status la-status--curse {{#if this.active}}is-active{{/if}}
+                     {{#if this.immune}}is-immune{{/if}}"
               data-action="toggleStatus" data-status="{{this.id}}"
               aria-pressed="{{#if this.active}}true{{else}}false{{/if}}"
-              data-tooltip="{{this.label}}">
+              data-tooltip="{{this.tooltip}}">
         {{!-- The badge itself, not a mask and not a url() — see the note on the
               status row above (#51). --}}
         <img class="la-status__icon" src="{{this.img}}" alt="" aria-hidden="true">

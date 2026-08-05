@@ -1244,7 +1244,10 @@ export function applyDamageMitigation({
   isHit = true
 } = {}) {
   if (immunity) {
-    return { final: 0, preDR: 0, postDR: 0, immune: true, secondaryEffectsNegated: true };
+    return {
+      final: 0, preDR: 0, postDR: 0, immune: true,
+      rolled: total, weakened: false, resisted: false
+    };
   }
 
   let t = total;
@@ -1263,8 +1266,37 @@ export function applyDamageMitigation({
     preDR,
     postDR: t,
     immune: false,
-    // Resistance also negates secondary effects of that damage type (§5.5).
-    secondaryEffectsNegated: resistance
+    /**
+     * NO `secondaryEffectsNegated` HERE. It used to be returned — and read by
+     * nothing, for as long as §5.5 has existed, which is half of what #57
+     * reported.
+     *
+     * Wiring it up was the obvious repair and it is the wrong one, because this
+     * function is on the wrong side of the clock. A spell's status rider is
+     * applied when the SPELL RESOLVES; its damage is applied later, from a
+     * button on the card, and may never be applied at all if the GM rules
+     * otherwise. So the mitigation result does not exist yet at the moment the
+     * rider has to be decided, and a flag on it could never have been the
+     * mechanism.
+     *
+     * The rule lives in `status-guard.mjs#negatesSecondaryEffects`, which reads
+     * the target's mods directly and can therefore answer at either time. One
+     * rule, one implementation — a second copy here would be free to drift, and
+     * the book's immunity/resistance asymmetry means the two would not even
+     * agree in principle.
+     */
+    /**
+     * What went IN, and which of the two multipliers fired.
+     *
+     * Carried out so the chat card can show the step. `preDR` is measured
+     * AFTER weakness and resistance, so with no DR in play `preDR === postDR`
+     * and the card's arithmetic line printed nothing at all: a 10 halved to 5
+     * rendered as a bare "Took 5", indistinguishable from a roll of 5. That is
+     * the half of #57 that made a correct pipeline look broken.
+     */
+    rolled: total,
+    weakened: weakness,
+    resisted: resistance
   };
 }
 

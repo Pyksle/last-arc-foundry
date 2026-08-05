@@ -21,6 +21,7 @@ import { LASTARC } from "../config.mjs";
 import * as CONS from "../consumables.mjs";
 import { rollHealing } from "./healing.mjs";
 import { rollDamageDice } from "./explode.mjs";
+import { negatesSecondaryEffects, describeNegatedRider } from "../status-guard.mjs";
 import * as CB from "../combat.mjs";
 
 /**
@@ -104,8 +105,17 @@ export async function useConsumable(actor, item, options = {}) {
   }
 
   if (effects.status && LASTARC.allStatusIds.includes(effects.status)) {
-    await target.toggleStatusEffect?.(effects.status, { active: true });
-    result.statusApplied = effects.status;
+    // A thrown flask is a source with an aspect, so the same §5.5 clause
+    // applies to its rider as to a spell's — see `negatesSecondaryEffects`.
+    const { negated, reason } = negatesSecondaryEffects(
+      target, sys.damageType, { dealsDamage: !!effects.damage }
+    );
+    if (negated) {
+      result.statusNegated = { status: effects.status, reason, damageType: sys.damageType };
+    } else {
+      await target.toggleStatusEffect?.(effects.status, { active: true });
+      result.statusApplied = effects.status;
+    }
   }
 
   /* -- spend the charge ---------------------------------------------------- */
@@ -170,6 +180,10 @@ async function postConsumableCard({ actor, item, target, result }) {
       statusLabel: result.statusApplied
         ? game.i18n.localize(`LASTARC.Status.${result.statusApplied}`)
         : null,
+      // The rider the target's resistance or immunity stopped (#57). Said out
+      // loud, because a condition that silently fails to appear looks exactly
+      // like a condition the system forgot.
+      statusNegatedLabel: describeNegatedRider(result.statusNegated),
 
       /**
        * Nothing mechanical to resolve — a scroll, or a poison whose application

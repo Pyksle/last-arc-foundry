@@ -30,6 +30,7 @@ import { effectPanelRows, toggleEffect, deleteEffect } from "./sheets/effect-pan
 import * as AMMO from "./ammunition.mjs";
 import * as AMMOSTORE from "./dice/ammunition.mjs";
 import * as LAYOUT from "./sheets/sheet-layout-controls.mjs";
+import * as GUARD from "./status-guard.mjs";
 
 const SYSTEM_ID = "last-arc";
 
@@ -1222,9 +1223,26 @@ function registerSheetBatch(quench) {
          * name starts with the array's own, which is the `*Text` convention.
          */
         const ARRAY_EXEMPT = {
-          // Empty, and it should stay that way. `npc.loot` and `npc.steal` sat
-          // here reading "no UI yet"; an exemption is a debt, not a licence, and
-          // they now have a row editor on the NPC sheet.
+          // `npc.loot` and `npc.steal` sat here reading "no UI yet"; an
+          // exemption is a debt, not a licence, and they now have a row editor
+          // on the NPC sheet.
+          //
+          // The two below are NOT that kind of entry. They are editable — by
+          // alt+clicking a status tile (#58) — and the control simply is not a
+          // box whose `name` begins with the path, which is the only shape this
+          // guard can see. A comma box would be a SECOND writer for one field,
+          // free to disagree with the palette about which ids are valid.
+          //
+          // Not taken on trust either: `test/status-guard.test.mjs` asserts the
+          // gesture reaches the field on BOTH sheets separately, that the
+          // palette reads `altKey` and writes this exact path, and that both
+          // template rows render the resulting state. That is a stronger claim
+          // than "some input's name starts with statusImmunities", because it
+          // also catches the failure this feature would really have had — wired
+          // on the character sheet and dead on the statblock, which is the one
+          // that prints "Immune: sleep, fear" in the first place.
+          character: { statusImmunities: "ACTION — alt+click the status palette; see test/status-guard.test.mjs" },
+          npc: { statusImmunities: "ACTION — alt+click the status palette; see test/status-guard.test.mjs" }
         };
 
         it("every array of plain values can be edited somehow", async function () {
@@ -3124,5 +3142,257 @@ function registerAmmunitionBatch(quench) {
       });
     },
     { displayName: "Last Arc — Sheet layout" }
+  );
+
+  /* ------------------------------------------------------------------------ */
+  /*  Whether a status lands (#57, #58)                                        */
+  /* ------------------------------------------------------------------------ */
+
+  quench.registerBatch(
+    `${SYSTEM_ID}.statusGuard`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      /** Open a sheet, run, and always close it. */
+      async function withSheet(actor, fn) {
+        const sheet = actor.sheet;
+        await sheet.render(true);
+        await settle();
+        try {
+          return await fn(sheet);
+        } finally {
+          await sheet.close();
+        }
+      }
+
+      const tile = (sheet, id) =>
+        sheet.element.querySelector(`.la-status[data-status="${id}"]`);
+
+      /**
+       * A real alt+click. The gesture is the whole feature, and the thing that
+       * would break it — a handler that drops the event, or a browser that
+       * never delivers `altKey` — is invisible to a unit test calling the
+       * function directly.
+       */
+      const altClick = (el) => el.dispatchEvent(
+        new PointerEvent("click", { altKey: true, bubbles: true, cancelable: true }));
+
+      describe("condition immunity refuses every route (#58)", function () {
+        this.timeout(20000);
+
+        /**
+         * THE ONE THAT MATTERS. `toggleStatusEffect` is what the token HUD
+         * calls, and the GM's commonest route to a condition is the HUD, not
+         * the sheet. Guarding only the sheet would leave the immunity trusted
+         * and unenforced — worse than not having it.
+         */
+        it("toggleStatusEffect cannot apply a condition the creature is immune to",
+          async function () {
+            await withNpc({ system: { statusImmunities: ["blind"] } }, async (npc) => {
+              await npc.toggleStatusEffect("blind", { active: true });
+              await settle();
+              assert.isFalse(npc.statuses.has("blind"), "the immunity did not hold");
+
+              // The premise: the same call works for anything else.
+              await npc.toggleStatusEffect("prone", { active: true });
+              await settle();
+              assert.isTrue(npc.statuses.has("prone"),
+                "nothing is landing at all, so the test above proves nothing");
+            });
+          });
+
+        it("a creature with no immunities is unaffected", async function () {
+          await withNpc({}, async (npc) => {
+            await npc.toggleStatusEffect("blind", { active: true });
+            await settle();
+            assert.isTrue(npc.statuses.has("blind"));
+          });
+        });
+
+        /**
+         * An effect carrying several statuses keeps the ones that land. This
+         * needs a real document because it is `updateSource` inside a
+         * preCreate hook that does the surgery.
+         */
+        it("a multi-status effect keeps what is not blocked", async function () {
+          await withNpc({ system: { statusImmunities: ["prone"] } }, async (npc) => {
+            await npc.createEmbeddedDocuments("ActiveEffect", [{
+              name: "ZZ Two Conditions", statuses: ["blind", "prone"]
+            }]);
+            await settle();
+            assert.isTrue(npc.statuses.has("blind"), "the surviving status was lost");
+            assert.isFalse(npc.statuses.has("prone"), "the blocked status got through");
+          });
+        });
+
+        it("an effect carrying nothing but a blocked status is refused outright",
+          async function () {
+            await withNpc({ system: { statusImmunities: ["blind"] } }, async (npc) => {
+              const before = npc.effects.size;
+              await npc.createEmbeddedDocuments("ActiveEffect", [{
+                name: "ZZ Blind Only", statuses: ["blind"]
+              }]);
+              await settle();
+              assert.equal(npc.effects.size, before, "a refused effect was still created");
+            });
+          });
+
+        /**
+         * Immunity prevents application; it is not a cure. Deleting a condition
+         * the GM had deliberately placed would be the surprising reading, and
+         * the GM has a one-click way to remove it either way.
+         */
+        it("marking immunity does not strip a condition already carried",
+          async function () {
+            await withNpc({}, async (npc) => {
+              await npc.toggleStatusEffect("blind", { active: true });
+              await settle();
+              await npc.update({ "system.statusImmunities": ["blind"] });
+              await settle();
+              assert.isTrue(npc.statuses.has("blind"));
+            });
+          });
+
+        it("effects on ITEMS are not touched by the guard", async function () {
+          await withActor({}, async (pc) => {
+            const [item] = await pc.createEmbeddedDocuments("Item", [
+              { name: "ZZ Carrier", type: "accessory" }
+            ]);
+            await item.createEmbeddedDocuments("ActiveEffect", [{
+              name: "ZZ Item Effect", statuses: ["blind"]
+            }]);
+            await settle();
+            assert.equal(item.effects.size, 1,
+              "an item has no immunities and its effects must not be vetoed");
+          });
+        });
+      });
+
+      describe("alt+click marks immunity on both sheets (#58)", function () {
+        this.timeout(20000);
+
+        /**
+         * BOTH SHEETS, SEPARATELY. The palette is a shared partial, so a
+         * handler wired on one sheet only would look completely correct in the
+         * template and do nothing on the other — and the statblock is where a
+         * printed "Immune: sleep" actually lives.
+         */
+        for (const [label, make] of [
+          ["character", withActor], ["statblock", withNpc]
+        ]) {
+          it(`${label}: alt+click marks, and clicking again clears`, async function () {
+            await make({}, async (actor) => {
+              await withSheet(actor, async (sheet) => {
+                altClick(tile(sheet, "blind"));
+                await settle();
+                assert.include(actor.system.statusImmunities, "blind",
+                  `${label}: alt+click did not mark the immunity`);
+                assert.isFalse(actor.statuses.has("blind"),
+                  `${label}: alt+click applied the condition as well`);
+
+                // Re-query: the sheet re-rendered on the update, and a node
+                // held across that is detached and swallows the click.
+                altClick(tile(actor.sheet, "blind"));
+                await settle();
+                assert.notInclude(actor.system.statusImmunities, "blind",
+                  `${label}: alt+click did not clear the immunity`);
+              });
+            });
+          });
+
+          it(`${label}: a plain click still applies the condition`, async function () {
+            await make({}, async (actor) => {
+              await withSheet(actor, async (sheet) => {
+                tile(sheet, "blind").click();
+                await settle();
+                assert.isTrue(actor.statuses.has("blind"),
+                  `${label}: the ordinary click was captured by the immunity branch`);
+                assert.notInclude(actor.system.statusImmunities ?? [], "blind");
+              });
+            });
+          });
+        }
+
+        it("an immune tile draws as immune and says so in its tooltip",
+          async function () {
+            await withNpc({ system: { statusImmunities: ["blind"] } }, async (npc) => {
+              await withSheet(npc, (sheet) => {
+                const el = tile(sheet, "blind");
+                assert.isTrue(el.classList.contains("is-immune"),
+                  "the immune state is indistinguishable from switched off");
+                assert.match(el.dataset.tooltip, /immune/i);
+                // The badge must actually lose its colour, not merely be
+                // labelled — the CSS is what carries this state.
+                assert.equal(
+                  getComputedStyle(el.querySelector(".la-status__icon")).filter,
+                  "grayscale(1)");
+              });
+            });
+          });
+      });
+
+      describe("resistance and immunity stop a rider (#57)", function () {
+        this.timeout(20000);
+
+        /**
+         * Against a REAL document, because `negatesSecondaryEffects` reads
+         * `target.statuses` and `target.system.damageMods` — and an NPC and a
+         * character do not have the same shape. A character path read against
+         * a statblock yields undefined and silently becomes "not negated".
+         */
+        it("a fire-immune statblock shrugs off a fire rider", async function () {
+          await withNpc({ system: { damageMods: { immunity: ["fire"] } } }, async (npc) => {
+            const r = GUARD.negatesSecondaryEffects(npc, "fire");
+            assert.isTrue(r.negated);
+            assert.equal(r.reason, "immunity");
+            assert.isFalse(GUARD.negatesSecondaryEffects(npc, "cold").negated);
+          });
+        });
+
+        it("the same holds for a character", async function () {
+          await withActor({ system: { damageMods: { resistance: ["cold"] } } }, async (pc) => {
+            assert.isTrue(GUARD.negatesSecondaryEffects(pc, "cold").negated);
+          });
+        });
+
+        /**
+         * Agony strips immunities outright (§12). Read through the live status
+         * set, so this is the case a unit test with a hand-built object cannot
+         * fully vouch for.
+         */
+        it("a creature in Agony loses the immunity that would have saved it",
+          async function () {
+            await withNpc({ system: { damageMods: { immunity: ["cold"] } } }, async (npc) => {
+              assert.isTrue(GUARD.negatesSecondaryEffects(npc, "cold").negated);
+              await npc.toggleStatusEffect("agony", { active: true });
+              await settle();
+              assert.isFalse(GUARD.negatesSecondaryEffects(npc, "cold").negated,
+                "Agony did not reach the rider decision");
+            });
+          });
+
+        /** The damage half, which was always right — asserted so it stays right. */
+        it("the book's page-169 arithmetic holds end to end", async function () {
+          await withNpc({ system: { damageMods: { resistance: ["fire"], dr: 3 } } },
+            async (npc) => {
+              const r = await ATK.applyDamage(npc, { total: 20, type: "fire" });
+              assert.equal(r.preDR, 10, "resistance must halve BEFORE DR");
+              assert.equal(r.final, 7, "then DR 3 comes off the halved number");
+              assert.equal(r.rolled, 20, "the card has nothing to show its working with");
+              assert.isTrue(r.resisted);
+            });
+        });
+
+        it("weak and resistant to the same type is exactly x0.75", async function () {
+          await withNpc(
+            { system: { damageMods: { resistance: ["fire"], weakness: ["fire"] } } },
+            async (npc) => {
+              const r = await ATK.applyDamage(npc, { total: 20, type: "fire" });
+              assert.equal(r.preDR, 15);
+            });
+        });
+      });
+    },
+    { displayName: "Last Arc — Status guard" }
   );
 }

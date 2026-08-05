@@ -512,7 +512,6 @@ describe("§5.5 damage mitigation pipeline", () => {
     const r = applyDamageMitigation({ total: 40, immunity: true, dr: 5 });
     assert.equal(r.final, 0);
     assert.ok(r.immune);
-    assert.ok(r.secondaryEffectsNegated);
   });
 
   test("weakness multiplies by 1.5 and FLOORS", () => {
@@ -525,9 +524,64 @@ describe("§5.5 damage mitigation pipeline", () => {
     assert.equal(r.preDR, 7);   // floor(10*1.5)=15 → floor(15/2)=7
   });
 
-  test("resistance negates secondary effects", () => {
-    assert.ok(applyDamageMitigation({ total: 10, resistance: true }).secondaryEffectsNegated);
-    assert.ok(!applyDamageMitigation({ total: 10 }).secondaryEffectsNegated);
+  /**
+   * The secondary-effects clause is NOT decided here — see the note in
+   * `applyDamageMitigation`. This function used to return a
+   * `secondaryEffectsNegated` flag that nothing ever read, and these two
+   * assertions were the only thing keeping it alive: green, specific, and
+   * testing a value with no consumer, while the rule itself went unenforced
+   * (#57). The rule now lives in `status-guard.mjs`, tested against a target.
+   *
+   * Asserted as ABSENT rather than simply deleted, so that reinstating the flag
+   * here — the obvious-looking repair — fails loudly instead of quietly giving
+   * the rule a second implementation free to drift from the first.
+   */
+  test("the secondary-effects clause is not decided by the damage maths", () => {
+    for (const opts of [{ resistance: true }, { immunity: true }, {}]) {
+      assert.ok(!("secondaryEffectsNegated" in applyDamageMitigation({ total: 10, ...opts })),
+        "mitigation is on the wrong side of the clock to answer this — a spell's " +
+        "rider lands when the spell resolves, its damage when someone presses " +
+        "Apply. See status-guard.mjs#negatesSecondaryEffects.");
+    }
+  });
+
+  /**
+   * The book's own worked wording, because #57 was reported as the arithmetic
+   * being wrong and it was not. "Apply weakness first" then halve is not the
+   * same operation as ×0.75 in general — but it is here, for every integer,
+   * because floor(floor(1.5n)/2) === floor(0.75n). Asserted over a range rather
+   * than at one point: the identity is the reason the GM's simplification and
+   * the book's procedure agree, and if either side ever stops flooring they
+   * part company silently.
+   */
+  test("weak and resistant is exactly x0.75 at every integer", () => {
+    for (let n = 0; n <= 200; n++) {
+      assert.equal(
+        applyDamageMitigation({ total: n, weakness: true, resistance: true }).preDR,
+        Math.floor(n * 0.75), `n=${n}`);
+    }
+  });
+
+  test("both multipliers land before DR, never after", () => {
+    // 20 resisted is 10, and only then does DR 4 apply: 6. Halving after DR
+    // would give 8 — the mistake the ordering exists to prevent.
+    assert.equal(applyDamageMitigation({ total: 20, resistance: true, dr: 4 }).final, 6);
+    // 20 weakened is 30, less DR 4 is 26. Weakening after DR would give 24.
+    assert.equal(applyDamageMitigation({ total: 20, weakness: true, dr: 4 }).final, 26);
+  });
+
+  /**
+   * What the card needs to show its working. `preDR` is measured AFTER both
+   * multipliers, so without the input total there was nothing to compare it to
+   * and a resisted 10 printed as a bare "Took 5".
+   */
+  test("the input total and which multipliers fired are reported", () => {
+    const r = applyDamageMitigation({ total: 10, resistance: true });
+    assert.equal(r.rolled, 10);
+    assert.equal(r.preDR, 5);
+    assert.ok(r.resisted);
+    assert.ok(!r.weakened);
+    assert.equal(applyDamageMitigation({ total: 10, immunity: true }).rolled, 10);
   });
 
   test("DR subtracts, and unaspected bypasses it entirely", () => {
