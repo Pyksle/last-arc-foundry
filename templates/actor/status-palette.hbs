@@ -33,8 +33,24 @@
               data-action="toggleStatus" data-status="{{this.id}}"
               aria-pressed="{{#if this.active}}true{{else}}false{{/if}}"
               data-tooltip="{{this.label}}">
-        <span class="la-status__icon" aria-hidden="true"
-                style="--la-status-icon: url('{{this.img}}')"></span>
+        {{!-- The badge itself, in an `src`, and not a url() anywhere (#51).
+
+              It was a CSS mask, with the path handed to the stylesheet as
+              `style="--la-status-icon: url('{{this.img}}')"`. Two things were
+              wrong with that. A relative url() in a style ATTRIBUTE resolves
+              against the document, which is what this path is written for — but
+              carried through a custom property it resolves where the property
+              is SUBSTITUTED, so Chromium prepended the stylesheet's own
+              directory and every icon 404ed from
+              systems/last-arc/styles/systems/last-arc/assets/…. And a mask
+              keeps only the alpha channel, so even served it would have thrown
+              away the family colours the badges were redrawn to carry (#43) and
+              painted 33 identical discs.
+
+              `alt` is empty and the element hidden because the name below is
+              the accessible label; a second copy of it here would read the
+              status out twice. --}}
+        <img class="la-status__icon" src="{{this.img}}" alt="" aria-hidden="true">
         <span class="la-status__name">{{this.label}}</span>
         {{!-- A status applied more than once draws more than one token icon
               but is otherwise indistinguishable from one copy (#47). Clicking
@@ -56,8 +72,9 @@
               data-action="toggleStatus" data-status="{{this.id}}"
               aria-pressed="{{#if this.active}}true{{else}}false{{/if}}"
               data-tooltip="{{this.label}}">
-        <span class="la-status__icon" aria-hidden="true"
-                style="--la-status-icon: url('{{this.img}}')"></span>
+        {{!-- The badge itself, not a mask and not a url() — see the note on the
+              status row above (#51). --}}
+        <img class="la-status__icon" src="{{this.img}}" alt="" aria-hidden="true">
         <span class="la-status__name">{{this.label}}</span>
         {{!-- A status applied more than once draws more than one token icon
               but is otherwise indistinguishable from one copy (#47). Clicking

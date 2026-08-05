@@ -27,7 +27,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -331,16 +331,52 @@ describe("sheet palette: ink on paper", () => {
   });
 
   /**
-   * The icons draw with `stroke="currentColor"`, which an <img> resolves
-   * against the SVG's own root — always black, whatever the sheet's ink is.
-   * That is what made them invisible in the dark theme.
+   * This test used to require the OPPOSITE — a CSS mask, never an <img>.
+   *
+   * That was right for #41, when every icon drew with `stroke="currentColor"`:
+   * an <img> resolves `currentColor` against the SVG's own root, which is
+   * black, so the palette was black on near-black at 1.12:1 and only a mask
+   * could get the sheet's ink into it. #43 then redrew all 33 as self-contained
+   * badges — a family-coloured disc, a white glyph, two rings — and deleted
+   * every `currentColor`. The mask had nothing left to tint and kept only the
+   * alpha of an edge-to-edge opaque badge, so it painted 33 identical discs and
+   * discarded the colour separation #43 exists to provide.
+   *
+   * The requirement the old test was protecting has not moved: the palette must
+   * be legible without inheriting anything. It is now met by the artwork rather
+   * than by the mask, and asserted where the artwork is —
+   * test/status-icons.test.mjs checks the glyph/disc ratio and that no
+   * `currentColor` has crept back in. Both halves are needed: an <img> here is
+   * only safe while that stays true.
    */
-  test("status icons are masked rather than embedded as images", () => {
+  test("status icons are the badge itself, which carries its own contrast", () => {
     const tpl = readFileSync(join(root, "templates/actor/status-palette.hbs"), "utf8");
-    assert.doesNotMatch(tpl, /<img[^>]*la-status__icon/,
-      "an <img> cannot inherit currentColor; use the mask on .la-status__icon");
-    assert.match(css, /\.la-status__icon[\s\S]*?mask:/,
-      "the icon must be masked so currentColor applies");
+    assert.match(tpl, /<img[^>]*class="la-status__icon"[^>]*src="\{\{this\.img\}\}"/,
+      "the palette must draw the same badge the token wears");
+    assert.doesNotMatch(css, /\.la-status__icon[\s\S]*?(?:-webkit-)?mask/,
+      "a mask keeps only the alpha of an opaque badge — 33 identical discs, " +
+      "and none of the family colours from #43");
+
+    const icons = readdirSync(join(root, "assets/status")).filter((f) => f.endsWith(".svg"));
+    const tinted = icons.filter((f) =>
+      readFileSync(join(root, "assets/status", f), "utf8").includes("currentColor"));
+    assert.deepEqual(tinted, [],
+      "an <img> resolves currentColor to black against the SVG's own root; " +
+      `these would go back to 1.12:1 in the dark theme: ${tinted.join(", ")}`);
+  });
+
+  /**
+   * The tile is a <button>, and Foundry gives every button the height of one
+   * row of text. A two-line tile does not fit, and the icon is the part that
+   * gives: it was measured at 3.3px of an intended 25.6px in a live world.
+   */
+  test("the status tile is not held at Foundry's button height", () => {
+    const start = css.indexOf(".la-status {");
+    const tile = css.slice(start, css.indexOf("}", start));
+    assert.match(tile, /height:\s*auto/,
+      "without this the tile is `--button-size` tall and the icon is squashed");
+    assert.match(tile, /min-height:\s*0/,
+      "height alone leaves the min-height floor still holding the tile at 28px");
   });
 });
 
