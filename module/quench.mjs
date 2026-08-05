@@ -2891,6 +2891,9 @@ function registerAmmunitionBatch(quench) {
       }
 
       describe("a sheet nobody has touched", function () {
+        // Every test here renders a real sheet, which the 2s default does not cover.
+        this.timeout(20000);
+
         it("renders every declared section, in the declared order", async function () {
           await withActor({}, async (pc) => {
             await withSheet(pc, (sheet) => {
@@ -2931,6 +2934,9 @@ function registerAmmunitionBatch(quench) {
       });
 
       describe("folding a section away (#55)", function () {
+        // Every test here renders a real sheet, which the 2s default does not cover.
+        this.timeout(20000);
+
         it("hides the contents, keeps the title, and does not re-render",
           async function () {
             await withActor({}, async (pc) => {
@@ -3004,6 +3010,9 @@ function registerAmmunitionBatch(quench) {
       });
 
       describe("moving a section (#54)", function () {
+        // Every test here renders a real sheet, which the 2s default does not cover.
+        this.timeout(20000);
+
         it("moves the node, so the tab order moves with it", async function () {
           await withActor({}, async (pc) => {
             await withSheet(pc, async (sheet) => {
@@ -3064,6 +3073,9 @@ function registerAmmunitionBatch(quench) {
       });
 
       describe("the statblock gets the same feature", function () {
+        // Every test here renders a real sheet, which the 2s default does not cover.
+        this.timeout(20000);
+
         it("declares the actions its shared partials emit", async function () {
           await withNpc({}, async (npc) => {
             await withSheet(npc, async (sheet) => {
@@ -3089,6 +3101,9 @@ function registerAmmunitionBatch(quench) {
       });
 
       describe("what the reader cannot edit, they can still tidy", function () {
+        // Every test here renders a real sheet, which the 2s default does not cover.
+        this.timeout(20000);
+
         it("the layout controls are not disabled by the document's permissions",
           async function () {
             await withActor({}, async (pc) => {

@@ -1313,6 +1313,14 @@
   border: 1px solid transparent;
   border-radius: 3px;
   cursor: pointer;
+  /* The tile is a <button>, and Foundry sizes every button to `--button-size`
+     — one row of text, 28px. A two-line tile does not fit that, and nothing
+     here said otherwise, so the icon (1.6rem, first in a column flex box, and
+     shrinkable because an empty box has no min-content height) was squeezed to
+     3px while the name below it kept its own line. Both had to go back:
+     `height` alone leaves the min-height floor still holding it at 28. */
+  height: auto;
+  min-height: 0;
   /* NO blanket opacity. Dimming the whole tile took the label down with it —
      0.5 over an already-short faint ink measured 1.73:1. The name stays fully
      legible whether the status is on or off; only the icon recedes. */
@@ -1326,26 +1334,36 @@
 }
 
 /**
- * The icon is MASKED, not an <img>.
+ * The icon is the badge itself — the same <img> the token wears.
  *
- * All 33 status SVGs draw with `stroke="currentColor"`, which is right — but an
- * <img> renders the file as a standalone document, where `currentColor`
- * resolves against the SVG's own root and that defaults to BLACK. It can never
- * inherit the sheet's ink no matter what is set around it, so in the dark theme
- * the palette was black on near-black: 1.12:1, the same number as the chat-card
- * bug in issue #11.
+ * It used to be a CSS MASK tinted with `currentColor`, and that was right when
+ * it was written: every icon drew with `stroke="currentColor"`, which an <img>
+ * resolves against the SVG's own root — always black — so in the dark theme the
+ * palette was black on near-black at 1.12:1 (issue #41). A mask reads only the
+ * alpha channel, so the inherited ink got through.
  *
- * A mask uses only the alpha channel, so the artwork's own colour stops
- * mattering and `background-color: currentColor` genuinely inherits.
+ * Issue #43 then redrew all 33 as self-contained badges: a family-coloured disc
+ * behind a white glyph, inside a dark ring and a light one, with no
+ * `currentColor` left anywhere (test/status-icons asserts that). Those badges
+ * are opaque from edge to edge, and the mask kept only the alpha — so it threw
+ * away every one of the colours #43 had chosen and painted 33 identical blank
+ * discs. The masking survived the redesign that removed its reason to exist,
+ * and each fix hid the other: the palette also 404ed (#51), so nothing rendered
+ * at all and nobody saw the discs underneath.
+ *
+ * An <img> also puts the sheet and the token HUD on the same artwork, which is
+ * the point of reading the path off CONFIG.statusEffects in the first place.
  */
 .la-status__icon {
   width: 1.6rem;
   height: 1.6rem;
-  background-color: currentColor;
-  -webkit-mask: var(--la-status-icon) center / contain no-repeat;
-  mask: var(--la-status-icon) center / contain no-repeat;
-  /* 3.48:1 light, 4.26:1 dark — over the 3:1 that non-text needs, and the
-     name beside it carries the meaning regardless. */
+  /* Never shrink: this is the first item in a column flex box, and an image
+     with no min-content floor is what the button's height collapsed. */
+  flex: 0 0 auto;
+  object-fit: contain;
+  /* The badge carries its own contrast (4.5:1 glyph on disc, both rings against
+     the map), so dimming is only the on/off signal — the name beside it is at
+     full strength either way. */
   opacity: 0.65;
 }
 .la-status.is-active .la-status__icon { opacity: 1; }
