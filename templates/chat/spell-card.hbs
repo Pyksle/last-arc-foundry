@@ -120,6 +120,13 @@
     </p>
   {{/if}}
 
+  {{!-- The rider the target shrugged off (#57). A condition that simply
+        fails to appear is indistinguishable from one the system forgot to
+        apply, which is the state resistance was reported from. --}}
+  {{#if statusNegatedLabel}}
+    <p class="lastarc-rider lastarc-rider--negated">{{statusNegatedLabel}}</p>
+  {{/if}}
+
   {{#if notes}}<p class="lastarc-note">{{notes}}</p>{{/if}}
 
   {{#if description}}

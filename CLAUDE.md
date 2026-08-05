@@ -96,6 +96,16 @@ a newly shipped panel after whichever of its predecessors the reader kept, so
 the position is what decides where it lands for people who have already
 customised their sheet.
 
+**Applying a status effect from a rule** — never call `toggleStatusEffect`
+straight. Two rules stand between an ability and a condition landing, and both
+have exactly one implementation in `module/status-guard.mjs`: §5.5's
+secondary-effects clause (a target resistant or immune to the aspect takes no
+rider — ask `negatesSecondaryEffects` first, and put the reason on the card),
+and condition immunity (#58), enforced for every route at once by the
+`preCreateActiveEffect` hook rather than at the call sites. Guarding only the
+sites this system owns would leave the token HUD applying a condition the GM
+marked immune, which is worse than no immunity because it is trusted.
+
 **Adding an exported function** — call it from somewhere, or add it to the
 allowlist in `test/integrity.test.mjs` with a reason. Orphaned exports are the
 single most common bug here: correct, tested, and wired to nothing.
@@ -103,7 +113,7 @@ single most common bug here: correct, tested, and wired to nothing.
 ## Testing
 
 ```bash
-npm test          # ~1120 tests, no Foundry needed — always run this
+npm test          # ~1160 tests, no Foundry needed — always run this
 ```
 
 `npm run test:integration` runs the Quench suite inside a real Foundry. **It
@@ -142,6 +152,18 @@ A green `npm test` means the maths is right. It does not mean the UI works.
    chosen against cream. Never add a `prefers-color-scheme` rule for a
    `.lastarc-*` colour — one shipped and put pale green text on the pale green
    verdict plate at 1.12:1. `test/contrast.test.mjs` now forbids it.
+   **Every card colour must be scoped under `.lastarc-card`.** The reset
+   `.lastarc-card p, span, div, strong { color: inherit }` beats Foundry's chat
+   styling at (0,1,1), and it also beats a bare `.lastarc-verdict--good` at
+   (0,1,0). Ten rules lost that cascade — the hit and miss verdicts, all four
+   riders, the ammunition line, the mana cost, the decay schedule and the
+   discarded-misfortune die all rendered in the card's default ink, for as long
+   as they had existed. The plates behind them still tinted, so it looked
+   deliberate. `test/contrast.test.mjs` parses DECLARATIONS, so it had been
+   vouching for all ten the whole time; it now also checks that each one
+   out-specifies the reset. When adding a colour, write
+   `.lastarc-card .lastarc-thing`, and verify with a computed style in a
+   browser rather than by reading the declaration back.
 10. **NPCs and characters have different shapes.** Characters keep skills as a
     keyed object of derived rows; NPCs keep a flat printed array of
     `{key, value}`, and NPCs have no `proficiencies` and no `system.statuses`.

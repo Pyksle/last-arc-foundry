@@ -182,16 +182,112 @@ describe("chat card readability", () => {
   });
 
   /**
+   * A COLOUR THAT LOSES THE CASCADE IS NOT A COLOUR.
+   *
+   * Every check in this file parses DECLARATIONS. That is fine for asking
+   * whether a chosen colour is legible and useless for asking whether it ever
+   * arrives — and those are different questions, as four rules proved.
+   *
+   * `.lastarc-card p, span, div, strong { color: inherit }` exists to beat
+   * Foundry's own chat-log styling. It is (0,1,1). Every rider variant was a
+   * bare `.lastarc-rider--crit` at (0,1,0) and LOST: the combo, critical and
+   * healing riders rendered in the card's default ink for eleven releases, and
+   * `border-left: 3px solid currentColor` took the left bar with them. Only the
+   * translucent plate behind the text showed, which was enough to look
+   * deliberate. Meanwhile the per-selector tests below reported all three as
+   * comfortably passing, because the value they measured was one the browser
+   * had discarded.
+   *
+   * Caught by measuring the computed colour in a real browser while adding a
+   * fourth rider (#57). This is that check, made structural: any `.lastarc-*`
+   * class that a chat template puts on a p/span/div/strong must out-specify the
+   * reset, or its colour is decoration in the source file only.
+   */
+  test("no chat colour is out-specified by the inherit reset", () => {
+    // Which tags each class actually lands on, read from the templates.
+    const tags = new Map();
+    for (const file of readdirSync(join(root, "templates/chat"))) {
+      const tpl = readFileSync(join(root, "templates/chat", file), "utf8");
+      for (const m of tpl.matchAll(/<(p|span|div|strong)\b[^>]*class="([^"]*)"/g)) {
+        for (const cls of m[2].split(/\s+/)) {
+          if (!cls.startsWith("lastarc-")) continue;
+          if (!tags.has(cls)) tags.set(cls, new Set());
+          tags.get(cls).add(m[1]);
+        }
+      }
+    }
+    // The reset itself must exist, or this test is asserting nothing.
+    assert.match(css, /\.lastarc-card p,[\s\S]{0,120}color:\s*inherit/,
+      "the inherit reset is gone — this guard has lost its premise");
+
+    /** [ids, classes, elements] for a whole selector. */
+    const specificity = (sel) => [
+      (sel.match(/#[\w-]+/g) ?? []).length,
+      (sel.match(/(?:\.[\w-]+|:[\w-]+(?:\([^)]*\))?|\[[^\]]*\])/g) ?? []).length,
+      (sel.match(/(?:^|[\s>+~])[a-z][\w-]*/g) ?? []).length
+    ];
+
+    const nc = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    const resetAt = nc.search(/\.lastarc-card strong,/);
+    assert.ok(resetAt > 0, "the reset moved; source-order tie-breaks are wrong");
+
+    const losers = [];
+    for (const rule of nc.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const colour = rule[2].match(/(?:^|;)\s*color\s*:\s*([^;]+)/)?.[1]?.trim();
+      // `inherit` IS the reset. `.lastarc-card` is the ancestor supplying the
+      // value being inherited. Neither is a descendant losing a cascade.
+      if (!colour || colour === "inherit") continue;
+
+      for (const sel of rule[1].split(",")) {
+        const one = sel.trim().replace(/\s+/g, " ");
+        if (!one || one === ".lastarc-card") continue;
+
+        /**
+         * The SUBJECT is the rightmost compound — the element the rule paints.
+         * `.lastarc-ammo strong` paints a <strong>, not the ammo line, and it
+         * ties the reset on specificity and wins on source order. Judging by
+         * "the last class named anywhere in the selector" flagged it, and
+         * flagged `.lastarc-ammo-row button` for a tag the reset never touches.
+         */
+        const subject = one.split(/[\s>+~]+/).pop();
+        const cls = [...subject.matchAll(/\.(lastarc-[\w-]+)/g)].pop()?.[1];
+        if (!cls || !tags.has(cls)) continue;
+        // Only the four tags the reset actually names can lose to it.
+        if (![...tags.get(cls)].some((t) => ["p", "span", "div", "strong"].includes(t))) continue;
+
+        const [a, b, c] = specificity(one);
+        const wins = a > 0 || b > 1 || (b === 1 && c > 1)
+          // An exact tie is decided by source order, and every one of these
+          // sits below the reset — so a tie is a win, not a loss.
+          || (a === 0 && b === 1 && c === 1 && rule.index > resetAt);
+        if (wins) continue;
+
+        losers.push(`${one}  (on <${[...tags.get(cls)].join("/")}>)`);
+      }
+    }
+
+    assert.deepEqual(losers, [],
+      "these declare a colour that the `.lastarc-card p,span,div,strong { color: " +
+      "inherit }` reset overrides, so the element renders in the card's default " +
+      "ink and the declaration is decoration. Scope them under `.lastarc-card`:\n  " +
+      losers.join("\n  "));
+  });
+
+  /**
    * Text over a tinted plate. The plate is translucent over the card, so both
    * halves have to be composited before the comparison — measuring the text
    * against the raw card would flatter every one of these.
    */
   const PLATED = [
-    [".lastarc-verdict--good", "the hit/beat verdict"],
-    [".lastarc-verdict--bad", "the miss/resisted verdict"],
-    [".lastarc-rider--combo", "the combo and repeat-block riders"],
-    [".lastarc-rider--crit", "the critical rider"],
-    [".lastarc-rider--heal", "the healing rider"]
+    [".lastarc-card .lastarc-verdict--good", "the hit/beat verdict"],
+    [".lastarc-card .lastarc-verdict--bad", "the miss/resisted verdict"],
+    [".lastarc-card .lastarc-rider--combo", "the combo and repeat-block riders"],
+    [".lastarc-card .lastarc-rider--crit", "the critical rider"],
+    [".lastarc-card .lastarc-rider--heal", "the healing rider"],
+    // Added with the rider itself (#57). A plate that arrives unlisted here is
+    // exactly how the pale-green-on-pale-green verdict shipped: this list is
+    // the check, so a new plate is unmeasured until it is on it.
+    [".lastarc-card .lastarc-rider--negated", "the negated-rider plate"]
   ];
 
   for (const [selector, what] of PLATED) {

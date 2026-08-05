@@ -856,8 +856,10 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     this.render();
   }
 
+  // The event is passed through for its `altKey`, which marks the creature
+  // immune to the condition instead of applying it (#58).
   static async #onToggleStatus(event, target) {
-    await toggleStatus(this, target);
+    await toggleStatus(this, target, event);
   }
 
   /**

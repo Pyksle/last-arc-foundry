@@ -124,6 +124,16 @@ export class LastArcNpcData extends foundry.abstract.TypeDataModel {
       }),
 
       /**
+       * Conditions this creature cannot be given at all (#58) — the line a
+       * bestiary entry prints as "Immune: sleep, fear". Distinct from
+       * `damageMods.immunity`, which is about a damage TYPE.
+       *
+       * See the note on the character model for why the element carries no
+       * `choices`.
+       */
+      statusImmunities: new fields.ArrayField(new fields.StringField(), { initial: [] }),
+
+      /**
        * Statblock attacks (§3.2).
        *
        * Stored on the actor rather than as weapon Items because a monster's
