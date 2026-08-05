@@ -1,0 +1,21 @@
+{{!-- The catch on the sheet's arrangement (#54).
+
+      "Having a lock … to prevent accidental moving of these sections would
+      probably be wise." It is, so the sheet arrives locked and the move arrows
+      are not drawn at all until somebody asks for them.
+
+      A word rather than a padlock glyph. Nothing else in this system ships an
+      icon font — the row arrows are literal ▲▼ — and a lone padlock would have
+      to be guessed at. "Arrange" also does the other half of the job: it is the
+      only thing on the sheet that says the sections CAN be moved, which a
+      hidden control cannot say for itself.
+
+      The label and tooltip are swapped to "Done" by `applyLayout` when the
+      sheet is unlocked. Rendered here in the locked wording because locked is
+      the state every sheet starts in. --}}
+<div class="la-layout">
+  <button type="button" class="la-layout__toggle" data-action="toggleLayoutLock"
+          data-tooltip="{{localize 'LASTARC.Tooltip.Arrange'}}">{{localize "LASTARC.Layout.Arrange"}}</button>
+  <button type="button" class="la-layout__reset" data-action="resetLayout"
+          data-tooltip="{{localize 'LASTARC.Tooltip.ResetLayout'}}">{{localize "LASTARC.Layout.Reset"}}</button>
+</div>

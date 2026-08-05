@@ -1,8 +1,8 @@
 <div class="la-body">
 
   {{!-- ── Attributes · printed order Str·Vit·Agi·Int·Mnd·Chr ──────────────── --}}
-  <section class="la-panel la-panel--attributes">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Attributes"}}</h2>
+  <section class="la-panel la-panel--attributes" data-section="attributes">
+    {{> laSectionTitle id="attributes"}}
     <div class="la-attributes">
       {{#each attributes}}
         <div class="la-attribute">
@@ -33,7 +33,8 @@
   </section>
 
   {{!-- ── Vitals ──────────────────────────────────────────────────────────── --}}
-  <section class="la-panel la-panel--vitals">
+  <section class="la-panel la-panel--vitals" data-section="vitals">
+    {{> laSectionTitle id="vitals"}}
     <div class="la-vital la-vital--hp">
       <h3>{{localize "LASTARC.Resource.HitPoints"}}</h3>
       <div class="la-vital__pair">
@@ -148,8 +149,8 @@
   {{!-- ── Movement modes ──────────────────────────────────────────────────── --}}
   {{!-- Fly, swim and climb had no inputs anywhere, so a winged character or
         anything underwater could not be represented at all. --}}
-  <section class="la-panel la-panel--movement">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Movement"}}</h2>
+  <section class="la-panel la-panel--movement" data-section="movement">
+    {{> laSectionTitle id="movement"}}
     <div class="la-field-row">
       <div class="la-field la-field--narrow">
         <input type="number" name="system.movement.fly" value="{{movementInput.fly}}" min="0">
@@ -196,8 +197,8 @@
 
         Shield proficiency moved here from the Movement panel, where it had
         been sitting next to the swim speed. --}}
-  <section class="la-panel la-panel--proficiencies">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Proficiencies"}}</h2>
+  <section class="la-panel la-panel--proficiencies" data-section="proficiencies">
+    {{> laSectionTitle id="proficiencies"}}
     <p class="la-note">{{localize "LASTARC.Note.ProficiencyPenalty"}}</p>
 
     <h3 class="la-prof__title">{{localize "LASTARC.Field.WeaponProficiency"}}</h3>
@@ -237,8 +238,8 @@
   </section>
 
   {{!-- ── Defences · Threshold ────────────────────────────────────────────── --}}
-  <section class="la-panel la-panel--defences">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Defences"}}</h2>
+  <section class="la-panel la-panel--defences" data-section="defences">
+    {{> laSectionTitle id="defences"}}
     <div class="la-defences">
       {{#each defenceRows}}
         <div class="la-defence">
@@ -284,8 +285,8 @@
   </section>
 
   {{!-- ── Break Gauge · the signature mechanic ────────────────────────────── --}}
-  <section class="la-panel la-panel--break">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.BreakGauge"}}</h2>
+  <section class="la-panel la-panel--break" data-section="break">
+    {{> laSectionTitle id="break"}}
 
     <div class="la-break">
       {{#each breakTrack}}
@@ -358,8 +359,8 @@
   {{> laEffectsPanel}}
 
   {{!-- ── Skills · five printed columns ───────────────────────────────────── --}}
-  <section class="la-panel la-panel--skills">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Skills"}}</h2>
+  <section class="la-panel la-panel--skills" data-section="skills">
+    {{> laSectionTitle id="skills"}}
 
     {{!-- Trained allowance (issue #34). Hidden entirely when no class is chosen
           yet, rather than showing a number derived from a guess. --}}
@@ -446,8 +447,8 @@
 
   {{!-- ── Action economy · only while in combat ───────────────────────────── --}}
   {{#if actionEconomy}}
-    <section class="la-panel la-panel--actions">
-      <h2 class="la-panel__title">{{localize "LASTARC.Section.Actions"}}</h2>
+    <section class="la-panel la-panel--actions" data-section="actions">
+      {{> laSectionTitle id="actions"}}
 
       <div class="la-slots">
         {{#each actionEconomy.slots}}
@@ -516,8 +517,8 @@
   {{/if}}
 
   {{!-- ── Attacks ─────────────────────────────────────────────────────────── --}}
-  <section class="la-panel la-panel--attacks">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Attacks"}}</h2>
+  <section class="la-panel la-panel--attacks" data-section="attacks">
+    {{> laSectionTitle id="attacks"}}
 
     <div class="la-attacks">
       {{#each attacks}}
@@ -585,8 +586,8 @@
   {{!-- ── Technicks & talents ─────────────────────────────────────────────── --}}
   {{!-- Spells. The name is the cast button, matching the Attacks panel: in play
         you click the thing you just said out loud. --}}
-  <section class="la-panel la-panel--spells">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Spells"}}</h2>
+  <section class="la-panel la-panel--spells" data-section="spells">
+    {{> laSectionTitle id="spells"}}
 
     <p class="la-note {{#if study.spells.over}}is-warning{{/if}}">
       {{localize "LASTARC.Note.SpellsKnown"}} {{study.spells.known}} / {{study.spells.max}}
@@ -629,8 +630,8 @@
   {{!-- Always rendered, never gated on performances.length. Hiding the panel
         when empty meant a bard had no way to add their FIRST performance —
         the one case where the panel matters most. --}}
-  <section class="la-panel la-panel--performances">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Performances"}}</h2>
+  <section class="la-panel la-panel--performances" data-section="performances">
+    {{> laSectionTitle id="performances"}}
     <p class="la-note {{#if study.performances.over}}is-warning{{/if}}">
       {{localize "LASTARC.Note.PerformancesKnown"}} {{study.performances.known}} / {{study.performances.max}}
       {{#if noBardicStudy}}— {{localize "LASTARC.Note.NeedsBardicStudy"}}{{/if}}
@@ -666,8 +667,8 @@
     </button>
   </section>
 
-  <section class="la-panel la-panel--technicks">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Technicks"}}</h2>
+  <section class="la-panel la-panel--technicks" data-section="technicks">
+    {{> laSectionTitle id="technicks"}}
 
     <div class="la-items">
       {{#each technicks}}
@@ -713,8 +714,8 @@
   {{!-- Class LEVELS live in the header (system.classes) because the level maths
         depends on them. This panel is for the written features those choices
         grant, transcribed from your own book. --}}
-  <section class="la-panel la-panel--features">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Features"}}</h2>
+  <section class="la-panel la-panel--features" data-section="features">
+    {{> laSectionTitle id="features"}}
 
     <div class="la-items">
       {{#each features}}
@@ -747,8 +748,8 @@
   </section>
 
   {{!-- ── Inventory ───────────────────────────────────────────────────────── --}}
-  <section class="la-panel la-panel--inventory">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Inventory"}}</h2>
+  <section class="la-panel la-panel--inventory" data-section="inventory">
+    {{> laSectionTitle id="inventory"}}
 
     <div class="la-bulk {{#if bulkState}}is-{{bulkState}}{{/if}}">
       <span>{{localize "LASTARC.Field.Bulk"}}</span>
@@ -840,8 +841,8 @@
   </section>
 
   {{!-- ── Weapon skills · different rules from standard skills ────────────── --}}
-  <section class="la-panel la-panel--weaponskills">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.WeaponSkills"}}</h2>
+  <section class="la-panel la-panel--weaponskills" data-section="weaponskills">
+    {{> laSectionTitle id="weaponskills"}}
     <p class="la-note">{{localize "LASTARC.Note.WeaponSkills"}}</p>
 
     <div class="la-skills">
@@ -898,8 +899,8 @@
   {{!-- ── Biography ───────────────────────────────────────────────────────
         HTMLField, so {{formInput}} gives a <prose-mirror> editor. There was
         no input for this anywhere. --}}
-  <section class="la-panel la-panel--biography">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Biography"}}</h2>
+  <section class="la-panel la-panel--biography" data-section="biography">
+    {{> laSectionTitle id="biography"}}
 
     {{!-- Languages (issue #14). An ArrayField of plain strings, so one comma
           box rather than a row-adding widget — the same treatment a race

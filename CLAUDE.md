@@ -84,6 +84,18 @@ feature nobody can reach is the defect this project keeps producing.
 `TYPES.Item.x` label, a group in `LASTARC.itemCreationGroups`, and a branch in
 `#prepareItems` or a numeric `bulk`.
 
+**Adding a top-level panel to an actor sheet** — needs an entry in
+`LASTARC.sheetSections` *at the position it appears in the template*, a
+`LASTARC.Section.*` label, and `data-section="id"` on the `<section>` with
+`{{> laSectionTitle id="id"}}` in place of a hand-written `<h2>`. All three are
+enforced by `test/sheet-layout.test.mjs`, which compares the config list against
+the template's DOM order — a mismatch reshuffles the sheet the first time
+anybody opens it, because a fresh reader's arrangement IS that list. Put the
+entry in its designed position rather than at the end: `normaliseOrder` inserts
+a newly shipped panel after whichever of its predecessors the reader kept, so
+the position is what decides where it lands for people who have already
+customised their sheet.
+
 **Adding an exported function** — call it from somewhere, or add it to the
 allowlist in `test/integrity.test.mjs` with a reason. Orphaned exports are the
 single most common bug here: correct, tested, and wired to nothing.
@@ -91,7 +103,7 @@ single most common bug here: correct, tested, and wired to nothing.
 ## Testing
 
 ```bash
-npm test          # 349 tests, no Foundry needed — always run this
+npm test          # ~1120 tests, no Foundry needed — always run this
 ```
 
 `npm run test:integration` runs the Quench suite inside a real Foundry. **It

@@ -5,8 +5,8 @@
   every effect carrying that id. Two remove buttons with different semantics on
   one condition is how the status pile-up in #47 happened.
 --}}
-<section class="la-panel la-panel--effects">
-  <h2 class="la-panel__title">{{localize "LASTARC.Section.Effects"}}</h2>
+<section class="la-panel la-panel--effects" data-section="effects">
+  {{> laSectionTitle id="effects"}}
 
   <div class="la-effects">
     {{#each effects}}

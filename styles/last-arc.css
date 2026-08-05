@@ -186,6 +186,20 @@
  *   4. corner ornaments (::before), which is the detail that reads as "book"
  *      rather than "web form".
  */
+/**
+ * NOTHING HERE ARRANGES THE PANELS, and that is deliberate (#54).
+ *
+ * The tempting version makes `.la-body` a flex column and gives each panel a
+ * CSS `order`. It is a smaller change and it is wrong: `order` reorders the
+ * painting only. The tab sequence and the accessibility tree keep the original
+ * arrangement, so a reader who moved Spells to the top would still be walked
+ * through Attributes first by the keyboard — the feature not working, for the
+ * readers least able to work around it.
+ *
+ * `applyLayout` moves the nodes instead. Block layout, no flex, and the item
+ * sheet — which shares `.la-body` and `.la-panel` and has no sections at all —
+ * is untouched by any of it.
+ */
 .la-panel {
   position: relative;
   background:
@@ -278,12 +292,178 @@
 .la-panel__title::after { right: -0.25rem; }
 
 /* -------------------------------------------------------------------------- */
+/*  Arranging the panels (issues #54, #55)                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The controls live INSIDE the title cartouche, and that placement is the whole
+ * trick.
+ *
+ * Everywhere else on a panel is spoken for: `.la-panel::before` draws corner
+ * brackets 14px into each corner, `.la-panel::after` an inset double rule, and
+ * the comment above `.la-panel__add` already records that a button in the top
+ * corner would sit on top of the ornament — which is why the Add control is a
+ * full-width row at the foot instead. The black plate is the one piece of
+ * furniture with nothing behind it, it is centred over the edge where a reader
+ * already looks to find the section, and putting the fold control there means
+ * the sheet grows no new chrome at all for #55.
+ */
+/* Scoped to panels that HAVE a section id. The item sheet uses `.la-panel`
+   forty-five times with plain text titles and no controls; a bare
+   `.la-panel__title` rule would restyle every one of them for nothing. */
+.la-panel[data-section] > .la-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* The title text IS the fold control. Stripped back to inheriting the plate's
+   own typography so it reads as the heading it replaced, not as a button. */
+.la-panel__collapse {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  width: auto;
+}
+.la-panel__collapse:hover,
+.la-panel__collapse:focus-visible { color: var(--la-bronze-bright); }
+
+/* Points down when open, right when folded — the one universally read
+   affordance for this, and the only moving part on the plate. */
+.la-panel__chevron {
+  font-size: 0.6em;
+  transition: transform 120ms ease;
+}
+.la-panel.is-collapsed .la-panel__chevron { transform: rotate(-90deg); }
+
+/**
+ * Folded away.
+ *
+ * Everything but the title is hidden, which needs no wrapper element and so
+ * costs nothing in the thirty-five templates this applies to. `display: none`
+ * and not `visibility` or a height animation, deliberately: hidden inputs are
+ * still submitted with the form, and these sheets submit on every change — a
+ * folded panel must keep its values, not blank them.
+ *
+ * The pseudo-elements are untouched, so a folded panel keeps its bevel, its
+ * inset rule and its corner brackets. It reads as a closed drawer.
+ */
+.la-panel.is-collapsed > *:not(.la-panel__title) { display: none; }
+.la-panel.is-collapsed {
+  padding-top: 1.15rem;
+  padding-bottom: 0.3rem;
+}
+
+/**
+ * The move arrows, drawn only when the reader has taken the catch off.
+ *
+ * "Having a lock … to prevent accidental moving of these sections would
+ * probably be wise" — so nineteen pairs of arrows do not appear on a sheet
+ * belonging to somebody who never asked to rearrange anything.
+ *
+ * Note this is the ONE control in the system that is hidden rather than
+ * disabled when unavailable. The rule everywhere else — a gap where a control
+ * used to be is more confusing than a control plainly unavailable — is about
+ * controls the reader is reaching for. These are the opposite: the complaint
+ * was about them being reachable at all.
+ */
+.la-panel__arrange { display: none; }
+.is-layout-unlocked .la-panel__arrange {
+  display: inline-flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  line-height: 0.7;
+  margin-left: 0.1rem;
+}
+.la-panel__move {
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  width: 1rem;
+  height: 0.7rem;
+  font-size: 0.5rem;
+  line-height: 0.7;
+  /* On the ink plate, so the paper colour rather than the ink one. */
+  color: var(--la-paper);
+  opacity: 0.55;
+}
+.la-panel__move:hover:enabled { opacity: 1; color: var(--la-bronze-bright); }
+.la-panel__move:disabled { opacity: 0.15; cursor: default; }
+
+/* Unlocked is a mode, and a mode you cannot see is a mode you forget you are
+   in. The dotted edge is the whole announcement — quiet, but present on every
+   panel, so the state is never a surprise. */
+.is-layout-unlocked .la-panel {
+  outline: 1px dashed color-mix(in srgb, var(--la-bronze) 45%, transparent);
+  outline-offset: 2px;
+}
+
+/* The catch itself, in the sheet header. Borrows the dashed, faint, uppercase
+   language of `.la-panel__add` so the sheet has one "this is chrome, not
+   content" voice rather than two. */
+.la-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  align-self: start;
+}
+.la-layout__toggle,
+.la-layout__reset {
+  padding: 0.2rem 0.5rem;
+  background: none;
+  border: 1px dashed var(--la-rule);
+  border-radius: var(--la-radius);
+  color: var(--la-ink-faint);
+  cursor: pointer;
+  font-family: var(--la-font-head);
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  width: auto;
+}
+.la-layout__toggle:hover,
+.la-layout__reset:hover {
+  color: var(--la-bronze);
+  border-color: var(--la-bronze);
+  border-style: solid;
+}
+/* Resetting is only meaningful once you are arranging, and an always-visible
+   "Reset" invites the click it exists to undo. */
+.la-layout__reset { display: none; }
+.is-layout-unlocked .la-layout__reset { display: block; }
+.is-layout-unlocked .la-layout__toggle {
+  color: var(--la-bronze);
+  border-color: var(--la-bronze);
+  border-style: solid;
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Header                                                                     */
 /* -------------------------------------------------------------------------- */
 
 .la-header {
   display: grid;
-  grid-template-columns: 96px 1fr;
+  /* Third column is the layout catch (#54). `auto` so it costs only the width
+     of one short word, and the identity fields keep the rest. */
+  grid-template-columns: 96px 1fr auto;
   gap: 0.75rem;
   margin-bottom: 0.9rem;
 }
@@ -479,7 +659,10 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
   gap: var(--la-gap);
-  padding-top: 0.75rem;
+  /* Was 0.75rem, because this was the one panel with no title banner. It has
+     one now: every other panel's title is also its collapse control, and a
+     panel without one would be the single section nobody could fold away. */
+  padding-top: 1.7rem;
 }
 .la-vital {
   background: color-mix(in srgb, var(--la-paper-3) 45%, transparent);

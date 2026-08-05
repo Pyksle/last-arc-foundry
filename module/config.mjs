@@ -1195,6 +1195,74 @@ LASTARC.allItemTypes = [
 
 LASTARC.itemCreationGroups.npc = LASTARC.allItemTypes;
 
+/* -------------------------------------------------------------------------- */
+/*  Sheet sections (issues #54, #55)                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The panels each actor sheet ships, in DESIGNED order, with their titles.
+ *
+ * The order here is the sheet a player gets before they touch anything, and it
+ * is also the anchor `normaliseOrder` uses to place a newly shipped panel into
+ * an arrangement somebody has already customised. Reordering this list changes
+ * where a new section lands for existing readers, so it is not decoration.
+ *
+ * `id` is the `data-section` attribute in the template. A THIRD vocabulary
+ * alongside `data-group` (which subtypes an Add button creates) and
+ * `data-panel` (which list the row arrows reorder) — CLAUDE.md warns that
+ * mixing the first two produced a real defect, so this one is deliberately
+ * named for the thing it identifies and never reused for anything else.
+ *
+ * The label lives here rather than as a literal in each template because the
+ * title is now drawn by a shared partial: nineteen copies of
+ * `{{localize "LASTARC.Section.X"}}` became one lookup, and a section with no
+ * label is now a test failure rather than a blank cartouche.
+ */
+LASTARC.sheetSections = {
+  character: [
+    { id: "attributes", label: "LASTARC.Section.Attributes" },
+    { id: "vitals", label: "LASTARC.Section.Vitals" },
+    { id: "movement", label: "LASTARC.Section.Movement" },
+    { id: "damagemods", label: "LASTARC.Section.DamageMods" },
+    { id: "proficiencies", label: "LASTARC.Section.Proficiencies" },
+    { id: "defences", label: "LASTARC.Section.Defences" },
+    { id: "break", label: "LASTARC.Section.BreakGauge" },
+    { id: "statuses", label: "LASTARC.Section.Statuses" },
+    { id: "effects", label: "LASTARC.Section.Effects" },
+    { id: "skills", label: "LASTARC.Section.Skills" },
+    // Rendered only while this actor is in an active combat, so it is the one
+    // section that is routinely absent — which is why `moveSection` swaps with
+    // the nearest RENDERED neighbour rather than the literal one.
+    { id: "actions", label: "LASTARC.Section.Actions" },
+    { id: "attacks", label: "LASTARC.Section.Attacks" },
+    { id: "spells", label: "LASTARC.Section.Spells" },
+    { id: "performances", label: "LASTARC.Section.Performances" },
+    { id: "technicks", label: "LASTARC.Section.Technicks" },
+    { id: "features", label: "LASTARC.Section.Features" },
+    { id: "inventory", label: "LASTARC.Section.Inventory" },
+    { id: "weaponskills", label: "LASTARC.Section.WeaponSkills" },
+    { id: "biography", label: "LASTARC.Section.Biography" }
+  ],
+  npc: [
+    { id: "attributes", label: "LASTARC.Section.Attributes" },
+    { id: "vitals", label: "LASTARC.Section.Vitals" },
+    { id: "bearing", label: "LASTARC.Section.Bearing" },
+    { id: "defences", label: "LASTARC.Section.Defences" },
+    { id: "break", label: "LASTARC.Section.BreakGauge" },
+    { id: "damagemods", label: "LASTARC.Section.DamageMods" },
+    { id: "statuses", label: "LASTARC.Section.Statuses" },
+    { id: "effects", label: "LASTARC.Section.Effects" },
+    { id: "attacks", label: "LASTARC.Section.Attacks" },
+    { id: "items", label: "LASTARC.Section.Items" },
+    { id: "drops", label: "LASTARC.Section.Spoils" },
+    { id: "skills", label: "LASTARC.Section.Skills" },
+    { id: "spells", label: "LASTARC.Section.Spells" },
+    { id: "performances", label: "LASTARC.Section.Performances" },
+    { id: "technicks", label: "LASTARC.Section.Technicks" },
+    { id: "biography", label: "LASTARC.Section.Biography" }
+  ]
+};
+
 /**
  * Enumerations the item schemas constrain on and the item sheet builds
  * dropdowns from.

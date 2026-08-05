@@ -359,6 +359,8 @@ function registerHandlebarsHelpers() {
 function registerPartials() {
   foundry.applications.handlebars.loadTemplates({
     laItemOrder: `systems/${SYSTEM_ID}/templates/actor/item-order.hbs`,
+    laSectionTitle: `systems/${SYSTEM_ID}/templates/actor/section-title.hbs`,
+    laLayoutControls: `systems/${SYSTEM_ID}/templates/actor/layout-controls.hbs`,
     laStatusPalette: `systems/${SYSTEM_ID}/templates/actor/status-palette.hbs`,
     laEffectsPanel: `systems/${SYSTEM_ID}/templates/actor/effects-panel.hbs`,
     laDamageMods: `systems/${SYSTEM_ID}/templates/actor/damage-mods.hbs`

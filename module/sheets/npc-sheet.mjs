@@ -20,6 +20,10 @@ import { promptCreateItem } from "./item-creation.mjs";
 import { shareItem } from "../dice/share-item.mjs";
 import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
+import {
+  applyLayout, sectionLabels, toggleSection, moveSection, toggleLayoutLock, resetLayout,
+  rememberScroll, restoreScroll
+} from "./sheet-layout-controls.mjs";
 import { markStatuses, toggleStatus } from "./status-palette.mjs";
 import { damageModTexts, repackDamageMods } from "./damage-mods.mjs";
 import {
@@ -97,7 +101,11 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       createEffect: LastArcNpcSheet.#onCreateEffect,
       editEffect: LastArcNpcSheet.#onEditEffect,
       toggleEffect: LastArcNpcSheet.#onToggleEffect,
-      deleteEffect: LastArcNpcSheet.#onDeleteEffect
+      deleteEffect: LastArcNpcSheet.#onDeleteEffect,
+      toggleSection: LastArcNpcSheet.#onToggleSection,
+      moveSection: LastArcNpcSheet.#onMoveSection,
+      toggleLayoutLock: LastArcNpcSheet.#onToggleLayoutLock,
+      resetLayout: LastArcNpcSheet.#onResetLayout
     }
   };
 
@@ -277,8 +285,24 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
      */
     context.canBrowseFiles = game.user?.can("FILES_BROWSE") ?? false;
 
+    // Section titles are drawn by a shared partial that looks its label up
+    // here, so `LASTARC.sheetSections` is the one place a panel is named.
+    context.sectionLabels = sectionLabels("npc");
 
     return context;
+  }
+
+  /** Push this reader's arrangement onto the rendered statblock (#54, #55). */
+  _onRender(context, options) {
+    super._onRender(context, options);
+    applyLayout(this, "npc");
+    restoreScroll(this);
+  }
+
+  /** Note where the reader was before the re-render throws it away (#55). */
+  _preRender(context, options) {
+    rememberScroll(this);
+    return super._preRender(context, options);
   }
 
   /**
@@ -563,5 +587,23 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /** Move an item one place up or down its panel (issue #9). */
   static async #onMoveItem(event, target) {
     await moveItem(this, target);
+  }
+
+  /* -- arranging the sheet itself (#54, #55) ------------------------------- */
+
+  static async #onToggleSection(event, target) {
+    await toggleSection(this, "npc", target);
+  }
+
+  static async #onMoveSection(event, target) {
+    await moveSection(this, "npc", target);
+  }
+
+  static async #onToggleLayoutLock() {
+    await toggleLayoutLock(this, "npc");
+  }
+
+  static async #onResetLayout() {
+    await resetLayout(this, "npc");
   }
 }

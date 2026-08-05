@@ -24,6 +24,10 @@ import { promptCreateItem } from "./item-creation.mjs";
 import { shareItem } from "../dice/share-item.mjs";
 import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
+import {
+  applyLayout, sectionLabels, toggleSection, moveSection, toggleLayoutLock, resetLayout,
+  rememberScroll, restoreScroll
+} from "./sheet-layout-controls.mjs";
 import { markStatuses, toggleStatus } from "./status-palette.mjs";
 import { damageModTexts, repackDamageMods } from "./damage-mods.mjs";
 import {
@@ -85,7 +89,11 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       createEffect: LastArcCharacterSheet.#onCreateEffect,
       editEffect: LastArcCharacterSheet.#onEditEffect,
       toggleEffect: LastArcCharacterSheet.#onToggleEffect,
-      deleteEffect: LastArcCharacterSheet.#onDeleteEffect
+      deleteEffect: LastArcCharacterSheet.#onDeleteEffect,
+      toggleSection: LastArcCharacterSheet.#onToggleSection,
+      moveSection: LastArcCharacterSheet.#onMoveSection,
+      toggleLayoutLock: LastArcCharacterSheet.#onToggleLayoutLock,
+      resetLayout: LastArcCharacterSheet.#onResetLayout
     }
   };
 
@@ -245,8 +253,31 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
      */
     context.canBrowseFiles = game.user?.can("FILES_BROWSE") ?? false;
 
+    // Section titles are drawn by a shared partial that looks its label up
+    // here, so `LASTARC.sheetSections` is the one place a panel is named.
+    context.sectionLabels = sectionLabels("character");
 
     return context;
+  }
+
+  /**
+   * Push this reader's arrangement onto the rendered sheet (#54, #55).
+   *
+   * Applied here rather than baked into the context because the ordering is CSS
+   * `order` and the folding is one class — both of which the click handlers set
+   * directly, without a re-render. One routine decides what the sheet looks
+   * like, and it runs after every render and after every change.
+   */
+  _onRender(context, options) {
+    super._onRender(context, options);
+    applyLayout(this, "character");
+    restoreScroll(this);
+  }
+
+  /** Note where the reader was before the re-render throws it away (#55). */
+  _preRender(context, options) {
+    rememberScroll(this);
+    return super._preRender(context, options);
   }
 
   /**
@@ -1267,6 +1298,24 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
   /** Move an item one place up or down its panel (issue #9). */
   static async #onMoveItem(event, target) {
     await moveItem(this, target);
+  }
+
+  /* -- arranging the sheet itself (#54, #55) ------------------------------- */
+
+  static async #onToggleSection(event, target) {
+    await toggleSection(this, "character", target);
+  }
+
+  static async #onMoveSection(event, target) {
+    await moveSection(this, "character", target);
+  }
+
+  static async #onToggleLayoutLock() {
+    await toggleLayoutLock(this, "character");
+  }
+
+  static async #onResetLayout() {
+    await resetLayout(this, "character");
   }
 
   /**

@@ -1,0 +1,51 @@
+{{!-- The title cartouche of a panel, and the controls that arrange it (#54, #55).
+
+      A partial rather than thirty-five copies, for the reason `laItemOrder` is
+      one: nineteen panels on the character sheet and sixteen on the statblock
+      all need the same three controls, and thirty-five copies is thirty-five
+      chances for one panel to keep working while another silently stops.
+
+      Replaces the hand-written `<h2 class="la-panel__title">` every panel used
+      to carry. A test forbids those coming back, because a panel that keeps its
+      own title is a panel with no collapse control — and the failure looks like
+      the feature simply not applying to that one section.
+
+      `data-section`, and NOT `data-panel` or `data-group`. Three vocabularies
+      now: `data-group` names a `LASTARC.itemCreationGroups` key for the Add
+      button, `data-panel` names a rendered list for the row arrows, and
+      `data-section` names a top-level panel in `LASTARC.sheetSections`. The
+      first two were mixed up once and the integrity suite caught it; this one
+      is used for nothing else.
+
+      Expects `id`, passed by the caller. The label is looked up from the
+      canonical list rather than passed in, so config is the single place a
+      section is named. Collapsed state, the disabled ends and the lock are all
+      applied in `_onRender` instead of here: a click must change the DOM
+      WITHOUT a re-render, or #55's "please retain scroll position" is lost. --}}
+<h2 class="la-panel__title">
+
+  {{!-- The title itself is the collapse control. No extra chrome: the cartouche
+        is already the thing you look at to find a section, so it is also the
+        thing you click to put it away. --}}
+  <button type="button" class="la-panel__collapse" data-action="toggleSection"
+          data-section="{{id}}" aria-expanded="true"
+          data-tooltip="{{localize 'LASTARC.Tooltip.CollapseSection'}}">
+    <span class="la-panel__chevron" aria-hidden="true">▾</span>
+    <span class="la-panel__label">{{localize (lookup @root.sectionLabels id)}}</span>
+  </button>
+
+  {{!-- Hidden by CSS until the sheet is unlocked. The arrows are the accident
+        the lock was asked for: a player who never wanted to rearrange anything
+        should not be given nineteen new chances to do it by mistake. --}}
+  <span class="la-panel__arrange">
+    <button type="button" class="la-panel__move" data-action="moveSection"
+            data-section="{{id}}" data-direction="up"
+            aria-label="{{localize 'LASTARC.Action.MoveSectionUp'}}"
+            data-tooltip="{{localize 'LASTARC.Tooltip.MoveSectionUp'}}">▲</button>
+    <button type="button" class="la-panel__move" data-action="moveSection"
+            data-section="{{id}}" data-direction="down"
+            aria-label="{{localize 'LASTARC.Action.MoveSectionDown'}}"
+            data-tooltip="{{localize 'LASTARC.Tooltip.MoveSectionDown'}}">▼</button>
+  </span>
+
+</h2>

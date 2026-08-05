@@ -11,8 +11,8 @@
       Curses are kept in their own row. Different curses stack and duplicates
       do not, which is a different rule from the statuses above them, and a
       single undifferentiated grid of 33 icons said nothing about that. --}}
-<section class="la-panel la-panel--statuses">
-  <h2 class="la-panel__title">{{localize "LASTARC.Section.Statuses"}}</h2>
+<section class="la-panel la-panel--statuses" data-section="statuses">
+  {{> laSectionTitle id="statuses"}}
   <p class="la-note">{{localize "LASTARC.Note.StatusesPersist"}}</p>
 
   {{!-- An unlinked token's actor is a different document (CLAUDE.md §7), and

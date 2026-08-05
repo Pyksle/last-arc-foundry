@@ -24,6 +24,7 @@ import * as D from "../module/derivation.mjs";
 import * as ROWS from "../module/sheet-rows.mjs";
 import { effectRows } from "../module/effects.mjs";
 import * as AMMO from "../module/ammunition.mjs";
+import { sectionLabels } from "../module/sheets/sheet-layout-controls.mjs";
 
 export const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const lang = JSON.parse(readFileSync(join(root, "lang/en.json"), "utf8"));
@@ -504,6 +505,11 @@ export function buildContext() {
     classOptions: Object.entries(LASTARC.classes).map(([k, c]) => ({ value: k, label: c.label })),
     sizeOptions: ROWS.sizeOptions(),
     ...ROWS.ethosOptions(),
+
+    // Through the real function, not a hand-written map. Every panel's title
+    // now comes from here, so a fixture that guessed the shape would render
+    // nineteen blank cartouches and read as a CSS problem.
+    sectionLabels: sectionLabels("character")
   };
 }
 
@@ -611,6 +617,7 @@ export function itemContext(type) {
 export function npcContext() {
   return {
     ...buildContext(),
+    sectionLabels: sectionLabels("npc"),
     system: {
       attacks: [], skills: [], drops: [],
       breakGauge: {}, resources: { hp: {}, mp: {} },

@@ -54,10 +54,12 @@
         </div>
       </div>
     </div>
+
+    {{> laLayoutControls}}
   </header>
 
-  <section class="la-panel la-panel--attributes">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Attributes"}}</h2>
+  <section class="la-panel la-panel--attributes" data-section="attributes">
+    {{> laSectionTitle id="attributes"}}
     <div class="la-attributes">
       {{#each attributes}}
         <div class="la-attribute">
@@ -71,7 +73,8 @@
     </div>
   </section>
 
-  <section class="la-panel la-panel--vitals">
+  <section class="la-panel la-panel--vitals" data-section="vitals">
+    {{> laSectionTitle id="vitals"}}
     <div class="la-vital la-vital--hp">
       <h3>{{localize "LASTARC.Resource.HitPoints"}}</h3>
       <div class="la-vital__pair">
@@ -146,8 +149,8 @@
   {{!-- ── Ethos · senses · other movement ─────────────────────────────────── --}}
   {{!-- None of this had an input, so a statblock's alignment, its darkvision
         and anything that flies or swims were all unrecordable. --}}
-  <section class="la-panel">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Bearing"}}</h2>
+  <section class="la-panel" data-section="bearing">
+    {{> laSectionTitle id="bearing"}}
     <div class="la-field-row">
       <div class="la-field">
         <select name="system.details.ethosPurity">
@@ -202,8 +205,8 @@
   </section>
 
   {{!-- Printed (base) values on the left, live values after the gauge on the right. --}}
-  <section class="la-panel la-panel--defences">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Defences"}}</h2>
+  <section class="la-panel la-panel--defences" data-section="defences">
+    {{> laSectionTitle id="defences"}}
     <p class="la-note">{{localize "LASTARC.Note.NpcDefences"}}</p>
     <div class="la-defences">
       {{#each defenceRows}}
@@ -239,8 +242,8 @@
     </div>
   </section>
 
-  <section class="la-panel la-panel--break">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.BreakGauge"}}</h2>
+  <section class="la-panel la-panel--break" data-section="break">
+    {{> laSectionTitle id="break"}}
     <div class="la-break">
       {{#each breakTrack}}
         <button type="button"
@@ -266,8 +269,8 @@
 
   {{!-- Statblock attacks. The name is the roll button: a GM in combat is
         clicking the thing they just read aloud, not hunting for a d20 icon. --}}
-  <section class="la-panel la-panel--attacks">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Attacks"}}</h2>
+  <section class="la-panel la-panel--attacks" data-section="attacks">
+    {{> laSectionTitle id="attacks"}}
 
     <div class="la-attacks">
       {{#each attacks}}
@@ -413,8 +416,8 @@
     </button>
   </section>
 
-  <section class="la-panel">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Items"}}</h2>
+  <section class="la-panel" data-section="items">
+    {{> laSectionTitle id="items"}}
     <div class="la-items">
       {{#each items}}
         <div class="la-item" data-item-id="{{this.id}}">
@@ -441,8 +444,8 @@
         Two tables of the same shape (§3.2): an item name and the percentage
         chance of getting it. Both were declared in the data model from the
         start with no input anywhere, so a GM could not record either. --}}
-  <section class="la-panel la-panel--drops">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Spoils"}}</h2>
+  <section class="la-panel la-panel--drops" data-section="drops">
+    {{> laSectionTitle id="drops"}}
     <p class="la-note">{{localize "LASTARC.Note.SpoilsRecord"}}</p>
 
     <div class="la-drops">
@@ -501,8 +504,8 @@
   {{!-- ── Skills ──────────────────────────────────────────────────────────
         Printed totals, not derived rows. A statblock gives "Stealth +12" and
         that is the whole story — there was nowhere to record it at all. --}}
-  <section class="la-panel la-panel--npcskills">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Skills"}}</h2>
+  <section class="la-panel la-panel--npcskills" data-section="skills">
+    {{> laSectionTitle id="skills"}}
 
     <div class="la-npc-skills">
       {{#each npcSkills}}
@@ -541,8 +544,8 @@
         No spells-known budget here, unlike the character sheet. A statblock's
         list is authored, not built against a study limit (§3.2) — printing
         "3 / 2" against a monster would be inventing a rule for it. --}}
-  <section class="la-panel la-panel--spells">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Spells"}}</h2>
+  <section class="la-panel la-panel--spells" data-section="spells">
+    {{> laSectionTitle id="spells"}}
     <div class="la-spells">
       {{#each spells}}
         <div class="la-spell {{#unless this.affordable}}is-unaffordable{{/unless}}"
@@ -575,8 +578,8 @@
     </button>
   </section>
 
-  <section class="la-panel la-panel--performances">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Performances"}}</h2>
+  <section class="la-panel la-panel--performances" data-section="performances">
+    {{> laSectionTitle id="performances"}}
     <div class="la-spells">
       {{#each performances}}
         {{!-- NEVER disabled, and no cost. Performances do not spend mana.
@@ -611,8 +614,8 @@
     </button>
   </section>
 
-  <section class="la-panel la-panel--technicks">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Technicks"}}</h2>
+  <section class="la-panel la-panel--technicks" data-section="technicks">
+    {{> laSectionTitle id="technicks"}}
 
     <div class="la-items">
       {{#each technicks}}
@@ -643,8 +646,8 @@
   {{!-- ── Biography ───────────────────────────────────────────────────────
         HTMLField, so {{formInput}} gives a <prose-mirror> editor. There was
         no input for this anywhere. --}}
-  <section class="la-panel la-panel--biography">
-    <h2 class="la-panel__title">{{localize "LASTARC.Section.Biography"}}</h2>
+  <section class="la-panel la-panel--biography" data-section="biography">
+    {{> laSectionTitle id="biography"}}
     {{formInput fields.details.fields.biography value=system.details.biography
                 enriched=enrichedBiography toggled=true}}
   </section>

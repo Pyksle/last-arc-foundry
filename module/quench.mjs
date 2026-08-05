@@ -29,6 +29,7 @@ import * as ORDER from "./item-order.mjs";
 import { effectPanelRows, toggleEffect, deleteEffect } from "./sheets/effect-panel.mjs";
 import * as AMMO from "./ammunition.mjs";
 import * as AMMOSTORE from "./dice/ammunition.mjs";
+import * as LAYOUT from "./sheets/sheet-layout-controls.mjs";
 
 const SYSTEM_ID = "last-arc";
 
@@ -2848,5 +2849,265 @@ function registerAmmunitionBatch(quench) {
       });
     },
     { displayName: "Last Arc — Ammunition" }
+  );
+
+  /* ------------------------------------------------------------------------ */
+  /*  Arranging the sheet (issues #54, #55)                                    */
+  /* ------------------------------------------------------------------------ */
+
+  /**
+   * The one batch in this file that exists ENTIRELY because the unit suite
+   * cannot reach what it tests.
+   *
+   * Every other feature here has its rules in a Foundry-free module and its
+   * wiring checked by scanning source. This one is a DOM feature: whether the
+   * panels actually move, whether a folded panel actually hides, and whether
+   * the flag survives a real round trip are all questions only a live sheet can
+   * answer. `npm test` proves the arithmetic and says nothing about any of it.
+   */
+  quench.registerBatch(
+    `${SYSTEM_ID}.sheetLayout`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      const FLAG = "sheetLayout";
+      const sections = (sheet) =>
+        [...sheet.element.querySelectorAll(".la-panel[data-section]")]
+          .map((el) => el.dataset.section);
+
+      /** Open a sheet, run, and always close it and clear the reader's flag. */
+      async function withSheet(actor, fn) {
+        const sheet = actor.sheet;
+        await sheet.render(true);
+        // Rendering is async all the way down; the parts are not in the DOM
+        // the instant `render` resolves on every path.
+        await settle();
+        try {
+          return await fn(sheet);
+        } finally {
+          await sheet.close();
+          await game.user.unsetFlag(SYSTEM_ID, `${FLAG}.${actor.id}`);
+        }
+      }
+
+      describe("a sheet nobody has touched", function () {
+        it("renders every declared section, in the declared order", async function () {
+          await withActor({}, async (pc) => {
+            await withSheet(pc, (sheet) => {
+              const declared = LASTARC.sheetSections.character.map((s) => s.id);
+              const found = sections(sheet);
+
+              // Out of combat there is no Actions panel, which is the whole
+              // reason moveSection consults what is rendered.
+              assert.deepEqual(found, declared.filter((id) => id !== "actions"));
+            });
+          });
+        });
+
+        it("arrives LOCKED, with no move arrows drawn", async function () {
+          await withActor({}, async (pc) => {
+            await withSheet(pc, (sheet) => {
+              assert.isFalse(sheet.element.classList.contains("is-layout-unlocked"));
+              const arrows = sheet.element.querySelector(".la-panel__arrange");
+              assert.exists(arrows, "the arrows are in the markup");
+              assert.equal(getComputedStyle(arrows).display, "none",
+                "…and hidden until the reader asks for them");
+            });
+          });
+        });
+
+        it("gives every panel a title that is a real word", async function () {
+          await withActor({}, async (pc) => {
+            await withSheet(pc, (sheet) => {
+              for (const el of sheet.element.querySelectorAll(".la-panel[data-section]")) {
+                const label = el.querySelector(".la-panel__label")?.textContent?.trim();
+                assert.isNotEmpty(label, `${el.dataset.section} has a blank cartouche`);
+                assert.notInclude(label, "LASTARC.",
+                  `${el.dataset.section} is showing a raw localisation key`);
+              }
+            });
+          });
+        });
+      });
+
+      describe("folding a section away (#55)", function () {
+        it("hides the contents, keeps the title, and does not re-render",
+          async function () {
+            await withActor({}, async (pc) => {
+              await withSheet(pc, async (sheet) => {
+                const panel = sheet.element.querySelector('.la-panel[data-section="skills"]');
+                const before = panel.querySelector(".la-skills, .la-skill, div");
+                const rendered = sheet.element.querySelector(".la-body");
+
+                panel.querySelector('[data-action="toggleSection"]').click();
+                await settle();
+
+                assert.isTrue(panel.classList.contains("is-collapsed"));
+                assert.equal(getComputedStyle(before).display, "none",
+                  "the contents should be hidden");
+                assert.notEqual(
+                  getComputedStyle(panel.querySelector(".la-panel__title")).display, "none",
+                  "the title must stay, or there is nothing left to click");
+                assert.strictEqual(sheet.element.querySelector(".la-body"), rendered,
+                  "the body was replaced, which means the sheet re-rendered");
+              });
+            });
+          });
+
+        it("is remembered on the READER, not the actor", async function () {
+          await withActor({}, async (pc) => {
+            await withSheet(pc, async (sheet) => {
+              sheet.element
+                .querySelector('.la-panel[data-section="skills"] [data-action="toggleSection"]')
+                .click();
+              await settle();
+
+              const stored = game.user.getFlag(SYSTEM_ID, `${FLAG}.${pc.id}`);
+              assert.include(stored.collapsed, "skills");
+              assert.isUndefined(pc.getFlag(SYSTEM_ID, FLAG),
+                "nothing may be written to the actor; an observer cannot do that");
+            });
+          });
+        });
+
+        it("survives closing and reopening the sheet", async function () {
+          // Two full sheet renders and a close, each with a settle after it.
+          // Mocha's default 2s is not enough and the failure looks exactly
+          // like a product bug, which cost a run to find out.
+          this.timeout(20000);
+
+          // Deliberately NOT using withSheet: its teardown clears the flag,
+          // and the flag outliving the sheet is the whole assertion.
+          await withActor({}, async (pc) => {
+            await pc.sheet.render(true);
+            await settle();
+            try {
+              pc.sheet.element
+                .querySelector('.la-panel[data-section="biography"] [data-action="toggleSection"]')
+                .click();
+              await settle();
+              await pc.sheet.close();
+
+              await pc.sheet.render(true);
+              await settle();
+              assert.isTrue(
+                pc.sheet.element
+                  .querySelector('.la-panel[data-section="biography"]')
+                  .classList.contains("is-collapsed"),
+                "a fold must outlive the sheet that made it");
+            } finally {
+              await pc.sheet.close();
+              await game.user.unsetFlag(SYSTEM_ID, `${FLAG}.${pc.id}`);
+            }
+          });
+        });
+      });
+
+      describe("moving a section (#54)", function () {
+        it("moves the node, so the tab order moves with it", async function () {
+          await withActor({}, async (pc) => {
+            await withSheet(pc, async (sheet) => {
+              await LAYOUT.toggleLayoutLock(sheet, "character");
+              const was = sections(sheet);
+
+              sheet.element
+                .querySelector('.la-panel[data-section="spells"] [data-direction="up"]')
+                .click();
+              await settle();
+
+              const now = sections(sheet);
+              assert.notDeepEqual(now, was, "nothing moved");
+              assert.isBelow(now.indexOf("spells"), was.indexOf("spells"),
+                "Spells should have gone up");
+
+              // The DOM order IS the reading order. If this used CSS `order`
+              // the two would disagree and the keyboard would still walk the
+              // old arrangement.
+              assert.deepEqual(now, [...sheet.element
+                .querySelectorAll(".la-panel[data-section]")].map((e) => e.dataset.section));
+            });
+          });
+        });
+
+        it("refuses to move the top one up, visibly", async function () {
+          await withActor({}, async (pc) => {
+            await withSheet(pc, async (sheet) => {
+              await LAYOUT.toggleLayoutLock(sheet, "character");
+              const first = sections(sheet)[0];
+              const up = sheet.element
+                .querySelector(`.la-panel[data-section="${first}"] [data-direction="up"]`);
+              assert.isTrue(up.disabled,
+                "the arrow at the end must be disabled, not silently inert");
+            });
+          });
+        });
+
+        it("Reset puts everything back", async function () {
+          await withActor({}, async (pc) => {
+            await withSheet(pc, async (sheet) => {
+              await LAYOUT.toggleLayoutLock(sheet, "character");
+              sheet.element
+                .querySelector('.la-panel[data-section="biography"] [data-direction="up"]')
+                .click();
+              await settle();
+
+              await LAYOUT.resetLayout(sheet, "character");
+              assert.deepEqual(
+                sections(sheet),
+                LASTARC.sheetSections.character
+                  .map((s) => s.id).filter((id) => id !== "actions"));
+              assert.isUndefined(game.user.getFlag(SYSTEM_ID, `${FLAG}.${pc.id}`),
+                "reset must UNSET; setFlag merges and would leave the entry behind");
+            });
+          });
+        });
+      });
+
+      describe("the statblock gets the same feature", function () {
+        it("declares the actions its shared partials emit", async function () {
+          await withNpc({}, async (npc) => {
+            await withSheet(npc, async (sheet) => {
+              for (const action of
+                ["toggleSection", "moveSection", "toggleLayoutLock", "resetLayout"]) {
+                assert.exists(sheet.constructor.DEFAULT_OPTIONS.actions[action],
+                  `the statblock renders ${action} but never declared it`);
+              }
+            });
+          });
+        });
+
+        it("folds a section on an NPC too", async function () {
+          await withNpc({}, async (npc) => {
+            await withSheet(npc, async (sheet) => {
+              const panel = sheet.element.querySelector('.la-panel[data-section="bearing"]');
+              panel.querySelector('[data-action="toggleSection"]').click();
+              await settle();
+              assert.isTrue(panel.classList.contains("is-collapsed"));
+            });
+          });
+        });
+      });
+
+      describe("what the reader cannot edit, they can still tidy", function () {
+        it("the layout controls are not disabled by the document's permissions",
+          async function () {
+            await withActor({}, async (pc) => {
+              await withSheet(pc, (sheet) => {
+                /**
+                 * DocumentSheetV2 disables every form control — buttons
+                 * included — when isEditable is false. As a GM this test is
+                 * always editable, so what it can prove is the weaker but still
+                 * useful thing: that applyLayout leaves these enabled, which is
+                 * the code path an observer depends on.
+                 */
+                for (const el of sheet.element.querySelectorAll(
+                  '[data-action="toggleSection"], [data-action="toggleLayoutLock"]'
+                )) assert.isFalse(el.disabled, "a layout control arrived disabled");
+              });
+            });
+          });
+      });
+    },
+    { displayName: "Last Arc — Sheet layout" }
   );
 }
