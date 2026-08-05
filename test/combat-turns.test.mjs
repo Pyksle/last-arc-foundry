@@ -522,3 +522,125 @@ describe("§53 turn state cannot leak a key past the turn boundary", () => {
     }
   });
 });
+
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Hooks fire on EVERY connected client (0.44.1).
+ *
+ * The bug class that only exists once there are players in the room — which is
+ * to say never in a solo test world, and never in the Quench suite, whose only
+ * user is a GM. The GM rolls initiative; every player's browser runs the same
+ * handler; each one tries to write a flag on combatants it does not own; each
+ * one throws, once per foreign combatant:
+ *
+ *     User Tree lacks permission to update Combatant [...] in parent Combat
+ *
+ * `Combatant#getUserLevel` delegates to the ACTOR, so a player owns their own
+ * combatant and nobody else's. Reported from a live session, and it read like a
+ * permissions misconfiguration precisely because the player named in the error
+ * was sitting still while the GM rolled.
+ *
+ * The rule: a hook handler that WRITES to a document must first establish that
+ * it is the one client entitled to. Asserted at source level, because the
+ * failure is about which browser is running and no unit test has browsers.
+ */
+
+const readSource = (p) =>
+  readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.url)), "utf8");
+
+/** Every `Hooks.on("name", ...)` registration in a source file, with its body. */
+function hookBodies(source) {
+  const out = [];
+  const re = /Hooks\.on\(/g;
+  for (const m of source.matchAll(re)) {
+    // Walk from the OPENING paren of Hooks.on( — not from the end of the match,
+    // which lands mid-arguments and captures only the first nested group. That
+    // mistake made the first version of this suite generate zero test cases and
+    // pass, which is the exact failure it exists to prevent.
+    const open = m.index + "Hooks.on".length;
+    let depth = 0, i = open;
+    for (; i < source.length; i++) {
+      if (source[i] === "(") depth++;
+      else if (source[i] === ")") { depth--; if (depth === 0) break; }
+    }
+    const body = source.slice(open, i);
+    const name = /^\(\s*["'`](\w+)["'`]/.exec(body)?.[1] ?? null;
+    if (name) out.push({ hook: name, body });
+  }
+  return out;
+}
+
+/** A document write. setFlag and unsetFlag are what this project reaches for. */
+const WRITES = /\.(setFlag|unsetFlag|update|delete|createEmbeddedDocuments|updateEmbeddedDocuments|deleteEmbeddedDocuments|toggleStatusEffect)\s*\??[.(]/;
+
+/** Any of the three ways this codebase establishes "I am the right client". */
+const CLIENT_GUARD = /activeGM\?\.isSelf|game\.user\.isGM|game\.user\.id !== userId/;
+
+const HOOK_FILES = [
+  "module/combat.mjs",
+  "module/last-arc.mjs",
+  "module/chat.mjs",
+  "module/dice/ammunition.mjs"
+];
+
+describe("§ hook handlers that write documents are guarded to one client", () => {
+  test("the extractor finds the hooks it is supposed to police", () => {
+    const combat = hookBodies(readSource("module/combat.mjs"));
+    const names = combat.map((h) => h.hook);
+    assert.ok(names.includes("updateCombatant"), "no updateCombatant hook found");
+    assert.ok(names.includes("updateCombat"), "no updateCombat hook found");
+    assert.ok(names.includes("renderCombatTracker"));
+
+    // A body that stops at the first nested paren is the bug that made this
+    // whole suite vacuous. updateCombat is long and ends with setTurnState.
+    const updateCombat = combat.find((h) => h.hook === "updateCombat").body;
+    assert.match(updateCombat, /setTurnState\(combatant, AE\.beginTurn/,
+      "the extracted body is truncated — it must reach the end of the handler");
+  });
+
+  test("the write detector recognises the writes this project makes", () => {
+    // Asserted directly, so a regex that matched nothing could not make every
+    // guard below pass by finding no writes to police.
+    for (const sample of [
+      'await c.setFlag(SYSTEM_ID, X, true);',
+      'await c.unsetFlag(SYSTEM_ID, X);',
+      'await item.update({ "system.quantity": 3 });',
+      'await c.actor.toggleStatusEffect?.("flatFooted", { active: false });'
+    ]) assert.match(sample, WRITES, sample);
+
+    assert.doesNotMatch('const x = combatant.getFlag(SYSTEM_ID, F);', WRITES);
+  });
+
+  test("every writing hook, in every module, checks which client it is on", () => {
+    const offenders = [];
+    let writingHooks = 0;
+
+    for (const file of HOOK_FILES) {
+      for (const { hook, body } of hookBodies(readSource(file))) {
+        /**
+         * `render*` is exempt and must stay exempt: those only ATTACH
+         * listeners, and the writes happen later inside a click handler, on
+         * the client that clicked. Guarding them to the GM would take every
+         * chat-card button away from every player.
+         *
+         * `pre*` is exempt because it mutates the pending data in place rather
+         * than issuing its own write.
+         */
+        if (hook.startsWith("render") || hook.startsWith("pre")) continue;
+        if (!WRITES.test(body)) continue;
+
+        writingHooks++;
+        if (!CLIENT_GUARD.test(body)) offenders.push(`${file}: ${hook}`);
+      }
+    }
+
+    assert.ok(writingHooks >= 3,
+      `only ${writingHooks} writing hooks found — the sweep is not reaching them`);
+
+    assert.deepEqual(offenders, [],
+      "these hook handlers write to documents on EVERY connected client, so " +
+      "every player without permission throws:\n  " + offenders.join("\n  "));
+  });
+});

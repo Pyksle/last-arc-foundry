@@ -129,8 +129,29 @@ export function registerCombat() {
     return die ? `1${die}` : "1d10";
   };
 
-  // Seed the ordering key whenever initiative is rolled.
+  /**
+   * Seed the ordering key whenever initiative is rolled.
+   *
+   * GUARDED TO ONE GM, exactly like `updateCombat` below, and for a reason that
+   * only shows up with players in the room.
+   *
+   * A hook fires on EVERY CONNECTED CLIENT, not on the client that caused it.
+   * So when the GM rolls initiative for six combatants, every player's browser
+   * also runs this handler and tries to write the flag — on combatants that
+   * player does not own. `Combatant#getUserLevel` delegates to the ACTOR, so a
+   * player owns their own combatant and nobody else's, and the write is refused
+   * once per foreign combatant:
+   *
+   *     User Tree lacks permission to update Combatant [...] in parent Combat
+   *
+   * Reported live in a session (0.44.0). It was never a permissions
+   * misconfiguration and never anything the player did — she was sitting still
+   * while the GM rolled — which is exactly why it read as one. The single GM
+   * write propagates to everyone, so nothing is lost by not repeating it five
+   * times and failing four.
+   */
   Hooks.on("updateCombatant", async (combatant, changed) => {
+    if (!game.users?.activeGM?.isSelf) return;
     if (!("initiative" in changed) || changed.initiative == null) return;
     if (combatant.getFlag(SYSTEM_ID, FLAG_HELD)) return;   // a hold owns the order
     await combatant.setFlag(SYSTEM_ID, FLAG_ORDER, changed.initiative);
