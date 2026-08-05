@@ -898,16 +898,13 @@
   "LASTARC.TechnickFlagHint.dodge": "Grants the Dodge reaction: an Acrobatics check against an incoming attack roll, once per turn, in light armour or none. Beating the attack roll makes it count as not having beaten your Reflex.",
   "LASTARC.Tooltip.EditImage": "Click to choose a different image.",
   "LASTARC.Tooltip.EditImageBlocked": "Your account cannot browse files, so this cannot be changed here. Ask your GM to enable File Browsing for your role under Game Settings → Configure Permissions — and File Upload too, if you want to add your own artwork.",
-
   "LASTARC.TechnickFlag.quickReload": "Quick Reload",
   "LASTARC.TechnickFlagHint.quickReload": "Reload a ranged weapon with capacity as a minor action instead of a secondary one.",
-
   "LASTARC.Setting.ammoTracking.name": "Ammunition tracking",
   "LASTARC.Setting.ammoTracking.hint": "Whether bows and crossbows spend ammunition (book p.102). Off by default — nothing changes until a table asks for it. Counted units pairs with Ammunition Recovery at the end of an encounter; the ammo die is the book's optional replacement, where a stack is a d12 that shrinks a step whenever you roll a 1.",
   "LASTARC.AmmoMode.off": "Off — do not track ammunition",
   "LASTARC.AmmoMode.units": "Counted units, with end-of-encounter recovery",
   "LASTARC.AmmoMode.die": "Ammo die (optional rule)",
-
   "LASTARC.AmmoDie.d12": "d12",
   "LASTARC.AmmoDie.d10": "d10",
   "LASTARC.AmmoDie.d8": "d8",
@@ -915,14 +912,11 @@
   "LASTARC.AmmoDie.d4": "d4",
   "LASTARC.AmmoDie.last": "last piece",
   "LASTARC.AmmoDie.empty": "empty",
-
   "LASTARC.Field.AmmoDie": "Ammo die",
   "LASTARC.Tooltip.AmmoDie": "How much of this stack is left under the optional ammo die rule. A bought stack is a d12; roll it each time you shoot and it drops a step on a 1. Ignored entirely unless the world's Ammunition tracking setting is set to the ammo die.",
-
   "LASTARC.Slot.primary": "Primary action",
   "LASTARC.Slot.secondary": "Secondary action",
   "LASTARC.Slot.minor": "Minor action",
-
   "LASTARC.Ammo.Ammunition": "Ammunition",
   "LASTARC.Ammo.Rounds": "Ammunition spent",
   "LASTARC.Ammo.Reload": "Reload",
@@ -938,7 +932,6 @@
   "LASTARC.Ammo.Left": "left",
   "LASTARC.Ammo.Spent": "Ammunition",
   "LASTARC.Ammo.DieRoll": "ammo die",
-
   "LASTARC.Ammo.NoneSelected": "No ammunition chosen for {weapon} — use Reload to pick some.",
   "LASTARC.Ammo.Empty": "Out of ammunition.",
   "LASTARC.Ammo.NeedsReload": "{weapon} is empty — reload it.",
@@ -949,7 +942,6 @@
   "LASTARC.Ammo.NoneCarried": "You are not carrying any ammunition that fits {weapon}.",
   "LASTARC.Ammo.Selected": "{ammo} nocked for {weapon}.",
   "LASTARC.Ammo.Reloaded": "{weapon} reloaded with {ammo} — {count} rounds.",
-
   "LASTARC.Ammo.Recover": "Recover",
   "LASTARC.Ammo.RecoverAvailable": "Recoverable ammunition:",
   "LASTARC.Ammo.RecoverHint": "Ammunition Recovery: take back half of what you spent this encounter, rounded down, of each type.",
@@ -958,9 +950,23 @@
   "LASTARC.Ammo.Recovered": "Recovered {summary}.",
   "LASTARC.Ammo.NothingToRecover": "Nothing to recover.",
   "LASTARC.Ammo.NotYours": "{name} is not yours to claim for.",
-
   "LASTARC.Ammo.Loot": "Loot",
   "LASTARC.Ammo.LootHint": "Looting ammunition steps this stack's die up by one, to a maximum of d12.",
   "LASTARC.Ammo.Looted": "{ammo} is now {die}.",
-  "LASTARC.Ammo.LootFull": "{ammo} is already a full stack."
+  "LASTARC.Ammo.LootFull": "{ammo} is already a full stack.",
+  "LASTARC.Consumable.Use": "Use",
+  "LASTARC.Consumable.UsedOn": "used on",
+  "LASTARC.Consumable.NoneLeft": "You have none of {item} left.",
+  "LASTARC.Consumable.NoCharges": "{item} has no charges left.",
+  "LASTARC.Consumable.ManaRestored": "Mana restored",
+  "LASTARC.Consumable.Remaining": "Remaining:",
+  "LASTARC.Consumable.Charges": "charges",
+  "LASTARC.Consumable.ThatWasTheLast": "That was the last one.",
+  "LASTARC.Consumable.Provoked": "Using an item from your inventory provokes a counterattack.",
+  "LASTARC.Consumable.NothingAutomatic": "Nothing here resolves automatically — adjudicate the effect at the table.",
+  "LASTARC.Tooltip.UseItem": "Use this item. A primary action, and it provokes a counterattack. Target someone first to use it on them; otherwise it is used on yourself.",
+  "LASTARC.Field.MpRestore": "MP restored",
+  "LASTARC.Tooltip.MpRestore": "Mana this restores when used — an Ether restores 5, a Hi-Ether 20, a Mega-Ether 80. A formula works too.",
+  "LASTARC.Consumable.ManaWasted": "{n} wasted — already at full mana.",
+  "LASTARC.Consumable.Applies": "Applies"
 }

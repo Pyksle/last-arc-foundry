@@ -1806,6 +1806,25 @@
 .la-attack__reload:hover,
 .la-item__loot:hover { color: var(--la-bronze); border-color: var(--la-bronze); }
 
+/* Use, on a consumable row. Sized like the Loot/Reload pills beside it.
+   An empty one stays visible and disabled, with the reason on its tooltip. */
+.la-item__use {
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--la-bronze) 60%, transparent);
+  border-radius: 999px;
+  color: var(--la-bronze);
+  font-family: var(--la-font-body);
+  font-size: 0.56rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.05rem 0.5rem;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.la-item__use:hover:not(:disabled) { background: color-mix(in srgb, var(--la-bronze) 15%, transparent); }
+.la-item__use:disabled { color: var(--la-ink-faint); border-color: var(--la-rule); cursor: not-allowed; }
+
 .la-item__ammodie {
   font-family: var(--la-font-num);
   font-size: 0.62rem;

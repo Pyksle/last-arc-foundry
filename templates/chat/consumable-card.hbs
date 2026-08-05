@@ -1,0 +1,92 @@
+{{!-- Using an item from inventory (book, primary actions).
+
+      A RECORD, not a resolution. Healing and mana restoration have already
+      happened and post their own cards; what is left here is what the table
+      needs to see — what was used, on whom, what is left, and whether it
+      provoked. Grenade damage is rolled but NOT applied, because who it lands
+      on is a ruling; it carries the same Apply buttons a weapon's damage does.
+
+      Colours are literal hex against the card's cream. Chat renders outside
+      .last-arc so the palette variables never reach it. --}}
+<div class="lastarc-card lastarc-card--consumable">
+
+  <header class="lastarc-card__head">
+    <img src="{{img}}" alt="" class="lastarc-card__img">
+    <div class="lastarc-card__title">
+      <span class="lastarc-card__weapon">{{name}}</span>
+      <span class="lastarc-card__sub">
+        {{typeLabel}}{{#if onSomeoneElse}} · {{localize "LASTARC.Consumable.UsedOn"}} {{targetName}}{{/if}}
+      </span>
+    </div>
+  </header>
+
+  {{#if restored}}
+    <p class="lastarc-verdict lastarc-verdict--good">
+      {{localize "LASTARC.Consumable.ManaRestored"}}
+      <strong>{{restored.applied}}</strong>
+      <span class="lastarc-vs">{{restored.newMp}}</span>
+    </p>
+    {{#if restored.wasted}}
+      {{!-- Worded like the healing card's overflow, because it answers the
+            same question: "why did my Mega-Ether only give me 12?" --}}
+      <p class="lastarc-note">{{localize "LASTARC.Consumable.ManaWasted" n=restored.wasted}}</p>
+    {{/if}}
+  {{/if}}
+
+  {{#if statusLabel}}
+    <p class="lastarc-rider lastarc-rider--status">
+      {{localize "LASTARC.Consumable.Applies"}} <strong>{{statusLabel}}</strong>
+    </p>
+  {{/if}}
+
+  {{#if effectText}}
+    <p class="lastarc-note">{{effectText}}</p>
+  {{/if}}
+
+  {{#if inert}}
+    {{!-- Said out loud. A card that resolved nothing and explained nothing is
+          indistinguishable from a broken button — which is the exact report
+          that produced this whole feature. --}}
+    <p class="lastarc-note lastarc-note--quiet">
+      {{localize "LASTARC.Consumable.NothingAutomatic"}}
+    </p>
+  {{/if}}
+
+  {{#if counterattacked}}
+    <p class="lastarc-reaction">{{localize "LASTARC.Consumable.Provoked"}}</p>
+  {{/if}}
+
+  <p class="lastarc-note">
+    {{localize "LASTARC.Consumable.Remaining"}}
+    <strong>{{remaining.quantity}}</strong>
+    {{#if remaining.uses.max}}
+      · {{localize "LASTARC.Consumable.Charges"}}
+      <strong>{{remaining.uses.value}}/{{remaining.uses.max}}</strong>
+    {{/if}}
+  </p>
+
+  {{#if exhausted}}
+    <p class="lastarc-verdict lastarc-verdict--bad">
+      {{localize "LASTARC.Consumable.ThatWasTheLast"}}
+    </p>
+  {{/if}}
+
+  {{#if damage}}
+    <div class="lastarc-card__natural">
+      <span class="lastarc-card__die">{{damage.formula}}</span>
+      <strong>{{damage.total}}</strong>
+      <span class="lastarc-card__parts">{{localize damage.typeLabel}}</span>
+    </div>
+    <div class="lastarc-card__buttons">
+      <button type="button" data-action="lastarcApplyDamage"
+              data-total="{{damage.total}}" data-damage-type="{{damage.damageType}}">
+        {{localize "LASTARC.Card.ApplyToTargets"}}
+      </button>
+      <button type="button" data-action="lastarcApplyDamage" data-half="true"
+              data-total="{{damage.total}}" data-damage-type="{{damage.damageType}}">
+        {{localize "LASTARC.Card.ApplyHalfToTargets"}}
+      </button>
+    </div>
+  {{/if}}
+
+</div>

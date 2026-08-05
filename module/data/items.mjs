@@ -707,6 +707,17 @@ export class LastArcConsumableData extends PhysicalItemData {
       }),
       effect: new fields.StringField({ initial: "", blank: true }),
       healing: new fields.StringField({ initial: "", blank: true }),
+      /**
+       * Mana restored. ETHERS ARE POTIONS TOO — the book's potion table lists
+       * Ether, Hi-Ether and Mega-Ether beside the health ones (5, 20 and 80 MP)
+       * — and the model had only `healing`, so the whole right-hand half of
+       * that table could not be represented at all. A GM could type "20" into
+       * the healing box and hand a caster HP.
+       *
+       * A string, like `healing`, because "10" and "2d8+2" are both legitimate
+       * and the book prints flat numbers while a homebrew might roll.
+       */
+      mpRestore: new fields.StringField({ initial: "", blank: true }),
       damage: new fields.StringField({ initial: "", blank: true }),
       damageType: new fields.StringField({
         initial: "unaspected", choices: LASTARC.allDamageTypes

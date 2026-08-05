@@ -32,6 +32,8 @@ import {
 import { situationalOptions } from "../dice/situational.mjs";
 import * as ROWS from "../sheet-rows.mjs";
 import { applyHealing } from "../dice/healing.mjs";
+import * as CONS from "../consumables.mjs";
+import { useConsumable } from "../dice/consume.mjs";
 import * as AMMO from "../ammunition.mjs";
 import {
   ammoMode, ammoTrackingOn, loadedAmmo, reloadWeapon, reloadCost,
@@ -63,6 +65,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       deleteItem: LastArcCharacterSheet.#onDeleteItem,
       moveItem: LastArcCharacterSheet.#onMoveItem,
       toggleEquip: LastArcCharacterSheet.#onToggleEquip,
+      useItem: LastArcCharacterSheet.#onUseItem,
       rollAttack: LastArcCharacterSheet.#onRollAttack,
       reloadWeapon: LastArcCharacterSheet.#onReloadWeapon,
       recoverAmmo: LastArcCharacterSheet.#onRecoverAmmo,
@@ -449,6 +452,29 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
         equipped: !!item.system.equipped,
         equippable: EQUIPPABLE.has(item.type),
         broken: item.system.breakGauge?.destroyed,
+
+        /**
+         * Consumables get a Use button (book: Use Item from Inventory). Null
+         * for everything else, so no other row grows a control.
+         *
+         * An empty one is SHOWN, disabled, with the reason on it — the #46
+         * rule, and the reason this feature was reported as "I could not use
+         * it" rather than as a missing button.
+         */
+        use: item.type === "consumable"
+          ? (() => {
+            const check = CONS.canUseConsumable(item.system);
+            return {
+              usable: check.usable,
+              tooltip: check.usable
+                ? game.i18n.localize("LASTARC.Tooltip.UseItem")
+                : game.i18n.format(check.reason, { item: item.name }),
+              charges: (item.system.uses?.max ?? 0) > 1
+                ? `${item.system.uses.value}/${item.system.uses.max}`
+                : null
+            };
+          })()
+          : null,
         /**
          * The ammo die and its Loot control, under the die system only.
          *
@@ -1086,6 +1112,23 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const item = this.document.items.get(target.dataset.itemId);
     if (!item) return;
     await lootAmmunition(item);
+    this.render();
+  }
+
+  /**
+   * Use a consumable from the inventory panel.
+   *
+   * Targets the user's current target if there is one, otherwise themselves —
+   * pouring a potion into a downed ally is at least as common as drinking one,
+   * and a dialog on every click would tax the ordinary case to serve the rare.
+   */
+  static async #onUseItem(event, target) {
+    const item = this.document.items.get(target.dataset.itemId);
+    if (!item) return;
+
+    await useConsumable(this.document, item, {
+      target: [...(game.user.targets ?? [])][0]?.actor ?? this.document
+    });
     this.render();
   }
 

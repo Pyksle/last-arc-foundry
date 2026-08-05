@@ -792,6 +792,14 @@
               {{localize "LASTARC.Ammo.Loot"}}
             </button>
           {{/if}}
+          {{#if this.use}}
+            <button type="button" class="la-item__use" data-action="useItem"
+                    data-item-id="{{this.id}}"
+                    data-tooltip="{{this.use.tooltip}}"
+                    {{#unless this.use.usable}}disabled{{/unless}}>
+              {{localize "LASTARC.Consumable.Use"}}{{#if this.use.charges}} {{this.use.charges}}{{/if}}
+            </button>
+          {{/if}}
           {{#if this.equippable}}
             <button type="button" class="la-item__equip" data-action="toggleEquip"
                     data-item-id="{{this.id}}"
