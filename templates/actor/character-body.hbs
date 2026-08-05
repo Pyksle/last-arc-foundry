@@ -600,7 +600,7 @@
           {{> laItemOrder}}
           <button type="button" class="la-spell__cast" data-action="castSpell"
                   data-item-id="{{this.id}}"
-                  data-tooltip="{{localize 'LASTARC.Tooltip.CastSpell'}}"
+                  data-tooltip="{{this.costTooltip}}"
                   {{#unless this.affordable}}disabled{{/unless}}>
             <span class="la-spell__name">{{this.name}}</span>
             <span class="la-spell__cost">{{this.mpCost}}</span>
@@ -637,8 +637,10 @@
     </p>
     <div class="la-spells">
       {{#each performances}}
-        <div class="la-spell {{#unless this.affordable}}is-unaffordable{{/unless}}">
+        <div class="la-spell">
           {{> laItemOrder}}
+          {{!-- NEVER disabled, and no cost. Performances do not spend mana —
+                see the schema and `performItem`. --}}
           <button type="button" class="la-spell__cast" data-action="performItem"
                   data-item-id="{{this.id}}"
                   data-tooltip="{{localize 'LASTARC.Tooltip.Perform'}}">

@@ -550,7 +550,7 @@
           {{> laItemOrder}}
           <button type="button" class="la-spell__cast" data-action="castSpell"
                   data-item-id="{{this.id}}"
-                  data-tooltip="{{localize 'LASTARC.Tooltip.CastSpell'}}"
+                  data-tooltip="{{this.costTooltip}}"
                   {{#unless this.affordable}}disabled{{/unless}}>
             <span class="la-spell__name">{{this.name}}</span>
             <span class="la-spell__cost">{{this.mpCost}}</span>
@@ -579,15 +579,18 @@
     <h2 class="la-panel__title">{{localize "LASTARC.Section.Performances"}}</h2>
     <div class="la-spells">
       {{#each performances}}
-        <div class="la-spell {{#unless this.affordable}}is-unaffordable{{/unless}}"
-             data-item-id="{{this.id}}">
+        {{!-- NEVER disabled, and no cost. Performances do not spend mana.
+              This row read `mpCost` off a schema that has not had the field
+              for some time, so `mp >= undefined` was false for EVERY value of
+              mp and the button was permanently dead — on statblocks only,
+              because the character sheet's equivalent had no disabled
+              attribute at all. That asymmetry is the whole bug report. --}}
+        <div class="la-spell" data-item-id="{{this.id}}">
           {{> laItemOrder}}
           <button type="button" class="la-spell__cast" data-action="performItem"
                   data-item-id="{{this.id}}"
-                  data-tooltip="{{localize 'LASTARC.Tooltip.Perform'}}"
-                  {{#unless this.affordable}}disabled{{/unless}}>
+                  data-tooltip="{{localize 'LASTARC.Tooltip.Perform'}}">
             <span class="la-spell__name">{{this.name}}</span>
-            <span class="la-spell__cost">{{this.mpCost}}</span>
           </button>
           <span class="la-spell__time">{{this.specialisation}}</span>
           <button type="button" class="la-item__edit" data-action="editItem"

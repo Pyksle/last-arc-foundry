@@ -227,14 +227,18 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
             LASTARC.castingTimes[i.system.castingTime]?.label ?? ""
           ),
           isArea: !!i.system.isArea,
-          affordable: mp >= i.system.mpCost
+          ...ROWS.magicRowCost(i.system.mpCost, mp, this.document.name, "LASTARC.Tooltip.CastSpell", game.i18n)
         });
       } else if (i.type === "performance") {
         performances.push({
           ...row,
-          mpCost: i.system.mpCost,
-          specialisation: i.system.specialisation,
-          affordable: mp >= i.system.mpCost
+          /**
+           * NO mpCost and NO affordability. Performances do not cost mana —
+           * see the schema. Reading the absent field gave `undefined`, and
+           * `mp >= undefined` is FALSE for every value of mp, so every
+           * performance row was permanently unaffordable.
+           */
+          specialisation: i.system.specialisation
         });
       } else {
         items.push(row);

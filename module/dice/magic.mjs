@@ -250,6 +250,19 @@ export async function performItem(actor, performance, options = {}) {
     return null;
   }
 
+  /**
+   * NO MANA IS SPENT HERE, and that is deliberate — see the note on the
+   * performance schema. Chapter 9 never mentions mana, and no performance name
+   * carries the parenthetical cost every spell name has. An earlier pass
+   * removed `mpCost` from the model for exactly that reason.
+   *
+   * Recorded as a comment because the symmetry with `castSpell` is so
+   * inviting that it has now been "fixed" once by mistake: on playtest day I
+   * read the sheets' leftover affordability check, concluded the pipeline had
+   * forgotten to charge, and added a gate and a deduction. The schema comment
+   * next door is what caught it.
+   */
+
   // Performing in a threatened area provokes; a counterattack beating the
   // performer's Break Threshold makes it fail (§19).
   if (options.combatant && !options.performDefensively) {

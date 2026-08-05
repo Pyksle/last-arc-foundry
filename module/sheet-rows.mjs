@@ -415,3 +415,43 @@ export function performanceScopeOptions(localize = identityLocalize) {
     effectTagOptions: options(LASTARC.performanceEffectTags, "LASTARC.Field.NoEffectTag")
   };
 }
+
+/**
+ * Whether a spell or performance row can be afforded, and what to say if not.
+ *
+ * ONE decision, in one place, because there are FOUR call sites — spells and
+ * performances, on the character sheet and the statblock — and each was already
+ * computing `affordable` independently.
+ *
+ * The tooltip is the point. Both templates render an unaffordable row's button
+ * as plain `disabled`, which is silent: the GM clicks, nothing happens, and
+ * there is nothing to diagnose. That is how a statblock with 0 MP presented as
+ * "Floofers can't perform" — the button was doing exactly what it was told and
+ * saying none of it.
+ *
+ * This is the #46 rule, which this project has now learned twice: a temporary
+ * refusal must be SHOWN and EXPLAINED, never expressed by making its own
+ * control vanish or go inert. A rule enforced that way is indistinguishable
+ * from a feature nobody built.
+ *
+ * Reuses `LASTARC.Warning.NotEnoughMana` — the same string the casting pipeline
+ * already warns with — rather than adding a near-duplicate. One shortage, one
+ * sentence, whether it is refused by a tooltip or by a notification.
+ *
+ * @param {number} mpCost
+ * @param {number} mpValue        the actor's CURRENT mana
+ * @param {string} name           whose mana it is
+ * @param {string} readyKey       tooltip key when it is affordable
+ * @param {{localize: Function, format: Function}} i18n
+ */
+export function magicRowCost(mpCost, mpValue, name, readyKey, i18n) {
+  const cost = Number(mpCost) || 0;
+  const available = Number(mpValue) || 0;
+
+  if (available >= cost) return { affordable: true, costTooltip: i18n.localize(readyKey) };
+
+  return {
+    affordable: false,
+    costTooltip: i18n.format("LASTARC.Warning.NotEnoughMana", { name, cost, available })
+  };
+}

@@ -179,6 +179,52 @@ function registerResourceDefaults() {
 
     if (Object.keys(updates).length) await actor.update(updates);
   });
+
+  /**
+   * Raising a maximum on a creature that is at FULL keeps it at full.
+   *
+   * The hook above cannot help a statblock, and that is not a detail: a
+   * character's HP and MP maxima are DERIVED, so they exist the instant the
+   * actor does. An NPC's are printed numbers the GM types in afterwards, and
+   * they start at 10/10 and 0/0. So `createActor` runs while `mp.max` is still
+   * 0, its `max > 0` condition is false, and it never fires for an NPC at all.
+   *
+   * The GM then types a maximum, the current value stays where it was, and:
+   *
+   *   - a monster with 60 max HP sits at 10 and dies to a stiff breeze;
+   *   - a bard with 20 max MP sits at 0, so every performance and spell it owns
+   *     renders as a DISABLED button that explains nothing. Reported from a
+   *     playtest as "Floofers couldn't perform".
+   *
+   * "Was at full" is the test, rather than "was at the schema default". It is
+   * the honest reading of the intent — you are describing the creature, not
+   * wounding it — and it leaves a deliberately-injured creature alone: set a
+   * monster to 3/10 and raise the max to 60 and it stays on 3, which is what
+   * someone who typed a 3 meant.
+   *
+   * `preUpdate`, so the fill rides along inside the GM's own write instead of
+   * chasing it with a second one. That also means no client guard is needed:
+   * this mutates the pending data on the client already making the change.
+   */
+  Hooks.on("preUpdateActor", (actor, changed) => {
+    const get = foundry.utils.getProperty;
+    const set = foundry.utils.setProperty;
+
+    for (const key of ["hp", "mp"]) {
+      const newMax = get(changed, `system.resources.${key}.max`);
+      if (newMax == null) continue;
+
+      // An explicit value in the SAME update always wins — the GM is stating
+      // both numbers, and second-guessing that would fight their typing.
+      if (get(changed, `system.resources.${key}.value`) != null) continue;
+
+      const current = actor.system.resources?.[key];
+      if (!current || current.value !== current.max) continue;   // not at full
+      if (newMax <= current.max) continue;                       // only ever upward
+
+      set(changed, `system.resources.${key}.value`, newMax);
+    }
+  });
 }
 
 function registerSettings() {

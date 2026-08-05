@@ -379,7 +379,8 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
             LASTARC.castingTimes[item.system.castingTime]?.label ?? ""
           ),
           target: item.system.target,
-          affordable: (sys.resources.mp?.value ?? 0) >= item.system.mpCost
+          ...ROWS.magicRowCost(item.system.mpCost, sys.resources.mp?.value ?? 0,
+            this.document.name, "LASTARC.Tooltip.CastSpell", game.i18n)
         });
         continue;
       }
@@ -389,9 +390,13 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
           id: item.id,
           name: item.name,
           img: item.img,
-          mpCost: item.system.mpCost,
-          specialisation: item.system.specialisation,
-          affordable: (sys.resources.mp?.value ?? 0) >= item.system.mpCost
+          /**
+           * NO mpCost and NO affordability. Performances do not cost mana —
+           * see the schema. Reading the absent field gave `undefined`, and
+           * `mp >= undefined` is FALSE for every value of mp, so every
+           * performance row was permanently unaffordable.
+           */
+          specialisation: item.system.specialisation
         });
         continue;
       }
