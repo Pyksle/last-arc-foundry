@@ -240,6 +240,7 @@
   "LASTARC.Derived.PrereqsMet": "Prerequisites met.",
   "LASTARC.Derived.PrereqsUnmet": "Unmet prerequisites:",
   "LASTARC.Note.Grants": "Numeric effects entered here are applied to the character automatically. Behavioural effects belong in flags or an Active Effect instead.",
+  "LASTARC.Note.BehaviouralGrants": "Nothing entered — this one is behavioural, and does its work through its flags, an Active Effect, or its description. That is a finished answer, not a gap. The boxes are still here if it turns out to change a number.",
   "LASTARC.Note.SkillGrants": "One row per skill this affects. Focus raises the skill's Focus, Bonus is a flat modifier, and Trained marks the skill trained even if the character never trained it. Rows with no skill chosen are ignored.",
   "LASTARC.Note.NoItems": "No items.",
   "LASTARC.Note.NpcDefences": "Enter the printed statblock values. The Break Gauge penalty is applied on top automatically.",

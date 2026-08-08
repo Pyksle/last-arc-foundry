@@ -336,15 +336,20 @@ export class LastArcTechnickData extends foundry.abstract.TypeDataModel {
 
   prepareDerivedData() {
     this.isTalent = this.kind === "talent";
-    // A technick with no numeric payload is behavioural — it works through
-    // `flags` and Active Effects rather than arithmetic. Surfaced so the sheet
-    // can label it instead of showing a row of zeroes.
-    const g = this.grants;
-    this.hasNumericGrants = !!(
-      g.defences.ref || g.defences.fort || g.defences.will ||
-      g.breakThreshold || g.heroPoints || g.initiativeSteps || g.speed ||
-      g.secondWindUses || g.recoveryMinorActions !== null || g.skills.length
-    );
+
+    /**
+     * `hasNumericGrants` was computed here, and mirrored on
+     * `LastArcFeatureData`. Both were read by nothing — no template, no sheet,
+     * no rule — for as long as they had existed.
+     *
+     * The label its comment promised now exists: the item sheet asks
+     * `hasGrantPayload` in derivation.mjs. It lives there rather than here
+     * because FIVE subtypes carry a `grants` block and only these two computed
+     * the flag, so branching on it would have labelled a technick and left an
+     * accessory in exactly the same state unlabelled. And the two copies had
+     * drifted — this one never counted `hp`, `mp` or `dr`, and neither counted
+     * a granted reroll — which is what an unread derived value does.
+     */
   }
 }
 
@@ -671,17 +676,12 @@ export class LastArcFeatureData extends foundry.abstract.TypeDataModel {
     };
   }
 
-  prepareDerivedData() {
-    const g = this.grants;
-    // Mirrors the technick flag: a feature with no numeric payload is purely
-    // descriptive, and the sheet says so rather than showing a row of zeroes.
-    this.hasNumericGrants = !!(
-      g.defences.ref || g.defences.fort || g.defences.will ||
-      g.breakThreshold || g.heroPoints || g.initiativeSteps || g.speed ||
-      g.secondWindUses || g.hp || g.mp || g.dr ||
-      g.recoveryMinorActions !== null || g.skills.length
-    );
-  }
+  /**
+   * `prepareDerivedData` here computed `hasNumericGrants`, the mirror of the
+   * technick copy and read by just as little. See the note on
+   * `LastArcTechnickData` — the answer comes from `hasGrantPayload` now, asked
+   * once for every subtype carrying a `grants` block.
+   */
 }
 
 /* -------------------------------------------------------------------------- */

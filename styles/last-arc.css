@@ -1805,6 +1805,15 @@
   color: var(--la-ink-faint);
   text-align: center;
 }
+/* Sits directly under the generic Grants note and reports this item's STATE,
+   so it is upright and a shade stronger — two identical asides stacked would
+   read as one paragraph that wrapped. `--la-ink-soft` rather than a colour of
+   its own: nothing is wrong here, and the contrast suite already vouches for
+   that token on paper in all four themes. */
+.la-note--behavioural {
+  font-style: normal;
+  color: var(--la-ink-soft);
+}
 .la-warning {
   margin: 0.2rem 0 0;
   font-size: 0.68rem;
