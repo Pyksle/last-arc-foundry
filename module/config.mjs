@@ -408,8 +408,8 @@ LASTARC.technickFlags = [
    */
   "dodge",
   /**
-   * Shield Expert (issue #59): "You reduce the penalty for consecutive blocks
-   * made with a shield to -2."
+   * Shield Expert (issue #59): the repeat-block rate becomes 2, whatever it
+   * would otherwise have been.
    *
    * A TALENT, not a technick — but talents and technicks share one data model
    * and one flags picker, so a flag is where it belongs and no second mechanism
@@ -421,9 +421,12 @@ LASTARC.technickFlags = [
    * exactly right and is the same shape as issue #32: the penalty existed, its
    * modifier did not.
    *
-   * Not to be confused with the RETIRED `shieldProficiency` below. That one is
-   * the yes/no "may you use a shield at all", which lives on
-   * `proficiencies.shields` with its own toggle. This changes the rate.
+   * DISTINCT FROM the retired `shieldProficiency` below, and the distinction is
+   * not "can you use a shield" — a character without the proficiency may still
+   * block, at a flat penalty and double the repeat rate, which is what the
+   * `nonProficient` branch of `blockPenaltyPerBlock` exists for. Shield
+   * Proficiency removes those two penalties; Shield Expert sets the repeat
+   * rate. They are independent, and a character may hold either alone.
    */
   "shieldExpert",
   "tripleCrit",           // ranged crit multiplier x3 instead of x2
@@ -1140,10 +1143,10 @@ LASTARC.blockPenaltyPerBlock = { proficient: 5, nonProficient: 10 };
 /**
  * The rate Shield Expert reduces that penalty to (#59).
  *
- * An ABSOLUTE value, not an amount subtracted: the talent reads "reduce the
- * penalty for consecutive blocks made with a shield TO -2". Applied as a floor
- * rather than an assignment — see `blockModifiers` — so it can only ever
- * improve the rate, which is what "reduce" has to mean.
+ * An ABSOLUTE rate, not an amount subtracted — the talent sets what a repeat
+ * block costs rather than shaving a few points off it. Applied as a floor
+ * rather than an assignment (see `blockModifiers`) so it can only ever improve
+ * the rate, which is what reducing a penalty has to mean.
  */
 LASTARC.shieldExpertBlockPenalty = 2;
 

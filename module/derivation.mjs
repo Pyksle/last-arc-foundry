@@ -1188,7 +1188,7 @@ export function blockModifiers({
   /**
    * Shield Expert reduces the repeat-block rate to 2 (#59).
    *
-   * A FLOOR, not an assignment. The talent says "reduce the penalty ... to -2",
+   * A FLOOR, not an assignment. The talent reduces the penalty TO a fixed rate,
    * and a bare assignment would make it a penalty INCREASE the day someone
    * tunes the proficient rate below 2 — turning a talent into a downgrade,
    * which is the same inversion the note on `blockPenaltyPerBlock` records
