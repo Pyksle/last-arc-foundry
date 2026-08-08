@@ -157,6 +157,23 @@
       {{else}}
         <p class="la-note">{{localize "LASTARC.Note.WieldNeedsActor"}}</p>
       {{/if}}
+
+      {{!-- Which of the two skills a light weapon rolls with (#63). The rule
+            has always been implemented — the system took whichever was higher —
+            and there was no way to say otherwise, which is what was reported.
+            Shown on every weapon, because whether the choice arises depends on
+            the wielder's size and a weapon in a compendium has no wielder. --}}
+      <div class="la-field">
+        <select name="system.wieldSkill">
+          {{#each wieldSkillOptions}}
+            <option value="{{this.value}}"
+                    {{#if (laeq this.value ../system.wieldSkill)}}selected{{/if}}>
+              {{localize this.label}}</option>
+          {{/each}}
+        </select>
+        <label>{{localize "LASTARC.Field.WieldSkill"}}</label>
+      </div>
+      <p class="la-note">{{localize "LASTARC.Note.WieldSkillOnlyLight"}}</p>
     </section>
   {{/if}}
 
@@ -470,9 +487,16 @@
       {{/if}}
     </section>
 
-    {{!-- Mechanical flags (issue #32). `flagOptions` was built by the sheet and
-          rendered by NOTHING, so Weapon Finesse and its five siblings could not
-          be switched on and the branches reading them never ran. --}}
+  {{/if}}
+
+  {{!-- Mechanical flags (issue #32). `flagOptions` was built by the sheet and
+        rendered by NOTHING, so Weapon Finesse and its five siblings could not
+        be switched on and the branches reading them never ran.
+
+        Gated on `hasFlags` rather than `isTechnick` (#64): FEATURES carry these
+        too now, and a racial has no prerequisites block, so the two questions
+        are not the same one. --}}
+  {{#if hasFlags}}
     <section class="la-panel">
       <h2 class="la-panel__title">{{localize "LASTARC.Section.TechnickFlags"}}</h2>
       <p class="la-note">{{localize "LASTARC.Note.TechnickFlags"}}</p>

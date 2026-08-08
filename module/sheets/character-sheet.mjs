@@ -167,6 +167,21 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.languagesText = (sys.details.languages ?? []).join(", ");
 
     /**
+     * What the character's RACE grants, shown next to the box they type their
+     * own into (#65).
+     *
+     * Deliberately not merged into `details.senses`, and deliberately not
+     * written to it. Derivation assigns on every prepare, so a derived value
+     * with an input stores the number and shows the old one back — that has
+     * shipped twice here already. This is a readout beside an input, not a
+     * default for it.
+     */
+    context.raceSenses = this.document.items
+      .filter((i) => i.type === "race")
+      .flatMap((i) => i.system?.senses ?? [])
+      .join(", ") || null;
+
+    /**
      * Weakness, resistance and immunity (#53).
      *
      * `applyDamage` reads `sys.damageMods` off whatever it is damaging, so a

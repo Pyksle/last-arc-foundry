@@ -103,6 +103,28 @@ export class LastArcWeaponData extends PhysicalItemData {
         { initial: ["slashing"] }
       ),
 
+      /**
+       * Which skill a LIGHT weapon rolls with, when the wielder has the choice
+       * (§5.4, p.85 — issue #63).
+       *
+       * "" means decide automatically, which is what the system did
+       * unconditionally before: take whichever of Light Weapon and 1-Handed is
+       * higher. That is the right default and stays the default — but it was
+       * the only behaviour, and a GM reported there being no way to say
+       * otherwise. A character may well want the lower skill: a technick, a
+       * granted reroll or a talent can be scoped to one of the two, and the
+       * better raw number is then the worse attack.
+       *
+       * Inert unless the choice actually exists. A weapon two or more sizes
+       * smaller MUST use Light Weapon, and one the wielder's own size is not
+       * light at all; in both cases this is ignored rather than obeyed, so a
+       * preference set on one character cannot mis-fire on another of a
+       * different size.
+       */
+      wieldSkill: new fields.StringField({
+        initial: "", blank: true, choices: ["", "lightWeapon", "oneHanded"]
+      }),
+
       reach: new fields.NumberField({ initial: 1, min: 0 }),
       range: new fields.SchemaField({
         short: new fields.NumberField({ initial: null, nullable: true, min: 0 }),
@@ -697,6 +719,24 @@ export class LastArcFeatureData extends foundry.abstract.TypeDataModel {
       category: new fields.StringField({
         initial: "race", choices: LASTARC.featureCategories
       }),
+
+      /**
+       * The same mechanical flags a technick carries (#64).
+       *
+       * A racial like the Orc's Resilient is a FEATURE — that is what features
+       * were made real for (#56) — and features had `grants` but no flags, so
+       * anything a race does that is not a flat number had nowhere to live. The
+       * GM who reported Resilient had the choice of recording it as a Talent,
+       * which it is not, or not at all.
+       *
+       * `active` comes with it for the same reason it exists on a technick:
+       * plenty of these are conditional, the system cannot evaluate the
+       * condition, and the reader switches it off when it does not apply.
+       */
+      flags: new fields.ArrayField(
+        new fields.StringField({ choices: LASTARC.allTechnickFlags }), { initial: [] }
+      ),
+      active: new fields.BooleanField({ initial: true }),
 
       grants: grantsSchema()
     };

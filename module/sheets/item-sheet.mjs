@@ -80,6 +80,13 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.itemType = item.type;
     context.isPhysical = PHYSICAL_TYPES.has(item.type);
     context.isTechnick = item.type === "technick" || item.type === "talent";
+    /**
+     * Who gets the mechanical-flags panel (#64). Features carry flags now, and
+     * `isTechnick` also gates the technick's PREREQUISITES block, which a
+     * racial has none of — so this is a second, narrower question rather than
+     * a widening of the first.
+     */
+    context.hasFlags = context.isTechnick || item.type === "feature";
     context.isConsumable = CONSUMABLE_TYPES.has(item.type);
     context.hasGrants = GRANTING_TYPES.has(item.type);
 
@@ -197,7 +204,7 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     }
     if (PHYSICAL_TYPES.has(item.type)) context.featuresText = sys.features.join(", ");
 
-    if (context.isTechnick) {
+    if (context.hasFlags) {
       context.prereqAttributes = attributeGrid(sys.prerequisites.attributes);
 
       // Three ArrayFields of strings, shown as comma boxes (issue #15). They
@@ -238,6 +245,22 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         context.wieldChoice = D.lightWeaponAllowsChoice(actorSize, sys.size);
         context.strMultiplier = D.strDamageMultiplier(context.wieldCategory);
       }
+
+      /**
+       * Which skill a light weapon rolls with, when the rules give a choice
+       * (#63). Offered UNCONDITIONALLY, not only when `wieldChoice` is true.
+       *
+       * `wieldChoice` needs the weapon to be on an actor, because it depends on
+       * that actor's size — so gating the control on it would make the setting
+       * unreachable on a weapon sitting in the world or a compendium, which is
+       * exactly where a GM builds one. The preference is inert until the choice
+       * arises; the note under it says so.
+       */
+      context.wieldSkillOptions = [
+        { value: "", label: "LASTARC.WieldSkill.auto" },
+        { value: "lightWeapon", label: "LASTARC.Skill.lightWeapon" },
+        { value: "oneHanded", label: "LASTARC.Skill.oneHanded" }
+      ];
 
       /**
        * Damage types, as a multi-select (issue #32).

@@ -912,6 +912,22 @@
       <label>{{localize "LASTARC.Field.Languages"}}</label>
     </div>
 
+    {{!-- Special senses (#65). Players had nowhere at all to write these down;
+          the statblock has had the same box since it was written.
+
+          The race's own senses are shown BESIDE the box rather than pre-filled
+          into it. Derivation would overwrite anything typed on the next
+          prepare — the mistake CLAUDE.md records twice — and pre-filling once
+          would go stale the moment the race item changed. --}}
+    <div class="la-field">
+      <input type="text" name="system.details.senses" value="{{system.details.senses}}"
+             placeholder="{{localize 'LASTARC.Field.SensesPlaceholder'}}">
+      <label>{{localize "LASTARC.Field.Senses"}}</label>
+    </div>
+    {{#if raceSenses}}
+      <p class="la-note">{{localize "LASTARC.Note.RaceSenses"}} {{raceSenses}}</p>
+    {{/if}}
+
     {{formInput fields.details.fields.biography value=system.details.biography
                 enriched=enrichedBiography toggled=true}}
   </section>

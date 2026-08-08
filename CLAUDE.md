@@ -101,6 +101,13 @@ a newly shipped panel after whichever of its predecessors the reader kept, so
 the position is what decides where it lands for people who have already
 customised their sheet.
 
+**Adding a mechanical flag** — `LASTARC.technickFlags`, a label AND a hint in
+`lang/en.json`, and a reader in one of the files `test/reachable-choices.test.mjs`
+lists. Flags are carried by technicks, talents AND features — a racial like the
+Orc's Resilient is a feature, and `hasTechnickFlag` matches all three. The
+picker is gated on `hasFlags`, not `isTechnick`: that one also gates the
+prerequisites block, which a racial has none of.
+
 **Applying a status effect from a rule** — never call `toggleStatusEffect`
 straight. Two rules stand between an ability and a condition landing, and both
 have exactly one implementation in `module/status-guard.mjs`: §5.5's

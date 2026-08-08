@@ -260,11 +260,36 @@ LASTARC.drBypassing = new Set(["unaspected"]);
 
 LASTARC.weaponCategories = [
   "axes", "bludgeons", "bows", "crossbows",
+  /**
+   * Guns and knuckles are HOMEBREW (issue #62), and are in the base list on
+   * purpose rather than behind a setting.
+   *
+   * A category is inert until somebody authors a weapon in it: it costs a
+   * proficiency tick nobody has to use and a line in the picker. Gating them
+   * would mean a world setting, a branch in the proficiency editor and a branch
+   * in every category lookup — machinery whose only effect is to hide two
+   * unused words from tables that already list eight.
+   */
+  "guns", "knuckles",
   "knives", "polearms", "staves", "swords"
 ];
 
 /** Categories that always use the Ranged skill regardless of relative size (§5.4 rev2). */
-LASTARC.rangedWeaponCategories = new Set(["bows", "crossbows", "staves"]);
+LASTARC.rangedWeaponCategories = new Set(["bows", "crossbows", "guns", "staves"]);
+
+/**
+ * Categories that roll UNARMED regardless of relative size (#62).
+ *
+ * Knuckles are worn rather than wielded — the book's own framing is that they
+ * use the unarmed attack. So size decides nothing here: the same knuckles on a
+ * Small or a Large character still roll Unarmed, which is why this sits beside
+ * the ranged exemption in `wieldCategory` rather than inside the size table.
+ *
+ * They may still carry an attack bonus, a damage bonus and a damage type; what
+ * they do NOT do is replace the unarmed damage die, which is authored on the
+ * item like any other weapon's.
+ */
+LASTARC.unarmedWeaponCategories = new Set(["knuckles"]);
 
 /**
  * Categories that spend ammunition (book p.102).
@@ -275,7 +300,7 @@ LASTARC.rangedWeaponCategories = new Set(["bows", "crossbows", "staves"]);
  * use technicks and abilities such as Rapid Shot". Deriving this from
  * `rangedWeaponCategories` would jam every wand on an empty quiver.
  */
-LASTARC.ammunitionCategories = new Set(["bows", "crossbows"]);
+LASTARC.ammunitionCategories = new Set(["bows", "crossbows", "guns"]);
 
 /**
  * Ranged groups that add the wielder's Strength to damage (issue #36).
@@ -429,6 +454,21 @@ LASTARC.technickFlags = [
    * rate. They are independent, and a character may hold either alone.
    */
   "shieldExpert",
+  /**
+   * Resilient (issue #64): a Second Wind restores an extra 5 + half character
+   * level.
+   *
+   * A RACIAL rather than a technick, and the flag lives here anyway because
+   * race features carry the same `flags` array — the picker is on the technick
+   * and talent sheets, so an Orc's Resilient is recorded as a feature or talent
+   * item with this ticked. Reported by a GM whose player simply had nowhere to
+   * put it.
+   *
+   * A flag rather than a `grants` entry because the amount moves with level;
+   * `grants.secondWindUses` is a different thing entirely — how MANY second
+   * winds, not how much each one heals.
+   */
+  "resilient",
   "tripleCrit",           // ranged crit multiplier x3 instead of x2
   "doubledExplosions",    // each exploding die generates 2 rather than 1 (Backstab)
   /**
@@ -1149,6 +1189,12 @@ LASTARC.blockPenaltyPerBlock = { proficient: 5, nonProficient: 10 };
  * the rate, which is what reducing a penalty has to mean.
  */
 LASTARC.shieldExpertBlockPenalty = 2;
+
+/**
+ * The flat half of the Orc's Resilient bonus to a Second Wind (#64); the other
+ * half is level-scaled. See `resilientSecondWindBonus`.
+ */
+LASTARC.resilientSecondWindBase = 5;
 
 /** Flat penalty on any check made with a shield without Shield Proficiency. */
 LASTARC.nonProficientShieldPenalty = 5;

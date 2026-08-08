@@ -1105,6 +1105,8 @@ export function wieldCategory(actorSize, weaponSize, weaponCategory = null) {
 
   if (delta >= 2) return "unusable";
   if (weaponCategory && LASTARC.rangedWeaponCategories.has(weaponCategory)) return "ranged";
+  // Knuckles are worn, not wielded, and roll Unarmed at any size (#62).
+  if (weaponCategory && LASTARC.unarmedWeaponCategories.has(weaponCategory)) return "unarmed";
   if (delta === 1) return "twoHanded";
   if (delta === 0) return "oneHanded";
   if (delta === -1) return "light";      // may use 1-Handed OR Light Weapon
@@ -1388,9 +1390,29 @@ export function restRecovery({ attrMod = 0, level = 1, hours = 8, blocked = fals
   return Math.max(0, attrMod + level) * Math.min(hours, 8);
 }
 
-/** Second Wind heals max(vitScore, ¼ maxHP); unusable above half max HP (§13). */
-export function secondWindHeal(vitScore, maxHp) {
-  return Math.max(vitScore, rd(maxHp / 4));
+/**
+ * Second Wind heals max(vitScore, ¼ maxHP); unusable above half max HP (§13).
+ *
+ * `bonus` is added AFTER the max, not folded into either side of it (#64).
+ * Resilient reads "they receive an additional amount of HP" — an addition to
+ * what Second Wind gives, not a floor competing with the quarter-HP term. Put
+ * inside the `Math.max` it would do nothing at all for any character whose
+ * quarter-HP already exceeded it, which is most of them past low levels.
+ */
+export function secondWindHeal(vitScore, maxHp, bonus = 0) {
+  return Math.max(vitScore, rd(maxHp / 4)) + Math.max(0, bonus);
+}
+
+/**
+ * The Resilient racial's addition to a Second Wind: 5 + half character level,
+ * rounded down (§2, #64).
+ *
+ * SCALES WITH LEVEL, which is why it is a flag on the race feature rather than
+ * a `grants` entry — the same reason the study technicks are flags. A flat
+ * grant would be right on the day it was typed and wrong at every level after.
+ */
+export function resilientSecondWindBonus(level = 1) {
+  return LASTARC.resilientSecondWindBase + rd(Math.max(1, level) / 2);
 }
 
 export function canUseSecondWind(currentHp, maxHp) {
