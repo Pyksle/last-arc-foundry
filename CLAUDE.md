@@ -60,6 +60,11 @@ changes in others. Before running the tests, work out which of these apply:
    "DERIVED" and "ACTION" are the two accepted reasons.
 3. A `LASTARC.*` key in `lang/en.json` for its label and any tooltip.
 4. Wiring in `prepareDerivedData` if anything should read it.
+5. If it goes in `grantsSchema()`, also `hasGrantPayload` in `derivation.mjs` —
+   that predicate decides whether the Grants panel tells the reader the block
+   is empty ON PURPOSE, so a field only the aggregation knows about makes the
+   note a lie. `test/behavioural-grants.test.mjs` reads the schema and will
+   name the field you forgot.
 
 **Adding an `ArrayField` of `choices`** — the Quench check above walks scalar
 leaves and SKIPS arrays, so it will not ask. `test/reachable-choices.test.mjs`

@@ -1302,8 +1302,13 @@ LASTARC.sheetSections = {
  * Previously written inline in `defineSchema()` as bare arrays, which meant the
  * sheet had no way to offer the choices a field would accept — and a field
  * whose valid values the UI cannot show is a field nobody can set correctly.
+ *
+ * `technickKinds` used to head this list, constraining a `kind` field on the
+ * shared technick/talent data model. Both are Item subtypes in their own right,
+ * so it only ever offered a second, editable copy of `item.type` that was free
+ * to contradict it — see the note in `data/items.mjs`. A list whose values are
+ * the document subtypes it serves does not belong in a schema.
  */
-LASTARC.technickKinds = ["technick", "talent"];
 /** Where a race/class feature came from. Labelling only — no mechanical effect. */
 LASTARC.featureCategories = ["race", "class", "other"];
 LASTARC.consumableTypes = ["potion", "poison", "scroll", "score", "grenade", "other"];

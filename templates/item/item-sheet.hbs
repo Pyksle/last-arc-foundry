@@ -398,16 +398,10 @@
         </label>
       </div>
 
+      {{!-- No Kind dropdown. Technick and talent are separate document types,
+            so the title bar already says which this is; the select offered a
+            second answer that could disagree with it and that no rule read. --}}
       <div class="la-field-row">
-        <div class="la-field"
-             data-tooltip="{{localize 'LASTARC.Tooltip.TechnickKind'}}">
-          <select name="system.kind">
-            {{#each technickKindOptions}}
-              <option value="{{this.value}}" {{#if (laeq this.value ../system.kind)}}selected{{/if}}>{{localize this.label}}</option>
-            {{/each}}
-          </select>
-          <label>{{localize "LASTARC.Field.TechnickKind"}}</label>
-        </div>
         <div class="la-field">
           <input type="text" name="system.tree" value="{{system.tree}}"
                  data-tooltip="{{localize 'LASTARC.Tooltip.TalentTree'}}">
@@ -508,6 +502,11 @@
     <section class="la-panel">
       <h2 class="la-panel__title">{{localize "LASTARC.Section.Grants"}}</h2>
       <p class="la-note">{{localize "LASTARC.Note.Grants"}}</p>
+      {{!-- The boxes below stay visible when this shows. It says "empty is a
+            finished answer here", not "there is nothing to fill in". --}}
+      {{#if behaviouralGrants}}
+        <p class="la-note la-note--behavioural">{{localize "LASTARC.Note.BehaviouralGrants"}}</p>
+      {{/if}}
       <div class="la-field-row">
         <div class="la-field la-field--narrow">
           <input type="number" name="system.grants.defences.ref" value="{{system.grants.defences.ref}}">

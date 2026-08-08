@@ -592,6 +592,11 @@ export function itemContext(type) {
     // the render proves nothing about it.
     isPhysical: true,
     hasGrants: true,
+    // True, not false, for the reason stated above: the behavioural note is
+    // gated on this, and a false stub would render a Grants panel that never
+    // shows the line and prove nothing about it. The panel's INPUTS must
+    // survive it, which is what the render test checks.
+    behaviouralGrants: true,
     isTechnick: type === "technick" || type === "talent",
     outcomes: [],
     grantedSkills: [],
