@@ -472,6 +472,9 @@ export function buildContext() {
     fields: {},
     enrichedBiography: "<p>A synthetic biography, for layout only.</p>",
     languagesText: "ZZ trade cant, ZZ high tongue",
+    // Race-granted senses, shown beside the character's own box (#65). Set so
+    // the offline render exercises the branch rather than proving nothing.
+    raceSenses: "ZZ low-light vision",
     movementInput: { fly: 0, hover: false },
     secondWindPips: ROWS.secondWindPips(sysForRows, format),
     /**
@@ -565,6 +568,16 @@ export function itemContext(type) {
     })),
     featuresText: "",
     sensesText: "",
+    // Features carry mechanical flags too (#64), so the offline render has to
+    // exercise the panel's own gate rather than the technick-only one.
+    hasFlags: true,
+    // The light-weapon skill picker (#63). Built from the same three rows the
+    // sheet offers, so the offline render exercises the select for real.
+    wieldSkillOptions: [
+      { value: "", label: "LASTARC.WieldSkill.auto" },
+      { value: "lightWeapon", label: "LASTARC.Skill.lightWeapon" },
+      { value: "oneHanded", label: "LASTARC.Skill.oneHanded" }
+    ],
     languagesText: "",
     prereqAttributes: [],
     prereqCheck: { met: true, unmet: [] },

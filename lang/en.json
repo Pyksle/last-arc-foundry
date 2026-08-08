@@ -990,5 +990,13 @@
   "LASTARC.StatusImmunity.Tooltip": "Immune to {status} — alt+click to clear",
   "LASTARC.StatusImmunity.Marked": "{name} is now immune to {status}.",
   "LASTARC.StatusImmunity.Cleared": "{name} is no longer immune to {status}.",
-  "LASTARC.StatusImmunity.Refused": "{name} is immune to {statuses}; not applied."
+  "LASTARC.StatusImmunity.Refused": "{name} is immune to {statuses}; not applied.",
+  "LASTARC.Note.RaceSenses": "From your race:",
+  "LASTARC.WeaponCategory.guns": "Guns",
+  "LASTARC.WeaponCategory.knuckles": "Knuckles",
+  "LASTARC.TechnickFlag.resilient": "Resilient",
+  "LASTARC.TechnickFlagHint.resilient": "A Second Wind restores an extra 5 plus half your character level.",
+  "LASTARC.Field.WieldSkill": "Rolls with",
+  "LASTARC.WieldSkill.auto": "Automatic — whichever is higher",
+  "LASTARC.Note.WieldSkillOnlyLight": "Only applies when the weapon is one size smaller than you, which is the case the rules give a choice in."
 }

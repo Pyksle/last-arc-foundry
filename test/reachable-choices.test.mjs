@@ -116,7 +116,13 @@ const SECTIONS = {
   LastArcWeaponData: ['(laeq itemType "weapon")'],
   // Technicks and talents share one data model and one template block, which
   // the sheet selects with a computed flag rather than a type comparison.
-  LastArcTechnickData: ["isTechnick"]
+  LastArcTechnickData: ["isTechnick", "hasFlags"],
+  /**
+   * Features carry the same flags now (#64), and the picker is gated on
+   * `hasFlags` rather than `isTechnick` — a racial has no prerequisites block,
+   * so the two questions are deliberately different.
+   */
+  LastArcFeatureData: ["hasFlags"]
 };
 
 /** Text of every `{{#if <guard>}}…{{/if}}`, brace-matched rather than greedy. */
@@ -216,6 +222,9 @@ describe("every array of fixed choices can actually be chosen from", () => {
   test("the reachability check is scoped to the right template block", () => {
     assert.ok(reachable("LastArcWeaponData", "damageType").ok);
     assert.ok(reachable("LastArcTechnickData", "flags").ok);
+    assert.ok(reachable("LastArcFeatureData", "flags").ok,
+      "a racial's flags must be tickable on the feature sheet, or #64 ships " +
+      "with a field nobody can set");
 
     // The hole this guard shipped with: `damage` and `damageType` inputs exist
     // in the spell and ammunition blocks, and must not vouch for the weapon.

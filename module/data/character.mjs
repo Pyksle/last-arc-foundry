@@ -89,6 +89,20 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
          */
         languages: new fields.ArrayField(new fields.StringField(), { initial: [] }),
         /**
+         * Special senses — dark vision, low-light vision, scent (§2, #65).
+         *
+         * FREE TEXT, and authored rather than derived. Most of a character's
+         * senses come from their race, and the sheet shows those beside this
+         * box; but a technick, a prosthetic eye or a GM ruling can grant one
+         * too, and there is nowhere else to put it. Reported as players having
+         * no section to record them in at all.
+         *
+         * A plain string rather than the race item's array-plus-comma-box: this
+         * mirrors `npc.details.senses`, which is the same question asked of the
+         * other actor type, and two shapes for one field is what #60 removed.
+         */
+        senses: new fields.StringField({ initial: "" }),
+        /**
          * Coin. The book budgets purchases in gold and gives no subdivisions
          * or alternative denominations, so this is one number rather than the
          * pouch of copper/silver/electrum other systems carry (p.84).
@@ -506,8 +520,22 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     this.resources.secondWind.canUse =
       D.canUseSecondWind(this.resources.hp.value, this.resources.hp.max) &&
       this.resources.secondWind.used < this.resources.secondWind.max;
-    this.resources.secondWind.healAmount =
-      D.secondWindHeal(this.attributes.vit.total, this.resources.hp.max);
+    /**
+     * Resilient adds 5 + half level to every Second Wind (#64).
+     *
+     * Read off the items here rather than through `grants`, because the amount
+     * scales with level and `grants` carries constants — see the note on the
+     * flag in config.mjs. A suspended item contributes nothing, exactly as its
+     * grants would not.
+     */
+    const resilient = (this.parent?.items ?? []).some(
+      (i) => i.system?.active !== false && i.system?.flags?.includes("resilient")
+    );
+    this.resources.secondWind.healAmount = D.secondWindHeal(
+      this.attributes.vit.total,
+      this.resources.hp.max,
+      resilient ? D.resilientSecondWindBonus(level) : 0
+    );
 
     // 10. Bulk & movement ---------------------------------------------------
     const limits = D.bulkLimits(this.attributes.str.total);

@@ -272,11 +272,22 @@ export function buildDamageTerms({
  * to close (issue #40).
  */
 export function attackSkillKey({
-  wield, category = "", actorSize = "medium", weaponSize = "medium", skills = {}
+  wield, category = "", actorSize = "medium", weaponSize = "medium", skills = {},
+  preferred = ""
 } = {}) {
   if (LASTARC.spellcraftWeaponCategories.has(category)) return "spellcraft";
 
   if (wield === "light" && D.lightWeaponAllowsChoice(actorSize, weaponSize)) {
+    /**
+     * The wielder's own preference wins when they have expressed one (#63).
+     *
+     * Checked against the two skills the choice is actually between, so a
+     * preference left over from another weapon — or hand-edited to something
+     * else entirely — falls back to the automatic pick rather than routing the
+     * attack through a skill the rule does not allow here.
+     */
+    if (preferred === "lightWeapon" || preferred === "oneHanded") return preferred;
+
     const light = skills.lightWeapon?.total ?? -Infinity;
     const oneH = skills.oneHanded?.total ?? -Infinity;
     return light >= oneH ? "lightWeapon" : "oneHanded";
@@ -327,7 +338,9 @@ export function weaponAttackProfile({
   damageBonus = 0,
   breakPenalty = 0,
   weaponFinesse = false,
-  isThrown = false
+  isThrown = false,
+  /** The wielder's light-weapon skill preference, "" for automatic (#63). */
+  wieldSkill = ""
 } = {}) {
   const wield = D.wieldCategory(actorSize, weaponSize, category);
   const unusable = wield === "unusable";
@@ -337,7 +350,9 @@ export function weaponAttackProfile({
   // default, so an unusable weapon must not reach it.
   const skillKey = unusable
     ? null
-    : attackSkillKey({ wield, category, actorSize, weaponSize, skills });
+    : attackSkillKey({
+      wield, category, actorSize, weaponSize, skills, preferred: wieldSkill
+    });
 
   const skillMod = skillKey ? (skills[skillKey]?.total ?? 0) : 0;
   const proficient = proficientCategories.includes(category);
@@ -391,6 +406,7 @@ export function weaponProfileFor(actor, weapon, { isThrown = false } = {}) {
     damageBonus: weapon.system.damageBonus ?? 0,
     breakPenalty: weapon.system.breakGauge?.penalty ?? 0,
     weaponFinesse: hasTechnickFlag(actor, "weaponFinesse"),
+    wieldSkill: weapon.system.wieldSkill ?? "",
     isThrown
   });
 }
@@ -827,7 +843,10 @@ export async function applyDamage(target, { total, type = "blunt", faces = null 
 
 export function hasTechnickFlag(actor, flag) {
   return actor?.items?.some(
-    (i) => (i.type === "technick" || i.type === "talent")
+    // Features too (#64): a racial's flag is as real as a technick's, and a
+    // tick that renders and does nothing is the defect this project keeps
+    // producing.
+    (i) => (i.type === "technick" || i.type === "talent" || i.type === "feature")
       // Switched-off technicks do not contribute. Most of the book's flags are
       // conditional — Backstab doubles explosions when you backstab, not on
       // every attack forever — and the system cannot evaluate the condition,
