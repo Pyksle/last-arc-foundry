@@ -84,6 +84,23 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.hasGrants = GRANTING_TYPES.has(item.type);
 
     /**
+     * An empty grants block is not necessarily an unfinished one — most
+     * technicks work through their flags, an Active Effect, or plain text
+     * applied at the table. Say which it is, rather than leaving a reader to
+     * guess whether a dozen zeroes mean "changes no numbers" or "not typed in
+     * yet".
+     *
+     * Asked of EVERY granting type. The data models used to answer this for
+     * themselves, and only technick/talent and feature did, so an accessory or
+     * a prosthetic limb in exactly the same state would have gone unlabelled.
+     *
+     * The panel's inputs are NOT gated on this. Hiding an editor because it is
+     * empty is how a field ends up unauthorable, which is the defect this
+     * project keeps shipping; the note sits above them and they stay.
+     */
+    context.behaviouralGrants = context.hasGrants && !D.hasGrantPayload(sys.grants);
+
+    /**
      * The reroll checkboxes (#48), driven off `LASTARC.grantableRerollKinds`
      * rather than written out twice in the template.
      *

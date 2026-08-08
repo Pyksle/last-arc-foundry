@@ -502,6 +502,11 @@
     <section class="la-panel">
       <h2 class="la-panel__title">{{localize "LASTARC.Section.Grants"}}</h2>
       <p class="la-note">{{localize "LASTARC.Note.Grants"}}</p>
+      {{!-- The boxes below stay visible when this shows. It says "empty is a
+            finished answer here", not "there is nothing to fill in". --}}
+      {{#if behaviouralGrants}}
+        <p class="la-note la-note--behavioural">{{localize "LASTARC.Note.BehaviouralGrants"}}</p>
+      {{/if}}
       <div class="la-field-row">
         <div class="la-field la-field--narrow">
           <input type="number" name="system.grants.defences.ref" value="{{system.grants.defences.ref}}">

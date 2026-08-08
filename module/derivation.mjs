@@ -745,6 +745,45 @@ export function aggregateGrants(grantsList = []) {
 }
 
 /**
+ * Does a `grants` block carry any payload at all?
+ *
+ * Asked by the item sheet so a purely behavioural trait — one that works
+ * through its flags, an Active Effect or its description rather than arithmetic
+ * — can say so, instead of presenting a panel of zeroes that reads as
+ * half-filled. The panel keeps its inputs either way; this only adds a line
+ * saying that empty is a finished answer.
+ *
+ * Deliberately WIDER than "numeric", despite what the two flags it replaces
+ * were called: a granted reroll and a trained skill are booleans, and telling a
+ * reader there is no payload while one of them sits in the block would be a lie
+ * in the direction that hides mechanics.
+ *
+ * Lives here, beside `aggregateGrants`, and agrees with it field for field —
+ * including ignoring a skill row with no skill chosen, which aggregation skips.
+ * The two copies this replaces were `hasNumericGrants` on the technick and
+ * feature data models, and they had drifted: only the feature copy counted
+ * `hp`, `mp` and `dr`, so a technick granting +3 HP came out "behavioural".
+ * Neither had ever been read, so neither divergence could be noticed.
+ */
+export function hasGrantPayload(grants) {
+  if (!grants) return false;
+
+  const d = grants.defences ?? {};
+  if (d.ref || d.fort || d.will) return true;
+  if (grants.breakThreshold || grants.heroPoints || grants.initiativeSteps) return true;
+  if (grants.speed || grants.secondWindUses) return true;
+  if (grants.hp || grants.mp || grants.dr) return true;
+  // null is "does not change the Recovery action"; any number is a change.
+  if (grants.recoveryMinorActions != null) return true;
+  if (LASTARC.grantableRerollKinds.some((kind) => grants.reroll?.[kind])) return true;
+
+  // A row with no skill chosen contributes nothing to the actor, so it is not
+  // a payload here either — otherwise pressing Add Skill Grant would flip the
+  // label before anything had been typed in.
+  return (grants.skills ?? []).some((s) => s?.key && (s.focus || s.bonus || s.trained));
+}
+
+/**
  * Check a technick or talent's prerequisites against an actor.
  *
  * Returns every unmet requirement rather than short-circuiting on the first, so
