@@ -1170,6 +1170,7 @@ export function blockModifiers({
   shieldBonus = 0,
   previousBlocks = 0,
   proficient = true,
+  shieldExpert = false,
   situational = 0
 } = {}) {
   const parts = [];
@@ -1180,10 +1181,35 @@ export function blockModifiers({
 
   if (!proficient) add("LASTARC.Mod.nonProficientShield", -LASTARC.nonProficientShieldPenalty);
 
-  const rate = proficient
+  const base = proficient
     ? LASTARC.blockPenaltyPerBlock.proficient
     : LASTARC.blockPenaltyPerBlock.nonProficient;
-  add("LASTARC.Mod.repeatBlock", -(Math.max(0, previousBlocks) * rate));
+
+  /**
+   * Shield Expert reduces the repeat-block rate to 2 (#59).
+   *
+   * A FLOOR, not an assignment. The talent reduces the penalty TO a fixed rate,
+   * and a bare assignment would make it a penalty INCREASE the day someone
+   * tunes the proficient rate below 2 — turning a talent into a downgrade,
+   * which is the same inversion the note on `blockPenaltyPerBlock` records
+   * against an earlier draft of the shield proficiency rule.
+   *
+   * It applies to a non-proficient blocker too. That is the literal reading of
+   * "reduce ... to -2", it is still a reduction from 10, and the flat
+   * non-proficiency penalty above is untouched either way — so the character
+   * who somehow has the talent without the proficiency is still worse off than
+   * one who has both.
+   */
+  const rate = shieldExpert ? Math.min(base, LASTARC.shieldExpertBlockPenalty) : base;
+
+  /**
+   * Labelled differently when the talent bit, so the card SAYS the talent
+   * worked. A rate that silently drops from 5 to 2 is indistinguishable from
+   * the system having got the arithmetic wrong — which is precisely how the
+   * mitigation pipeline in #57 came to be reported as broken while being right.
+   */
+  add(rate === base ? "LASTARC.Mod.repeatBlock" : "LASTARC.Mod.repeatBlockExpert",
+    -(Math.max(0, previousBlocks) * rate));
 
   add("LASTARC.Mod.situational", situational);
 

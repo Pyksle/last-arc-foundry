@@ -724,6 +724,87 @@ describe("block — the shield reaction (book p.109)", () => {
     assert.ok(labels.includes("LASTARC.Mod.repeatBlock"));
   });
 
+  /* -- Shield Expert (#59) ------------------------------------------------- */
+
+  /**
+   * Reported as "no place to add shield expert", which was exactly the defect:
+   * the cumulative penalty was implemented and correct, and there was no way
+   * for a character to say they had the talent that changes its rate.
+   */
+  test("Shield Expert charges 2 a block instead of 5", () => {
+    const expert = blockModifiers({ skillMod: 7, previousBlocks: 3, shieldExpert: true });
+    const plain = blockModifiers({ skillMod: 7, previousBlocks: 3 });
+    assert.equal(expert.total, 1, "3 earlier blocks at −2 each");
+    assert.equal(plain.total, -8, "3 earlier blocks at −5 each");
+  });
+
+  test("it changes the rate, not the first block, which was never penalised", () => {
+    assert.deepEqual(
+      blockModifiers({ skillMod: 7, previousBlocks: 0, shieldExpert: true }),
+      blockModifiers({ skillMod: 7, previousBlocks: 0 }),
+      "with nothing to reduce, the talent must be inert rather than a bonus");
+  });
+
+  /**
+   * "Reduce the penalty ... TO -2" is an absolute rate, so it helps a
+   * non-proficient blocker too — 10 a block down to 2. The flat −5 for lacking
+   * the proficiency is a separate part and is deliberately untouched, so having
+   * the talent never makes up for missing the proficiency.
+   */
+  test("it applies to a non-proficient blocker, without erasing that penalty", () => {
+    const m = blockModifiers({ skillMod: 7, previousBlocks: 2, proficient: false, shieldExpert: true });
+    assert.ok(m.parts.some((p) => p.label === "LASTARC.Mod.nonProficientShield"),
+      "the flat non-proficiency penalty is a different rule and must survive");
+    assert.equal(m.total, -2, "−5 flat, and 2 earlier blocks at −2 each");
+
+    const bothWays = blockModifiers({ skillMod: 7, previousBlocks: 2, shieldExpert: true });
+    assert.ok(bothWays.total > m.total,
+      "the talent must not make proficiency worthless");
+  });
+
+  /**
+   * A FLOOR, not an assignment. If anyone ever tunes the proficient rate below
+   * 2, an assignment would turn the talent into a PENALTY — the same inversion
+   * the note above records against an early draft of the proficiency rule.
+   *
+   * At the shipped numbers (5 and 2) a floor and an assignment are identical,
+   * so asserting over the default config proves nothing about which one is
+   * written. The rate is therefore moved below the talent's for the length of
+   * this test, which is the only arrangement where the two differ.
+   */
+  test("it can only ever reduce the rate, whatever the rates are", () => {
+    const original = LASTARC.blockPenaltyPerBlock.proficient;
+    try {
+      LASTARC.blockPenaltyPerBlock.proficient = 1;
+      const expert = blockModifiers({ skillMod: 7, previousBlocks: 4, shieldExpert: true });
+      const plain = blockModifiers({ skillMod: 7, previousBlocks: 4 });
+      assert.ok(expert.total >= plain.total,
+        "with the base rate below the talent's, an assignment would charge 2 a " +
+        "block where the default charges 1 — the talent becoming a downgrade");
+      assert.ok(!expert.parts.some((p) => p.label === "LASTARC.Mod.repeatBlockExpert"),
+        "and it must not claim credit on a card while doing nothing");
+    } finally {
+      LASTARC.blockPenaltyPerBlock.proficient = original;
+    }
+  });
+
+  /**
+   * The card has to SAY the talent bit. A rate silently dropping from 5 to 2 is
+   * indistinguishable from the system mis-adding — which is how the (correct)
+   * mitigation pipeline in #57 came to be reported as broken.
+   */
+  test("the reduced rate gets its own label so the card shows it working", () => {
+    const expert = blockModifiers({ skillMod: 7, previousBlocks: 2, shieldExpert: true });
+    assert.ok(expert.parts.some((p) => p.label === "LASTARC.Mod.repeatBlockExpert"));
+    assert.ok(!expert.parts.some((p) => p.label === "LASTARC.Mod.repeatBlock"),
+      "one line, not two — the plain label would read as both rates applying");
+
+    const plain = blockModifiers({ skillMod: 7, previousBlocks: 2 });
+    assert.ok(plain.parts.some((p) => p.label === "LASTARC.Mod.repeatBlock"));
+    assert.ok(!plain.parts.some((p) => p.label === "LASTARC.Mod.repeatBlockExpert"),
+      "a character without the talent must not be told they have it");
+  });
+
   test("a tie goes to the ATTACKER — the block must beat, not meet", () => {
     assert.equal(resolveBlock({ blockTotal: 18, attackTotal: 17 }).blocked, true);
     assert.equal(resolveBlock({ blockTotal: 17, attackTotal: 17 }).blocked, false,
