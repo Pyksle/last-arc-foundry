@@ -21,6 +21,7 @@ import * as D from "../derivation.mjs";
 import { rollCheckD20 } from "./d20.mjs";
 import { getTurnState, setTurnState } from "../combat.mjs";
 import * as AE from "../action-economy.mjs";
+import { hasTechnickFlag } from "./attack.mjs";
 import { describeCheck } from "./breakdown.mjs";
 
 /**
@@ -160,6 +161,12 @@ export async function rollBlock(actor, {
     shieldBonus: check.shield.system.blockBonus ?? 0,
     previousBlocks: used,
     proficient,
+    /**
+     * Shield Expert (#59). Read HERE rather than in derivation, for the reason
+     * Dodge's technick is read in `dodge.mjs`: the flag needs the actor's items
+     * and derivation is Foundry-free. It belongs to the reaction it modifies.
+     */
+    shieldExpert: hasTechnickFlag(actor, "shieldExpert"),
     situational
   });
 

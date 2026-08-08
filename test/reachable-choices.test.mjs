@@ -258,6 +258,14 @@ describe("no decoy technick flags", () => {
                    // Dodge gates a whole reaction rather than modifying a roll,
                    // so it is read where that reaction lives (#50).
                    "module/dice/dodge.mjs",
+                   // Shield Expert changes the rate of the Block reaction's
+                   // cumulative penalty, and is read where that reaction lives
+                   // for the same reason (#59). This file's absence from the
+                   // list is what caught the flag on its first run, which is
+                   // the guard working: a flag nothing reads is a switch that
+                   // does nothing, and Block was simply not somewhere it had
+                   // ever occurred to anyone to look.
+                   "module/dice/block.mjs",
                    // The study flags are counted during derivation rather than
                    // tested for in a dice pipeline — they gate how many spells
                    // and performances may be known, not a roll.
@@ -553,5 +561,60 @@ describe("every row field has an input", () => {
       "these are declared on a row schema and no template offers a way to type " +
       "into them, so the data can be stored and never entered:\n  " +
       missing.join("\n  "));
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Shield Expert, and the reaction it modifies (#59)                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A playtester reported "no place to add shield expert". They were right, and
+ * the shape is the one this file was written for: the rule the talent modifies
+ * was implemented, cumulative and correct, and no flag existed for a character
+ * to say they had the talent — so the mechanic could only ever run at its
+ * default rate.
+ *
+ * The generic guard above now covers the flag itself. These check the parts of
+ * the wiring it cannot see: that the reaction reads it, and that the talent is
+ * not quietly confused with the retired proficiency flag of a similar name.
+ */
+describe("Shield Expert is wired to the Block reaction", () => {
+  test("block.mjs reads the flag", () => {
+    const src = read("module/dice/block.mjs").replace(/\/\*[\s\S]*?\*\//g, "");
+    /**
+     * The READ and the HANDOFF in one assertion, deliberately. Checking them
+     * separately passes a file that asks for the flag and then hands
+     * `blockModifiers` a constant — which is a switch that does nothing, the
+     * exact defect this file exists to catch, wearing the shape of a fix.
+     */
+    assert.match(src, /shieldExpert:\s*hasTechnickFlag\(actor,\s*"shieldExpert"\)/,
+      "block.mjs must pass the flag it read to blockModifiers — reading it and " +
+      "passing anything else leaves the rate fixed no matter what the character has");
+  });
+
+  /**
+   * `shieldProficiency` is RETIRED and must stay retired: it is the yes/no
+   * "may you use a shield", which lives on `proficiencies.shields` with its own
+   * toggle. Reintroducing it as a flag would give the sheet two controls for
+   * one fact, and the one that does nothing would look authoritative.
+   */
+  test("it has not been confused with the retired proficiency flag", () => {
+    assert.ok(LASTARC.technickFlags.includes("shieldExpert"));
+    assert.ok(!LASTARC.technickFlags.includes("shieldProficiency"));
+    assert.ok(LASTARC.retiredTechnickFlags.includes("shieldProficiency"));
+  });
+
+  test("the reduced rate is a config value, not a number typed into the maths", () => {
+    assert.equal(typeof LASTARC.shieldExpertBlockPenalty, "number");
+    assert.ok(LASTARC.shieldExpertBlockPenalty < LASTARC.blockPenaltyPerBlock.proficient,
+      "a talent that does not improve on the default rate is not a talent");
+    assert.match(read("module/derivation.mjs"), /LASTARC\.shieldExpertBlockPenalty/);
+  });
+
+  test("the card can name the reduced rate", () => {
+    const lang = JSON.parse(read("lang/en.json"));
+    assert.ok("LASTARC.Mod.repeatBlockExpert" in lang,
+      "the block card would print a raw key on every expert's repeat block");
   });
 });

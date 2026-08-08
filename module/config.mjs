@@ -407,6 +407,25 @@ LASTARC.technickFlags = [
    * or no armour, and at once per turn. See `dice/dodge.mjs`.
    */
   "dodge",
+  /**
+   * Shield Expert (issue #59): "You reduce the penalty for consecutive blocks
+   * made with a shield to -2."
+   *
+   * A TALENT, not a technick — but talents and technicks share one data model
+   * and one flags picker, so a flag is where it belongs and no second mechanism
+   * is needed. The rule it modifies was already implemented and already
+   * cumulative; there was simply no way for a character to say they had the
+   * talent, so the mechanic could only ever run at its default rate.
+   *
+   * Reported by a playtester as "no place to add shield expert", which is
+   * exactly right and is the same shape as issue #32: the penalty existed, its
+   * modifier did not.
+   *
+   * Not to be confused with the RETIRED `shieldProficiency` below. That one is
+   * the yes/no "may you use a shield at all", which lives on
+   * `proficiencies.shields` with its own toggle. This changes the rate.
+   */
+  "shieldExpert",
   "tripleCrit",           // ranged crit multiplier x3 instead of x2
   "doubledExplosions",    // each exploding die generates 2 rather than 1 (Backstab)
   /**
@@ -1117,6 +1136,16 @@ LASTARC.armourDurabilityClass = {
  * proficiency into a downgrade for anyone who blocks twice.
  */
 LASTARC.blockPenaltyPerBlock = { proficient: 5, nonProficient: 10 };
+
+/**
+ * The rate Shield Expert reduces that penalty to (#59).
+ *
+ * An ABSOLUTE value, not an amount subtracted: the talent reads "reduce the
+ * penalty for consecutive blocks made with a shield TO -2". Applied as a floor
+ * rather than an assignment — see `blockModifiers` — so it can only ever
+ * improve the rate, which is what "reduce" has to mean.
+ */
+LASTARC.shieldExpertBlockPenalty = 2;
 
 /** Flat penalty on any check made with a shield without Shield Proficiency. */
 LASTARC.nonProficientShieldPenalty = 5;

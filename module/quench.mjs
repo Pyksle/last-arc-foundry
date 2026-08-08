@@ -2240,6 +2240,126 @@ function registerCombatBatch(quench) {
             }
           });
         });
+
+        /**
+         * Shield Expert (#59), end to end.
+         *
+         * Reported as "no place to add shield expert". The unit suite proves
+         * the arithmetic; only a live document can prove the TALENT reaches it —
+         * the flag is read off the actor's items, and talents and technicks
+         * share a data model, so a talent carrying the flag has to work exactly
+         * as a technick carrying it would.
+         */
+        it("a talent carrying the flag reduces the repeat-block rate",
+          async function () {
+            this.timeout(20000);
+            await withActor({
+              system: {
+                proficiencies: { shields: true },
+                skills: { oneHanded: { trained: true, focus: 0 } }
+              }
+            }, async (pc) => {
+              await pc.createEmbeddedDocuments("Item", [
+                { name: "ZZ board", type: "shield",
+                  system: { size: "medium", equipped: true, blockBonus: 0 } },
+                // A TALENT, not a technick — that is the shape the report came
+                // in about, and the two share a data model.
+                { name: "ZZ Shielding", type: "talent",
+                  system: { flags: ["shieldExpert"], active: true } }
+              ]);
+
+              const combat = await Combat.create({});
+              try {
+                await combat.createEmbeddedDocuments("Combatant", [{ actorId: pc.id }]);
+                await combat.activate();
+
+                await BLOCK.rollBlock(pc, { attackTotal: 99 });
+                assert.equal(BLOCK.previousBlocks(pc), 1);
+
+                const second = await BLOCK.rollBlock(pc, { attackTotal: 99 });
+                const repeat = second.mods.parts.find((x) => x.label.includes("repeatBlock"));
+                assert.isOk(repeat, "no repeat-block line on the second block at all");
+                assert.equal(repeat.value, -2,
+                  "the talent is on the actor and the rate is still the default 5");
+                assert.equal(repeat.label, "LASTARC.Mod.repeatBlockExpert",
+                  "the card must name the talent, or a rate that quietly drops " +
+                  "from 5 to 2 reads as the system mis-adding");
+              } finally {
+                await combat.delete();
+              }
+            });
+          });
+
+        /**
+         * The other half, and the one that would hide: without the talent the
+         * rate must still be 5. A test that only checks the expert case passes
+         * an implementation that gives everyone -2.
+         */
+        it("without the talent the rate is unchanged", async function () {
+          this.timeout(20000);
+          await withActor({
+            system: {
+              proficiencies: { shields: true },
+              skills: { oneHanded: { trained: true, focus: 0 } }
+            }
+          }, async (pc) => {
+            await pc.createEmbeddedDocuments("Item", [{
+              name: "ZZ board", type: "shield",
+              system: { size: "medium", equipped: true, blockBonus: 0 }
+            }]);
+
+            const combat = await Combat.create({});
+            try {
+              await combat.createEmbeddedDocuments("Combatant", [{ actorId: pc.id }]);
+              await combat.activate();
+
+              await BLOCK.rollBlock(pc, { attackTotal: 99 });
+              const second = await BLOCK.rollBlock(pc, { attackTotal: 99 });
+              const repeat = second.mods.parts.find((x) => x.label.includes("repeatBlock"));
+              assert.equal(repeat.value, -5);
+              assert.equal(repeat.label, "LASTARC.Mod.repeatBlock");
+            } finally {
+              await combat.delete();
+            }
+          });
+        });
+
+        /**
+         * A suspended technick contributes neither flags nor grants, and the
+         * flags picker's whole design is that conditional abilities are
+         * switched off when they do not apply. `hasTechnickFlag` checks
+         * `active !== false`; this proves the talent obeys the same switch.
+         */
+        it("switching the talent off restores the default rate", async function () {
+          this.timeout(20000);
+          await withActor({
+            system: {
+              proficiencies: { shields: true },
+              skills: { oneHanded: { trained: true, focus: 0 } }
+            }
+          }, async (pc) => {
+            await pc.createEmbeddedDocuments("Item", [
+              { name: "ZZ board", type: "shield",
+                system: { size: "medium", equipped: true, blockBonus: 0 } },
+              { name: "ZZ Shielding", type: "talent",
+                system: { flags: ["shieldExpert"], active: false } }
+            ]);
+
+            const combat = await Combat.create({});
+            try {
+              await combat.createEmbeddedDocuments("Combatant", [{ actorId: pc.id }]);
+              await combat.activate();
+
+              await BLOCK.rollBlock(pc, { attackTotal: 99 });
+              const second = await BLOCK.rollBlock(pc, { attackTotal: 99 });
+              const repeat = second.mods.parts.find((x) => x.label.includes("repeatBlock"));
+              assert.equal(repeat.value, -5,
+                "a switched-off talent still applied its flag");
+            } finally {
+              await combat.delete();
+            }
+          });
+        });
       });
 
       /* -- Healing (issue #11) ---------------------------------------------- */
