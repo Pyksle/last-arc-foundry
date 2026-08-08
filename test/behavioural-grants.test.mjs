@@ -57,6 +57,89 @@ const SOLE_PAYLOADS = {
   ]))
 };
 
+/**
+ * SOLE_PAYLOADS IS A HAND-WRITTEN LIST, AND THAT IS THE HAZARD.
+ *
+ * The drift test below walks it, so a grants field added to the schema and
+ * wired into `aggregateGrants` but forgotten in `hasGrantPayload` passes the
+ * whole suite — which is EXACTLY the mechanism that produced the two
+ * disagreeing `hasNumericGrants` copies this work removed. Verified: adding an
+ * `mpRegen` field to both the schema and the aggregate, and to neither the
+ * predicate nor this list, left the suite fully green while a technick granting
+ * it would be labelled as granting nothing.
+ *
+ * So the list is checked against the schema itself. `grantsSchema()` cannot be
+ * imported — `module/data/items.mjs` evaluates `foundry.data.fields` at load
+ * and there is no Foundry here — so it is read out of the source.
+ */
+const GRANTS_LEAVES = (() => {
+  const src = items.match(/function grantsSchema\(\)[\s\S]*?\n\}/)?.[0] ?? "";
+  const out = [];
+  const stack = [];
+  for (const line of src.split("\n")) {
+    const indent = line.search(/\S/);
+    if (indent < 0) continue;
+    while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop();
+
+    const nested = line.match(/^\s*(\w+):\s*new fields\.(?:Schema|Array)Field\(/);
+    if (nested) { stack.push({ name: nested[1], indent }); continue; }
+
+    const leaf = line.match(/^\s*(\w+):\s*new fields\.(Number|Boolean|String)Field\(/);
+    if (leaf) out.push([...stack.map((x) => x.name), leaf[1]].join("."));
+  }
+  return out;
+})();
+
+/**
+ * Leaves that legitimately do NOT count as a payload, each with its reason.
+ * An entry here is a claim about the rules, checkable by reading them.
+ */
+const NOT_A_PAYLOAD = {
+  // The row's identity, not an effect. A row with a key and nothing else
+  // changes nothing, which is why `hasGrantPayload` requires key AND a value.
+  "skills.key": "names which skill the row is about; carries no effect itself",
+  // Which skill the reroll is limited to. Without a reroll kind ticked there
+  // is no reroll to scope, so this alone is inert — asserted below.
+  "reroll.skill": "scopes a reroll; inert unless a reroll kind is also set"
+};
+
+describe("§ the drift guard covers the whole schema", () => {
+  test("the schema parse finds the fields it is meant to police", () => {
+    // Without this the checks below pass over an empty list, which is how a
+    // guard silently stops guarding.
+    assert.ok(GRANTS_LEAVES.length >= 15,
+      `only found ${GRANTS_LEAVES.length} grants leaves: ${GRANTS_LEAVES.join(", ")}`);
+    for (const expected of ["defences.ref", "hp", "recoveryMinorActions",
+      "skills.trained", "reroll.skill"]) {
+      assert.ok(GRANTS_LEAVES.includes(expected),
+        `${expected} is missing, so the parse is not reading the real schema`);
+    }
+  });
+
+  test("every schema leaf is either exercised or excused", () => {
+    const covered = new Set([
+      ...Object.keys(SOLE_PAYLOADS),
+      ...Object.keys(NOT_A_PAYLOAD),
+      // The reroll booleans are generated into SOLE_PAYLOADS from config, and
+      // the schema declares them the same way, so they never appear by name.
+      ...LASTARC.grantableRerollKinds.map((k) => `reroll.${k}`)
+    ]);
+    // `skills.focus` etc. are listed under their own names in SOLE_PAYLOADS.
+    const missing = GRANTS_LEAVES.filter((leaf) => !covered.has(leaf));
+
+    assert.deepEqual(missing, [],
+      "these grants fields exist on the schema and no case below exercises " +
+      "them, so `hasGrantPayload` could ignore one and the suite would stay " +
+      `green: ${missing.join(", ")}. Add a SOLE_PAYLOADS entry, or an excuse ` +
+      "in NOT_A_PAYLOAD saying why the field is not an effect.");
+  });
+
+  test("the excused leaves really are inert", () => {
+    assert.equal(hasGrantPayload({ skills: [{ key: "athletics" }] }), false);
+    assert.equal(hasGrantPayload({ reroll: { skill: "survival" } }), false);
+  });
+});
+
 describe("§ a grants block that carries nothing", () => {
   test("nothing at all is not a payload", () => {
     assert.equal(hasGrantPayload(undefined), false);
@@ -157,11 +240,35 @@ describe("§ the label actually reaches the sheet", () => {
    * sheet's own gate is the whole set.
    */
   test("it is asked for every subtype with a grants block, not just two", () => {
-    assert.match(itemSheet, /context\.behaviouralGrants\s*=\s*context\.hasGrants\s*&&/,
-      "the note must hang off hasGrants, which is the full granting set");
-    for (const type of ["technick", "talent", "accessory", "prostheticLimb", "feature"]) {
-      assert.match(itemSheet, new RegExp(`"${type}"`), `${type} is not in GRANTING_TYPES`);
-    }
+    /**
+     * THE NEGATION IS PART OF THE ASSERTION. Without it, inverting the line —
+     * so the note appears on exactly the items that DO grant numbers and hides
+     * on the ones that do not — passes the whole suite. Verified by mutation.
+     */
+    assert.match(itemSheet,
+      /context\.behaviouralGrants\s*=\s*context\.hasGrants\s*&&\s*!\s*D\.hasGrantPayload\(/,
+      "the note must hang off hasGrants AND the negated predicate; dropping the " +
+      "`!` shows the label on every item that actually grants something");
+
+    /**
+     * Read out of the GRANTING_TYPES DECLARATION, not searched for in the file.
+     *
+     * The first version of this matched `"technick"` anywhere in item-sheet.mjs
+     * — and line 82 says `item.type === "technick" || item.type === "talent"`
+     * for an unrelated reason, so both literals were present whether or not the
+     * set held them. Deleting `technick` from GRANTING_TYPES removes the whole
+     * Grants panel from the most-used granting subtype in the system, and the
+     * suite stayed green. A guard satisfied by a line it is not about is not a
+     * guard.
+     */
+    const declared = itemSheet.match(/GRANTING_TYPES\s*=\s*new Set\(\[([^\]]*)\]/)?.[1];
+    assert.ok(declared, "GRANTING_TYPES is not a literal Set any more — this " +
+      "guard has lost its target and would assert nothing");
+    const inSet = [...declared.matchAll(/"([\w]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(inSet.sort(),
+      ["accessory", "feature", "prostheticLimb", "talent", "technick"].sort(),
+      "GRANTING_TYPES must name exactly the subtypes whose schema carries a " +
+      "grants block — a missing one loses its whole Grants panel");
   });
 
   test("the old per-model flag is gone rather than left beside the new one", () => {

@@ -1116,12 +1116,105 @@ describe("a document subtype is not a schema field", () => {
     return itemsSource.slice(start, end === -1 ? undefined : end);
   };
 
-  /** The values a `choices:` expression admits, or null if it is not literal. */
+  /**
+   * The values a `choices:` expression admits, or null if it is not literal.
+   *
+   * IT HAS TO READ THIS FILE'S HOUSE STYLE, not a tidy subset of it. The first
+   * version understood a named `LASTARC.x` array and a bracketed literal, and
+   * nothing else — but across `module/data/` the dominant idioms are
+   * `Object.keys(LASTARC.x)` (12 declarations) and a bracketed literal
+   * containing a SPREAD (10 more). A field reintroduced in either shape read as
+   * "not literal" and was waved through, so the guard was blindest to exactly
+   * the way somebody here would actually write it.
+   *
+   * Foundry also accepts a value→label OBJECT as `choices`, which is a third
+   * shape and equally silent.
+   */
   const resolveChoices = (expr) => {
-    const named = expr.match(/^LASTARC\.(\w+)$/);
-    if (named) return Array.isArray(LASTARC[named[1]]) ? LASTARC[named[1]] : null;
-    if (expr.startsWith("[")) return [...expr.matchAll(/["'](\w+)["']/g)].map((m) => m[1]);
+    const e = expr.trim();
+
+    const named = e.match(/^LASTARC\.(\w+)$/);
+    if (named) {
+      const v = LASTARC[named[1]];
+      if (Array.isArray(v)) return v;
+      return v && typeof v === "object" ? Object.keys(v) : null;
+    }
+
+    const keysOf = e.match(/^Object\.keys\(\s*LASTARC\.(\w+)\s*\)$/);
+    if (keysOf) {
+      const v = LASTARC[keysOf[1]];
+      return v && typeof v === "object" ? Object.keys(v) : null;
+    }
+
+    // A bracketed literal, resolving any `...LASTARC.x` spread inside it. A
+    // spread used to yield `[]`, which `sameSet` then read as "not an
+    // offender" rather than "could not tell".
+    if (e.startsWith("[")) {
+      const out = [];
+      for (const part of e.slice(1, e.lastIndexOf("]")).split(",")) {
+        const bit = part.trim();
+        if (!bit) continue;
+        const lit = bit.match(/^["'](\w*)["']$/);
+        if (lit) { if (lit[1]) out.push(lit[1]); continue; }
+        const spread = bit.match(/^\.\.\.LASTARC\.(\w+)$/);
+        if (spread) {
+          const v = LASTARC[spread[1]];
+          if (Array.isArray(v)) { out.push(...v); continue; }
+          if (v && typeof v === "object") { out.push(...Object.keys(v)); continue; }
+        }
+        return null;   // something we cannot read — say so rather than guess
+      }
+      return out;
+    }
+
+    // Foundry's value → label object form.
+    if (e.startsWith("{")) {
+      return [...e.matchAll(/(?:^|[{,])\s*["']?(\w+)["']?\s*:/g)].map((m) => m[1]);
+    }
+
     return null;
+  };
+
+  /**
+   * Every `x: new fields.StringField({ … })` in a body, with its options.
+   *
+   * Brace-matched rather than `[^}]*?`, which stopped at the first `}` — so an
+   * object-form `choices` (or any nested option before it) hid the declaration
+   * completely.
+   */
+  const stringFields = (body) => {
+    const out = [];
+    const open = /(\w+):\s*new fields\.StringField\(\s*\{/g;
+    let m;
+    while ((m = open.exec(body))) {
+      let depth = 1;
+      let i = open.lastIndex;
+      while (i < body.length && depth > 0) {
+        if (body[i] === "{") depth++;
+        else if (body[i] === "}") depth--;
+        i++;
+      }
+      out.push({ field: m[1], options: body.slice(open.lastIndex, i - 1) });
+    }
+    return out;
+  };
+
+  /** The `choices:` value expression inside an options body, brace/bracket aware. */
+  const choicesOf = (options) => {
+    const at = options.search(/(?:^|[,{\s])choices\s*:/);
+    if (at === -1) return null;
+    const from = options.indexOf(":", at + options.slice(at).indexOf("choices")) + 1;
+    const rest = options.slice(from).trim();
+    const pairs = { "[": "]", "{": "}", "(": ")" };
+    if (pairs[rest[0]]) {
+      let depth = 0;
+      for (let i = 0; i < rest.length; i++) {
+        if (pairs[rest[i]]) depth++;
+        else if (Object.values(pairs).includes(rest[i]) && --depth === 0) return rest.slice(0, i + 1);
+      }
+      return null;
+    }
+    return rest.split(/[,\n]/)[0].trim();
   };
 
   const sameSet = (a, b) =>
@@ -1146,13 +1239,26 @@ describe("a document subtype is not a schema field", () => {
     if (subtypes.length < 2) continue;
 
     test(`${cls} does not restate the ${subtypes.join("/")} split as a field`, () => {
+      const body = bodyOf(cls);
+      assert.notEqual(body, "",
+        `${cls}'s body could not be extracted — the scan below would assert nothing`);
+
       const offenders = [];
-      for (const [, field, expr] of bodyOf(cls).matchAll(
-        /(\w+):\s*new fields\.StringField\(\{[^}]*?choices:\s*(\[[^\]]*\]|[\w.]+)/g
-      )) {
-        const values = resolveChoices(expr.trim());
-        if (values && sameSet(values, subtypes)) offenders.push(field);
+      const unreadable = [];
+      for (const { field, options } of stringFields(body)) {
+        const expr = choicesOf(options);
+        if (expr === null) continue;              // no choices at all: not this rule
+        const values = resolveChoices(expr);
+        // A `choices` the resolver cannot read is reported rather than passed.
+        // Silence here is what let the dominant idioms through unexamined.
+        if (values === null) { unreadable.push(`${field} (${expr.slice(0, 40)})`); continue; }
+        if (sameSet(values, subtypes)) offenders.push(field);
       }
+
+      assert.deepEqual(unreadable, [],
+        `${cls} declares choices this guard cannot evaluate, so it cannot say ` +
+        `whether they restate the subtype split: ${unreadable.join(", ")}. Teach ` +
+        `resolveChoices the shape rather than leaving it silent.`);
       assert.deepEqual(offenders, [],
         `${cls} serves ${subtypes.join(" and ")} and declares ${offenders.join(", ")} ` +
         `over exactly those values. A shared schema cannot vary its \`initial\` by ` +
