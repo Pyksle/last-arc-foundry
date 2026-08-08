@@ -287,7 +287,30 @@ export class LastArcTechnickData extends foundry.abstract.TypeDataModel {
     return {
       ...commonFields(),
 
-      kind: new fields.StringField({ initial: "technick", choices: LASTARC.technickKinds }),
+      /**
+       * `kind` was removed here. It was a stored technick/talent dropdown on a
+       * model that BOTH document types already share, so the same fact was
+       * written down twice and the two copies were free to disagree. They did:
+       * `initial: "technick"` meant every talent created through the UI opened
+       * with a title bar reading "Talent" above a Kind reading "Technick", and
+       * the dropdown could put the contradiction the other way round just as
+       * easily.
+       *
+       * Nothing ever read it. Every rule that cares which of the two an item is
+       * — the flag lookups in `dice/attack.mjs` and `dice/magic.mjs`, the
+       * innate-technick scan in `data/character.mjs`, the panel each sheet
+       * files them under — branches on `item.type`, and the one reader `kind`
+       * had was a derived `isTalent` that nothing read either. Same defect as
+       * `classes` below, arrived at from the opposite direction: that field had
+       * a reader and no way in, this one had a way in and no reader.
+       *
+       * The document type is the discriminator, and now it is the only one.
+       * Worlds holding `system.kind` keep opening — Foundry drops unrecognised
+       * `system` keys when it cleans the source rather than rejecting them, so
+       * this is a field drop and not a schema migration. What is lost with it
+       * is inert: a `technick` item whose dropdown said "Talent" was still a
+       * technick to every line of code in the system.
+       */
 
       prerequisites: new fields.SchemaField({
         attributes: new fields.ObjectField({ initial: {} }),   // { str: 13, agi: 15 }
@@ -335,7 +358,10 @@ export class LastArcTechnickData extends foundry.abstract.TypeDataModel {
   }
 
   prepareDerivedData() {
-    this.isTalent = this.kind === "talent";
+    // No `isTalent` here. It read the removed `kind` field, nothing read it
+    // back, and `this.parent.type` answers the question directly for anything
+    // that ever needs to ask.
+    //
     // A technick with no numeric payload is behavioural — it works through
     // `flags` and Active Effects rather than arithmetic. Surfaced so the sheet
     // can label it instead of showing a row of zeroes.

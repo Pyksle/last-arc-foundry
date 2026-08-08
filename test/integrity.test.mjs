@@ -1074,3 +1074,90 @@ describe("issue #28 — inputs must render stored values", () => {
       "attribute inputs no longer read the source snapshot");
   });
 });
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A document subtype is not a schema field.
+ *
+ * `technick` and `talent` are separate Item subtypes served by ONE data model,
+ * and that model also carried `kind: StringField({ initial: "technick",
+ * choices: ["technick", "talent"] })`. The same fact written down twice, in a
+ * place where the two copies were free to disagree — and they did, on every
+ * talent anybody made through the UI. `defineSchema()` is static and the class
+ * is shared, so a `talent` document cannot take a different `initial`; it got
+ * `"technick"` and opened with a title bar reading "Talent" above a Kind
+ * reading "Technick". The dropdown could then put the contradiction the other
+ * way round on a technick just as easily.
+ *
+ * Nothing read it. Every rule that cares branches on `item.type`, which is
+ * always present and cannot drift.
+ *
+ * The general shape is what is guarded here rather than the one field: a data
+ * model shared by several subtypes, offering a choice list that IS the set of
+ * subtypes it serves, has re-invented `type` as editable data.
+ */
+describe("a document subtype is not a schema field", () => {
+  /** `{ ClassName: [subtype, …] }`, read off the registration map. */
+  const servedBy = (() => {
+    const map = itemsSource.match(/ITEM_DATA_MODELS\s*=\s*\{([\s\S]*?)\n\};/)?.[1] ?? "";
+    const out = {};
+    for (const [, subtype, cls] of map.matchAll(/^\s*(\w+):\s*(LastArc\w+),?\s*$/gm)) {
+      (out[cls] ??= []).push(subtype);
+    }
+    return out;
+  })();
+
+  /** Everything one class declares, up to the next top-level `export`. */
+  const bodyOf = (cls) => {
+    const start = itemsSource.indexOf(`export class ${cls} `);
+    if (start === -1) return "";
+    const end = itemsSource.indexOf("\nexport ", start + 1);
+    return itemsSource.slice(start, end === -1 ? undefined : end);
+  };
+
+  /** The values a `choices:` expression admits, or null if it is not literal. */
+  const resolveChoices = (expr) => {
+    const named = expr.match(/^LASTARC\.(\w+)$/);
+    if (named) return Array.isArray(LASTARC[named[1]]) ? LASTARC[named[1]] : null;
+    if (expr.startsWith("[")) return [...expr.matchAll(/["'](\w+)["']/g)].map((m) => m[1]);
+    return null;
+  };
+
+  const sameSet = (a, b) =>
+    a.length === b.length && a.every((v) => b.includes(v));
+
+  /**
+   * The parse is the whole test, so a regex that quietly stops matching would
+   * turn every assertion below into a pass over an empty list.
+   */
+  test("the registration map parses and the shared models are found", () => {
+    assert.equal(
+      Object.values(servedBy).flat().length,
+      Object.keys(systemJson.documentTypes.Item).length,
+      "the ITEM_DATA_MODELS scan did not find one entry per declared subtype"
+    );
+    assert.deepEqual([...(servedBy.LastArcTechnickData ?? [])].sort(),
+      ["talent", "technick"],
+      "technicks and talents no longer share a data model — this guard's premise");
+  });
+
+  for (const [cls, subtypes] of Object.entries(servedBy)) {
+    if (subtypes.length < 2) continue;
+
+    test(`${cls} does not restate the ${subtypes.join("/")} split as a field`, () => {
+      const offenders = [];
+      for (const [, field, expr] of bodyOf(cls).matchAll(
+        /(\w+):\s*new fields\.StringField\(\{[^}]*?choices:\s*(\[[^\]]*\]|[\w.]+)/g
+      )) {
+        const values = resolveChoices(expr.trim());
+        if (values && sameSet(values, subtypes)) offenders.push(field);
+      }
+      assert.deepEqual(offenders, [],
+        `${cls} serves ${subtypes.join(" and ")} and declares ${offenders.join(", ")} ` +
+        `over exactly those values. A shared schema cannot vary its \`initial\` by ` +
+        `subtype, so the field starts wrong for every subtype but the first and the ` +
+        `sheet contradicts its own title bar. Branch on \`item.type\` instead.`);
+    });
+  }
+});
