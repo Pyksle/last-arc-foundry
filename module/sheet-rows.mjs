@@ -290,8 +290,6 @@ export function itemChoiceOptions() {
       .map((k) => ({ value: k, label: `LASTARC.PerformanceKind.${k}` })),
     classKeyOptions: Object.entries(LASTARC.classes)
       .map(([k, c]) => ({ value: k, label: c.label })),
-    technickKindOptions: LASTARC.technickKinds
-      .map((k) => ({ value: k, label: `LASTARC.TechnickKind.${k}` })),
     shieldSizeOptions: Object.keys(LASTARC.shieldDamage)
       .map((k) => ({ value: k, label: LASTARC.sizes[k]?.label ?? k })),
     consumableTypeOptions: LASTARC.consumableTypes
