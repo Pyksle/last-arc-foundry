@@ -108,6 +108,17 @@ export function bestShieldSkill(actor, shield) {
     strScore: sys.attributes?.str?.total ?? 0
   });
 
+  /**
+   * The wielder's own choice wins, when the size table left them one (#67).
+   *
+   * Checked against `options` rather than taken on trust, so a preference that
+   * is illegal for this pairing — set for a different shield, or for a wielder
+   * of another size — falls back to the automatic pick instead of routing a
+   * Block through a skill the rules do not allow.
+   */
+  const preferred = shield.system?.blockSkill;
+  if (preferred && options.includes(preferred)) return preferred;
+
   let best = null;
   let bestTotal = -Infinity;
   for (const key of options) {

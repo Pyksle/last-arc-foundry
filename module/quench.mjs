@@ -1391,6 +1391,48 @@ function registerSheetBatch(quench) {
             `does nothing:\n  ${lost.join("\n  ")}`);
         });
       });
+
+      /**
+       * EVERY ITEM SUBTYPE'S SHEET MUST ACTUALLY OPEN (#66).
+       *
+       * The plainest check in this file, added after the plainest possible bug:
+       * a gate widened by one word made `_prepareContext` throw on `feature`,
+       * and no feature sheet would open in any world. Race and class features
+       * are on every character; it was reported within hours.
+       *
+       * Nothing caught it. The offline suite renders the TEMPLATE against a
+       * hand-written fixture and never runs the sheet's own context builder,
+       * and this batch opened actor sheets but not one item sheet per subtype.
+       * `test/sheet-context-fields.test.mjs` now catches the specific shape
+       * offline; this catches ANY reason a sheet fails to render, which is the
+       * more valuable half and needs a real Foundry to do.
+       */
+      describe("every item subtype opens (#66)", function () {
+        this.timeout(60_000);
+
+        it("renders a sheet for all of them, with no thrown context", async function () {
+          const broken = [];
+          for (const type of Object.keys(game.system.documentTypes.Item)) {
+            const item = await Item.create({ name: `ZZ open ${type}`, type });
+            try {
+              await item.sheet.render(true);
+              await settle(250);
+              // `render` swallows a context error into an error dialog, so the
+              // absence of a rendered body is the observable failure.
+              const body = item.sheet.element?.querySelector(".window-content");
+              if (!body || !body.childElementCount) broken.push(type);
+            } catch (err) {
+              broken.push(`${type} (${err.message})`);
+            } finally {
+              await item.sheet?.close();
+              await item.delete();
+            }
+          }
+
+          assert.deepEqual(broken, [],
+            `these item sheets do not open at all:\n  ${broken.join("\n  ")}`);
+        });
+      });
     },
     { displayName: "Last Arc — Sheets" }
   );

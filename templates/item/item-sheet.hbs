@@ -701,6 +701,23 @@
           <label>{{localize "LASTARC.Field.BlockBonus"}}</label>
         </div>
       </div>
+      {{!-- Which skill this shield Blocks with (#67). The size table leaves a
+            choice on two of its four rows and the system took whichever was
+            higher, which is what "stuck on rolling with light weapons" was.
+            Shown on every shield: whether a choice arises depends on the
+            wielder's size, and a shield in a compendium has no wielder. --}}
+      <div class="la-field">
+        <select name="system.blockSkill">
+          {{#each blockSkillOptions}}
+            <option value="{{this.value}}"
+                    {{#if (laeq this.value ../system.blockSkill)}}selected{{/if}}>
+              {{localize this.label}}</option>
+          {{/each}}
+        </select>
+        <label>{{localize "LASTARC.Field.BlockSkill"}}</label>
+      </div>
+      <p class="la-note">{{localize "LASTARC.Note.BlockSkillOnlyWhenOffered"}}</p>
+
       <p class="la-derived">
         {{localize "LASTARC.Derived.BashDamage"}} <strong>{{system.bashDamage}}</strong>
       </p>

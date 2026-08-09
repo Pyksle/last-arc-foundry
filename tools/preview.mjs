@@ -571,6 +571,13 @@ export function itemContext(type) {
     // Features carry mechanical flags too (#64), so the offline render has to
     // exercise the panel's own gate rather than the technick-only one.
     hasFlags: true,
+    // The shield's Block-skill picker (#67), same shape as the weapon's below.
+    blockSkillOptions: [
+      { value: "", label: "LASTARC.WieldSkill.auto" },
+      { value: "lightWeapon", label: "LASTARC.Skill.lightWeapon" },
+      { value: "oneHanded", label: "LASTARC.Skill.oneHanded" },
+      { value: "twoHanded", label: "LASTARC.Skill.twoHanded" }
+    ],
     // The light-weapon skill picker (#63). Built from the same three rows the
     // sheet offers, so the offline render exercises the select for real.
     wieldSkillOptions: [
