@@ -204,7 +204,20 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     }
     if (PHYSICAL_TYPES.has(item.type)) context.featuresText = sys.features.join(", ");
 
-    if (context.hasFlags) {
+    /**
+     * PREREQUISITES ARE A TECHNICK/TALENT THING, NOT A FLAGS THING (#66).
+     *
+     * This block was gated on `hasFlags` for one release, because features were
+     * given mechanical flags (#64) and widening the nearest gate looked like
+     * the way to render the picker for them. It is not: features have no
+     * `prerequisites` field at all, so the very first line threw and NO FEATURE
+     * SHEET WOULD OPEN — reported within hours of the release.
+     *
+     * The two questions were even distinguished in the comment written at the
+     * time ("a racial has no prerequisites block"), which is worth recording:
+     * knowing the distinction is not the same as gating on it.
+     */
+    if (context.isTechnick) {
       context.prereqAttributes = attributeGrid(sys.prerequisites.attributes);
 
       // Three ArrayFields of strings, shown as comma boxes (issue #15). They
@@ -223,8 +236,6 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
        * submits on change, and a checkbox can lose its click to the re-render
        * between mousedown and click.
        */
-      context.flagOptions = ROWS.technickFlagOptions(sys.flags);
-
       // If the item is on an actor, show whether its prerequisites are actually
       // met. A prerequisite list the player has to check by hand is a
       // prerequisite list that gets ignored.
@@ -234,6 +245,30 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
           sys.prerequisites, actor.system.prerequisiteSnapshot()
         );
       }
+    }
+
+    /**
+     * The flags picker, for every type that HAS flags — technick, talent and
+     * feature (#64). Separate from the prerequisites block above, which is
+     * about a different set of types and a different schema.
+     */
+    if (context.hasFlags) {
+      context.flagOptions = ROWS.technickFlagOptions(sys.flags);
+    }
+
+    if (item.type === "shield") {
+      /**
+       * Which skill a shield Blocks with (#67), where the size table leaves a
+       * choice. Offered unconditionally for the same reason the weapon's is:
+       * the choice depends on the WIELDER's size, and a shield being authored
+       * in a compendium has no wielder to depend on.
+       */
+      context.blockSkillOptions = [
+        { value: "", label: "LASTARC.WieldSkill.auto" },
+        { value: "lightWeapon", label: "LASTARC.Skill.lightWeapon" },
+        { value: "oneHanded", label: "LASTARC.Skill.oneHanded" },
+        { value: "twoHanded", label: "LASTARC.Skill.twoHanded" }
+      ];
     }
 
     if (item.type === "weapon") {

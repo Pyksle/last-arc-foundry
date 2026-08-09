@@ -998,5 +998,7 @@
   "LASTARC.TechnickFlagHint.resilient": "A Second Wind restores an extra 5 plus half your character level.",
   "LASTARC.Field.WieldSkill": "Rolls with",
   "LASTARC.WieldSkill.auto": "Automatic — whichever is higher",
-  "LASTARC.Note.WieldSkillOnlyLight": "Only applies when the weapon is one size smaller than you, which is the case the rules give a choice in."
+  "LASTARC.Note.WieldSkillOnlyLight": "Only applies when the weapon is one size smaller than you, which is the case the rules give a choice in.",
+  "LASTARC.Field.BlockSkill": "Blocks with",
+  "LASTARC.Note.BlockSkillOnlyWhenOffered": "Only applies where the size table offers a choice — a light shield, or a heavy one wielded at Strength 15 or more."
 }

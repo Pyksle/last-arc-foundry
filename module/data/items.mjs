@@ -212,7 +212,28 @@ export class LastArcShieldData extends PhysicalItemData {
       }),
       refBonus: new fields.NumberField({ initial: 0, integer: true }),
       /** Bonus on the opposed roll made to Block — Block is NOT a flat AC bonus (§11). */
-      blockBonus: new fields.NumberField({ initial: 0, integer: true })
+      blockBonus: new fields.NumberField({ initial: 0, integer: true }),
+
+      /**
+       * Which skill this shield Blocks with, where the size table leaves a
+       * choice (#67).
+       *
+       * The same field a weapon has for the same reason (#63), and it is the
+       * same shape on purpose: two rules that read "either of these two skills"
+       * should not be two different controls. A light shield may use Light
+       * Weapon or 1-Handed; a heavy one at Str 15+ may use 2-Handed or
+       * 1-Handed. The system took whichever was higher and offered no way to
+       * say otherwise, reported as the shield being "stuck on rolling with
+       * light weapons".
+       *
+       * "" means decide automatically, which stays the default. Ignored when
+       * the size table admits only one skill, so a preference set for one
+       * wielder cannot mis-route another of a different size.
+       */
+      blockSkill: new fields.StringField({
+        initial: "", blank: true,
+        choices: ["", "lightWeapon", "oneHanded", "twoHanded"]
+      })
     };
   }
 

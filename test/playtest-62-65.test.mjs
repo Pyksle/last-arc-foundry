@@ -293,3 +293,65 @@ describe("§ nothing here shipped as game content", () => {
     assert.deepEqual(JSON.parse(read("system.json")).packs, []);
   });
 });
+
+/* -------------------------------------------------------------------------- */
+/*  #67 — which skill a shield Blocks with                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The same report as #63, about the other half of the same rule, twelve hours
+ * later: "Shield is stuck on rolling with light weapons with no option to
+ * choose to make it 1 handed instead."
+ *
+ * That #63 was fixed for weapons and not generalised to shields is the lesson
+ * here. Both rules say "either of these two skills", both were auto-resolved to
+ * whichever was higher, and only one of them was given a control.
+ */
+describe("§67 the wielder may pick the shield's Block skill", () => {
+  const shieldSrc = read("module/dice/block.mjs");
+
+  test("the field exists and is offered on the shield block", () => {
+    assert.match(read("module/data/items.mjs"), /blockSkill: new fields\.StringField/,
+      "shields have nowhere to record which skill they Block with");
+
+    const shieldBlock = itemTemplate.slice(
+      itemTemplate.indexOf('(laeq itemType "shield")'),
+      itemTemplate.indexOf('(laeq itemType "shield")') + 3000);
+    assert.match(shieldBlock, /name="system\.blockSkill"/,
+      "the field is storable and the shield block offers no way to set it");
+    assert.match(read("module/sheets/item-sheet.mjs"), /blockSkillOptions/);
+    for (const key of ["LASTARC.Field.BlockSkill", "LASTARC.Note.BlockSkillOnlyWhenOffered"]) {
+      assert.ok(key in lang, `${key} would render as a raw key`);
+    }
+  });
+
+  /**
+   * Checked against the legal options rather than obeyed, so a preference that
+   * is illegal for this wielder-and-shield pairing cannot route a Block through
+   * a skill the size table forbids.
+   */
+  test("the preference is validated against the size table, not trusted", () => {
+    const guarded = shieldSrc.replace(/\/\*[\s\S]*?\*\//g, "");
+    assert.match(guarded, /options\.includes\(preferred\)/,
+      "any stored string would become the Block skill, including one that is " +
+      "illegal for this shield and wielder");
+    assert.match(guarded, /shield\.system\?\.blockSkill/,
+      "nothing reads the stored preference, so setting it does nothing");
+  });
+
+  /**
+   * Both halves of one rule, offered the same way. If these ever diverge in
+   * shape, the next reader has two controls to learn for one idea.
+   */
+  test("it mirrors the weapon's picker rather than inventing a second shape", () => {
+    const weapon = read("module/data/items.mjs").match(/wieldSkill: new fields\.StringField\([\s\S]*?\}\)/)[0];
+    const shield = read("module/data/items.mjs").match(/blockSkill: new fields\.StringField\([\s\S]*?\}\)/)[0];
+    for (const decl of [weapon, shield]) {
+      assert.match(decl, /initial: ""/, "both must default to automatic");
+      assert.match(decl, /blank: true/);
+    }
+    // The shield adds twoHanded, which a light weapon never uses.
+    assert.match(shield, /twoHanded/,
+      "a heavy shield at Str 15+ chooses between 2-Handed and 1-Handed");
+  });
+});

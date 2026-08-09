@@ -108,6 +108,16 @@ Orc's Resilient is a feature, and `hasTechnickFlag` matches all three. The
 picker is gated on `hasFlags`, not `isTechnick`: that one also gates the
 prerequisites block, which a racial has none of.
 
+**Widening a type gate in a sheet** — `if (context.isTechnick)` and friends
+guard blocks that read fields only those subtypes declare. Widening one to admit
+another subtype makes `_prepareContext` throw on the first field the newcomer
+lacks, and a sheet that throws DOES NOT OPEN AT ALL. That shipped: features were
+given flags (#64) by widening the gate that also builds the prerequisites
+context, and no feature sheet would open in any world.
+`test/sheet-context-fields.test.mjs` now checks every gated block against the
+data models of every type that reaches it, and Quench opens one sheet per item
+subtype. Add a second narrow gate rather than widening a broad one.
+
 **Applying a status effect from a rule** — never call `toggleStatusEffect`
 straight. Two rules stand between an ability and a condition landing, and both
 have exactly one implementation in `module/status-guard.mjs`: §5.5's
