@@ -65,8 +65,15 @@ describe("§ a player and a monster attack under the same rules", () => {
    * parity check was satisfied by matching mistakes.
    */
   test("both sheets resolve target conditions through the shared helper", () => {
+    /**
+     * The character sheet's attack now goes through `item-actions.mjs` — the
+     * dispatcher the hotbar macro also calls (#68), so a dragged attack cannot
+     * differ from a clicked one. The guard follows the rule to where it lives
+     * rather than asserting a file path: what matters is that the player-side
+     * attack resolves conditions through the helper, not which module holds it.
+     */
     for (const file of [
-      "module/sheets/character-sheet.mjs", "module/sheets/npc-sheet.mjs"
+      "module/item-actions.mjs", "module/sheets/npc-sheet.mjs"
     ]) {
       const src = read(file);
       assert.match(src, /\.\.\.targetConditions\(/,
@@ -76,9 +83,25 @@ describe("§ a player and a monster attack under the same rules", () => {
     }
   });
 
+  /**
+   * The character sheet must DELEGATE rather than keep a second attack path.
+   * Without this, the guard above could be satisfied by `item-actions.mjs`
+   * while the sheet quietly reimplemented the roll beside it.
+   */
+  test("the character sheet delegates its rolls rather than duplicating them", () => {
+    const src = read("module/sheets/character-sheet.mjs");
+    assert.match(src, /rollItemAction\(this\.document/,
+      "the sheet no longer calls the shared dispatcher");
+    assert.doesNotMatch(src, /await rollAttack\(/,
+      "the sheet is rolling attacks itself again, so a hotbar macro and a " +
+      "click can drift apart");
+    assert.doesNotMatch(src, /await castSpell\(|await performItem\(/,
+      "same for spells and performances");
+  });
+
   test("both sheets resolve the target's defence the same way", () => {
     for (const [file, fn] of [
-      ["module/sheets/character-sheet.mjs", "rollAttack"],
+      ["module/item-actions.mjs", "rollAttack"],
       ["module/sheets/npc-sheet.mjs", "rollNpcAttack"]
     ]) {
       assert.ok(attackOptions(file, fn).has("targetDefence"), `${file}: no targetDefence`);

@@ -1000,5 +1000,7 @@
   "LASTARC.WieldSkill.auto": "Automatic — whichever is higher",
   "LASTARC.Note.WieldSkillOnlyLight": "Only applies when the weapon is one size smaller than you, which is the case the rules give a choice in.",
   "LASTARC.Field.BlockSkill": "Blocks with",
-  "LASTARC.Note.BlockSkillOnlyWhenOffered": "Only applies where the size table offers a choice — a light shield, or a heavy one wielded at Strength 15 or more."
+  "LASTARC.Note.BlockSkillOnlyWhenOffered": "Only applies where the size table offers a choice — a light shield, or a heavy one wielded at Strength 15 or more.",
+  "LASTARC.Hotbar.NoActor": "No character to act. Select a token, or make sure the character this macro was dragged from still exists.",
+  "LASTARC.Hotbar.NoItem": "{name} no longer has that item."
 }

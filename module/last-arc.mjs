@@ -21,6 +21,10 @@ import * as heroPoints from "./dice/hero-points.mjs";
 import { registerChatListeners } from "./chat.mjs";
 import { warnUnsupportedTargets } from "./effects.mjs";
 import { guardStatusImmunity } from "./status-guard.mjs";
+import {
+  isItemActionDrop, macroCommand, macroName, resolveMacroActor
+} from "./hotbar.mjs";
+import { rollItemAction } from "./item-actions.mjs";
 import { registerCombat, holdTurn, spendAction, resetActions, rollGroupInitiative }
   from "./combat.mjs";
 import * as INIT from "./initiative.mjs";
@@ -70,7 +74,14 @@ Hooks.once("init", () => {
      * in", and that answer used to be a set of system packs every update
      * destroyed. A macro one-liner, so a GM can run it without a UI for it.
      */
-    createWorldCompendiums
+    createWorldCompendiums,
+    /**
+     * Called by hotbar macros (#68) and by nothing else in the system, which is
+     * exactly why it is public: a macro's command text is frozen when it is
+     * created, so the only safe thing to put in one is a call into code that
+     * still ships.
+     */
+    rollItemMacro
   };
 
   CONFIG.Actor.dataModels.character = LastArcCharacterData;
@@ -82,6 +93,7 @@ Hooks.once("init", () => {
   registerTokenDefaults();
   registerResourceDefaults();
   registerEffectGuards();
+  registerHotbarDrop();
   registerSheets();
   registerHandlebarsHelpers();
   registerPartials();
@@ -411,6 +423,76 @@ function registerStatusEffects() {
   // at 0 HP is unconscious, prone and helpless rather than dead, and death is a
   // separate outcome of the Vitality check (§5.6).
   CONFIG.specialStatusEffects.DEFEATED = "helpless";
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Dragging an action to the macro bar (#68)                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Turn a dropped action into a hotbar macro.
+ *
+ * Returning FALSE is what stops Foundry's own handler running afterwards and
+ * making a second, useless macro from the same drop. Anything that is not ours
+ * is left entirely alone — returning false for a drop we did not understand
+ * would break every other module's dragging.
+ */
+function registerHotbarDrop() {
+  Hooks.on("hotbarDrop", (bar, data, slot) => {
+    if (!isItemActionDrop(data)) return;
+
+    // Async work inside a synchronous hook: the macro is created after this
+    // returns, which is fine because the slot is already claimed by the return
+    // value below and Foundry does not need the macro to exist yet.
+    (async () => {
+      const command = macroCommand(data);
+      const name = macroName(data);
+
+      /**
+       * REUSE a macro with the same command rather than making a new one each
+       * time the row is dragged. A player rearranging their bar should not end
+       * up with six copies of "Longsword (attack)" in the macro directory.
+       */
+      const existing = game.macros.find((m) => m.command === command);
+      const macro = existing ?? await Macro.create({
+        name, type: "script", command,
+        img: data.img || undefined,
+        flags: { [SYSTEM_ID]: { itemAction: data.action } }
+      });
+      if (macro) await game.user.assignHotbarMacro(macro, slot);
+    })();
+
+    return false;
+  });
+}
+
+/**
+ * Run a hotbar macro: resolve who is acting, then roll exactly what the sheet
+ * would have rolled.
+ *
+ * The actor is resolved NOW rather than baked into the macro — see the note in
+ * `hotbar.mjs`. Every failure is reported: a macro that silently does nothing
+ * is indistinguishable from a broken one, and this is the one place a player
+ * cannot see why.
+ */
+async function rollItemMacro({ actorId = null, tokenId = null, itemId = null } = {}, event = {}) {
+  const controlled = canvas?.tokens?.controlled ?? [];
+  const actor = resolveMacroActor({ actorId, tokenId }, {
+    controlledTokenActor: controlled.length === 1 ? controlled[0].actor : null,
+    tokenActor: tokenId ? canvas?.tokens?.get(tokenId)?.actor : null,
+    actor: actorId ? game.actors.get(actorId) : null
+  });
+
+  if (!actor) {
+    ui.notifications?.warn(game.i18n.localize("LASTARC.Hotbar.NoActor"));
+    return null;
+  }
+  const item = actor.items.get(itemId);
+  if (!item) {
+    ui.notifications?.warn(game.i18n.format("LASTARC.Hotbar.NoItem", { name: actor.name }));
+    return null;
+  }
+  return await rollItemAction(actor, item, event);
 }
 
 /* -------------------------------------------------------------------------- */

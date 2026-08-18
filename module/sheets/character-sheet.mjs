@@ -38,6 +38,8 @@ import * as ROWS from "../sheet-rows.mjs";
 import { applyHealing } from "../dice/healing.mjs";
 import * as CONS from "../consumables.mjs";
 import { useConsumable } from "../dice/consume.mjs";
+import { rollItemAction, rollableAction } from "../item-actions.mjs";
+import { buildDragData } from "../hotbar.mjs";
 import * as AMMO from "../ammunition.mjs";
 import {
   ammoMode, ammoTrackingOn, loadedAmmo, reloadWeapon, reloadCost,
@@ -283,8 +285,48 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
    * directly, without a re-render. One routine decides what the sheet looks
    * like, and it runs after every render and after every change.
    */
+  /**
+   * Make every rollable row draggable (#68).
+   *
+   * Wired in `_onRender` rather than through `DEFAULT_OPTIONS.dragDrop`, which
+   * would need a selector per panel and a matching permission callback; the
+   * rows already carry `data-item-id` and `data-action`, and that pair is
+   * exactly what the payload needs. Rows whose action is not rollable are left
+   * alone, so the arrows and the delete button stay un-draggable.
+   */
+  #wireHotbarDrag() {
+    const root = this.element;
+    if (!root) return;
+
+    for (const el of root.querySelectorAll("[data-item-id]")) {
+      const item = this.document.items.get(el.dataset.itemId);
+      const action = item && rollableAction(item);
+      if (!action) continue;
+
+      // The ROW, not the button: dragging the little ✎ would be surprising, and
+      // the row is the target a player actually aims at.
+      const row = el.closest("[data-item-id]");
+      if (!row || row.draggable) continue;
+      row.draggable = true;
+      row.addEventListener("dragstart", (event) => {
+        event.dataTransfer?.setData("text/plain", JSON.stringify(buildDragData({
+          actorId: this.document.id,
+          // An unlinked token's actor is a DIFFERENT document (CLAUDE.md §7),
+          // so the token is what the macro must resolve against when there is
+          // one. Recorded here because the sheet knows and the hotbar does not.
+          tokenId: this.document.token?.id ?? null,
+          itemId: item.id,
+          action,
+          name: item.name,
+          img: item.img
+        })));
+      });
+    }
+  }
+
   _onRender(context, options) {
     super._onRender(context, options);
+    this.#wireHotbarDrag();
     applyLayout(this, "character");
     restoreScroll(this);
   }
@@ -1078,46 +1120,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
   static async #onRollAttack(event, target) {
     const weapon = this.document.items.get(target.dataset.itemId);
     if (!weapon) return;
-
-    /**
-     * Ranged weapons get a range-band selector in the Alt-click dialog (issue
-     * #36). Offered only when the weapon is actually ranged, so a swordsman is
-     * never asked which increment they are swinging at.
-     */
-    const isRanged = LASTARC.rangedWeaponCategories.has(weapon.system.category);
-    const extra = await situationalOptions(event, {
-      rangeBands: isRanged
-        ? D.rangeBandsFor(weapon.system.size, { isThrown: false })
-        : null,
-      // Only for a weapon that actually eats arrows, in a world that counts
-      // them — which excludes staves, and excludes every table with tracking
-      // switched off.
-      ammoRounds: ammoTrackingOn() && AMMO.requiresAmmunition(weapon.system.category)
-    });
-    if (extra === null) return;
-
-    const targeted = [...(game.user.targets ?? [])][0]?.actor;
-    await rollAttack(this.document, weapon, {
-      ...extra,
-      targetDefence: defenceToBeat(targeted),
-      /**
-       * The target's own condition. `situationalModifiers` has implemented both
-       * of these since it was written — prone is +5 in melee and −5 at range,
-       * helpless is +5 — and the NPC sheet has always supplied them.
-       *
-       * THIS SHEET DID NOT. So a monster attacking a prone player got its +5
-       * and a player attacking a prone monster got nothing, for as long as both
-       * sheets have existed. One rule, two call sites, one of them wired.
-       *
-       * Helpless is the one that bites hardest: `applyDamage` applies it
-       * automatically at 0 HP, so every attack a player made against a downed
-       * creature was quietly 5 short.
-       */
-      ...targetConditions(targeted),
-      // Carried so the card can offer the target a Block (issue #12). Weapon
-      // attacks always target Reflex, which is exactly what a shield answers.
-      target: targeted
-    });
+    await rollItemAction(this.document, weapon, event);
   }
 
   /**
@@ -1173,28 +1176,14 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
   static async #onUseItem(event, target) {
     const item = this.document.items.get(target.dataset.itemId);
     if (!item) return;
-
-    await useConsumable(this.document, item, {
-      target: [...(game.user.targets ?? [])][0]?.actor ?? this.document
-    });
+    await rollItemAction(this.document, item, event);
     this.render();
   }
 
   static async #onCastSpell(event, target) {
     const spell = this.document.items.get(target.dataset.itemId);
     if (!spell) return;
-
-    const extra = await situationalOptions(event);
-    if (extra === null) return;
-
-    const targeted = [...(game.user.targets ?? [])][0]?.actor;
-
-    await castSpell(this.document, spell, {
-      ...extra,
-      target: targeted,
-      castDefensively: !!event.shiftKey,
-      threatCount: event.shiftKey ? 1 : 0
-    });
+    await rollItemAction(this.document, spell, event);
   }
 
   /**
@@ -1271,18 +1260,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
   static async #onPerform(event, target) {
     const item = this.document.items.get(target.dataset.itemId);
     if (!item) return;
-
-    const extra = await situationalOptions(event);
-    if (extra === null) return;
-
-    await performItem(this.document, item, {
-      ...extra,
-      performDefensively: !!event.shiftKey,
-      threatCount: event.shiftKey ? 1 : 0,
-      // Enfeebling tiers are gated on beating a defence and can strip mana, so
-      // a performance needs its target the same way a spell does (issue #13).
-      target: [...(game.user.targets ?? [])][0]?.actor
-    });
+    await rollItemAction(this.document, item, event);
   }
 
   static async #onCreateItem(event, target) {
