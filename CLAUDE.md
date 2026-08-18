@@ -118,6 +118,15 @@ context, and no feature sheet would open in any world.
 data models of every type that reaches it, and Quench opens one sheet per item
 subtype. Add a second narrow gate rather than widening a broad one.
 
+**Rolling an item from a sheet** — go through `rollItemAction` in
+`module/item-actions.mjs`, never straight to `rollAttack`/`castSpell`/
+`performItem`/`useConsumable`. There are TWO ways to roll now — the sheet row
+and a hotbar macro (#68) — and a second implementation would drift, which for
+attacks means silently dropping the target's prone and helpless modifiers.
+`ITEM_ACTIONS` in that file is also the single statement of what may be dragged
+to the macro bar, so a subtype cannot become draggable in one place and
+unrollable in another. `test/attack-parity.test.mjs` pins the delegation.
+
 **Applying a status effect from a rule** — never call `toggleStatusEffect`
 straight. Two rules stand between an ability and a condition landing, and both
 have exactly one implementation in `module/status-guard.mjs`: §5.5's
