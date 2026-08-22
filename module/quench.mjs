@@ -42,6 +42,7 @@ export function registerQuenchBatches() {
     registerSheetBatch(quench);
     registerCombatBatch(quench);
     registerAmmunitionBatch(quench);
+    registerDefenceAttributeBatch(quench);
   });
 }
 
@@ -3556,5 +3557,201 @@ function registerAmmunitionBatch(quench) {
       });
     },
     { displayName: "Last Arc — Status guard" }
+  );
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*  The attribute a defence is calculated from (#69)                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * #69 shipped the switch, the maths and a full unit file — and nothing that
+ * runs inside Foundry, which is the half that has actually broken. A unit test
+ * cannot see a `name` attribute that misses the schema path, a `<select>` that
+ * never renders, or a sheet that throws on open. That last one is #66, three
+ * releases ago, from a change to this very block.
+ */
+function registerDefenceAttributeBatch(quench) {
+  quench.registerBatch(
+    `${SYSTEM_ID}.defenceAttribute`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      /**
+       * Driven off the SCHEMA, never a hand-written list of subtypes. `grants`
+       * is shared by five of them and will gain more; a list written today is a
+       * list that silently stops covering the newest one, which is exactly how
+       * a control comes to be missing from one sheet in five.
+       */
+      const typesWithSubstitution = () => Object.entries(CONFIG.Item.dataModels)
+        .filter(([, model]) => model.defineSchema?.().grants?.fields?.defenceAttribute)
+        .map(([type]) => type);
+
+      async function withItem(type, fn) {
+        const item = await Item.create({ name: `ZZ ${type}`, type });
+        try {
+          return await fn(item);
+        } finally {
+          await item?.delete();
+        }
+      }
+
+      /** Open a sheet, run, and always close it. */
+      async function withItemSheet(type, fn) {
+        return withItem(type, async (item) => {
+          await item.sheet.render(true);
+          await settle();
+          try {
+            return await fn(item);
+          } finally {
+            await item.sheet.close();
+          }
+        });
+      }
+
+      describe("§4.1 the control reaches the sheet", function () {
+        it("every subtype declaring the field renders one select per defence",
+          async function () {
+            // One create, render, settle and delete per subtype, and `grants`
+            // is on five of them — comfortably past Mocha's 2s default.
+            this.timeout(60_000);
+            const types = typesWithSubstitution();
+            assert.isAbove(types.length, 0,
+              "no subtype declares the substitution at all");
+
+            for (const type of types) {
+              await withItemSheet(type, (item) => {
+                for (const slot of Object.keys(LASTARC.defenceAttributes)) {
+                  const el = item.sheet.element.querySelector(
+                    `select[name="system.grants.defenceAttribute.${slot}"]`);
+                  assert.isNotNull(el, `${type}: no control for ${slot}`);
+                  assert.equal(el.options.length,
+                    Object.keys(LASTARC.attributes).length + 1,
+                    `${type}: ${slot} must offer every attribute plus the default`);
+                }
+              });
+            }
+          });
+
+        /**
+         * The blank option NAMES the attribute it falls back to. Without that
+         * the reader has to already know which attribute feeds Reflex — which
+         * is the knowledge the dropdown exists to spare them.
+         */
+        it("the default option says which attribute it keeps", async function () {
+          await withItemSheet("technick", (item) => {
+            for (const [slot, fallback] of Object.entries(LASTARC.defenceAttributes)) {
+              const blank = item.sheet.element.querySelector(
+                `select[name="system.grants.defenceAttribute.${slot}"] option[value=""]`);
+              assert.include(blank.textContent,
+                game.i18n.localize(LASTARC.attributes[fallback].label),
+                `the ${slot} default does not name the attribute it means`);
+            }
+          });
+        });
+
+        /**
+         * The real gesture on the real form, because a `name` that misses the
+         * schema path renders perfectly and saves NOTHING: Foundry drops
+         * unrecognised `system` keys during cleanData rather than complaining,
+         * so the control looks right and the choice evaporates on reopen.
+         */
+        it("choosing an attribute writes it to the document", async function () {
+          await withItemSheet("technick", async (item) => {
+            const el = item.sheet.element.querySelector(
+              'select[name="system.grants.defenceAttribute.ref"]');
+            el.value = "int";
+            el.dispatchEvent(new Event("change", { bubbles: true }));
+            await settle();
+            assert.equal(item.system.grants.defenceAttribute.ref, "int",
+              "the form submitted but the choice never reached the document");
+          });
+        });
+
+        /**
+         * A substitution adds no NUMBER, and the Grants panel tells the reader
+         * an empty block is empty on purpose. Miss this and the panel prints
+         * that reassurance while the technick rewrites the character's Reflex.
+         */
+        it("the Grants panel does not call a substitution-only block empty",
+          async function () {
+            await withItem("technick", async (item) => {
+              await item.update({ "system.grants.defenceAttribute.ref": "int" });
+              assert.isTrue(D.hasGrantPayload(item.system.grants),
+                "a technick that rewrites a defence reads as an empty block");
+            });
+          });
+      });
+
+      describe("§4.1 the choice reaches the defence", function () {
+        /** Agi 10 (mod 0) against Int 20 (mod +5) — an unmistakable gap. */
+        const subject = {
+          system: { attributes: { agi: { value: 10 }, int: { value: 20 } } }
+        };
+        const substitution = {
+          name: "ZZ substitution", type: "technick",
+          system: { grants: { defenceAttribute: { ref: "int" } } }
+        };
+
+        it("an owned technick moves the live Reflex by the difference",
+          async function () {
+            await withActor(subject, async (actor) => {
+              const before = actor.system.defences.ref.value;
+              await actor.createEmbeddedDocuments("Item", [substitution]);
+              assert.equal(
+                actor.system.defences.ref.value - before,
+                actor.system.attributes.int.mod - actor.system.attributes.agi.mod,
+                "the aggregation, the resolution or the derivation is not wired");
+            });
+          });
+
+        /**
+         * The issue is explicit that the armour cap survives the swap. The
+         * naive implementation — substituting further down, after the cap —
+         * hands the character an uncapped bonus that also ignores being caught
+         * unaware, and passes every test that only checks the total went up.
+         */
+        it("armour still caps the substituted bonus", async function () {
+          await withActor(subject, async (actor) => {
+            const before = actor.system.defences.ref.value;
+            await actor.createEmbeddedDocuments("Item", [
+              substitution,
+              { name: "ZZ plate", type: "armour",
+                system: { equipped: true, maxAgiBonus: 1, defence: 0 } }
+            ]);
+            assert.isAtMost(actor.system.defences.ref.value - before, 1,
+              "the cap did not reach the substituted attribute");
+          });
+        });
+
+        it("a flat-footed character still loses it", async function () {
+          await withActor(subject, async (actor) => {
+            await actor.createEmbeddedDocuments("Item", [substitution]);
+            assert.isBelow(
+              actor.system.defences.ref.flatFooted,
+              actor.system.defences.ref.value,
+              "a substituted Reflex bonus survived being caught unaware");
+          });
+        });
+
+        /**
+         * "You MAY use" — so it is never a downgrade. A character whose usual
+         * attribute already beats the substitute simply keeps it.
+         */
+        it("a substitute worse than the usual attribute is ignored",
+          async function () {
+            await withActor(
+              { system: { attributes: { agi: { value: 20 }, int: { value: 10 } } } },
+              async (actor) => {
+                const before = actor.system.defences.ref.value;
+                await actor.createEmbeddedDocuments("Item", [substitution]);
+                assert.equal(actor.system.defences.ref.value, before,
+                  "an optional benefit made the character worse off");
+              });
+          });
+      });
+    },
+    { displayName: "Last Arc — Defence attribute" }
   );
 }
