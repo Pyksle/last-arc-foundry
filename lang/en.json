@@ -1002,5 +1002,8 @@
   "LASTARC.Field.BlockSkill": "Blocks with",
   "LASTARC.Note.BlockSkillOnlyWhenOffered": "Only applies where the size table offers a choice — a light shield, or a heavy one wielded at Strength 15 or more.",
   "LASTARC.Hotbar.NoActor": "No character to act. Select a token, or make sure the character this macro was dragged from still exists.",
-  "LASTARC.Hotbar.NoItem": "{name} no longer has that item."
+  "LASTARC.Hotbar.NoItem": "{name} no longer has that item.",
+  "LASTARC.Field.DefenceAttribute": "Calculated from",
+  "LASTARC.Field.DefenceAttributeDefault": "{attribute} (default)",
+  "LASTARC.Tooltip.DefenceAttribute": "Substitute the attribute a defence is calculated from. Leave a slot on its default unless a trait says otherwise. The slot keeps its own rules either way: a substituted Reflex bonus is still capped by armour and still lost while flat-footed. Where a character has more than one option for the same defence, the highest modifier is used."
 }

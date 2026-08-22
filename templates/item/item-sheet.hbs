@@ -575,6 +575,28 @@
         </div>
       </div>
 
+      {{!-- Which attribute each defence is calculated from (#69). Blank keeps
+            the book's default, and the option NAMES that default so the reader
+            does not have to already know which attribute feeds which slot. --}}
+      {{#if defenceAttributeRows}}
+        <div class="la-field-row"
+             data-tooltip="{{localize 'LASTARC.Tooltip.DefenceAttribute'}}">
+          {{#each defenceAttributeRows}}
+            <div class="la-field">
+              <select name="system.grants.defenceAttribute.{{slot}}">
+                <option value="" {{#unless value}}selected{{/unless}}>{{defaultLabel}}</option>
+                {{#each options}}
+                  <option value="{{value}}" {{#if (laeq value ../value)}}selected{{/if}}>
+                    {{label}}
+                  </option>
+                {{/each}}
+              </select>
+              <label>{{localize "LASTARC.Field.DefenceAttribute"}} &middot; {{label}}</label>
+            </div>
+          {{/each}}
+        </div>
+      {{/if}}
+
       {{!-- Rerolls this trait grants (#48). The GM asked for "two checkboxes
             for mechanical effects inside of the technicks" — keep the new die,
             or keep the better one. Both semantics already existed and were read
