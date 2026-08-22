@@ -344,7 +344,7 @@
   "LASTARC.Field.Multiclass": "Multiclass",
   "LASTARC.Field.AddClass": "Add class",
   "LASTARC.Field.ClassLevel": "Lv",
-  "LASTARC.Field.AdvancedClass": "Advanced Class",
+  "LASTARC.Field.AdvancedSuffix": "(advanced)",
   "LASTARC.Field.Level": "Level",
   "LASTARC.Field.EthosPurity": "Ethos (Purity)",
   "LASTARC.Field.EthosMorality": "Ethos (Morality)",

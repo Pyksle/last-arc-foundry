@@ -43,7 +43,7 @@
         <div class="la-field">
           <select name="system.classes.{{this.index}}.name">
             {{#each ../classOptions}}
-              <option value="{{this.value}}" {{#if (laeq this.value ../this.name)}}selected{{/if}}>{{localize this.label}}</option>
+              <option value="{{this.value}}" {{#if (laeq this.value ../this.name)}}selected{{/if}}>{{localize this.label}}{{#if this.isAdvanced}} {{localize "LASTARC.Field.AdvancedSuffix"}}{{/if}}</option>
             {{/each}}
           </select>
           <label>
@@ -53,11 +53,6 @@
         <div class="la-field la-field--narrow">
           <input type="number" name="system.classes.{{this.index}}.levels" value="{{this.levels}}" min="1">
           <label>{{localize "LASTARC.Field.ClassLevel"}}</label>
-        </div>
-        <div class="la-field">
-          <input type="text" name="system.classes.{{this.index}}.advanced" value="{{this.advanced}}"
-                 placeholder="{{localize 'LASTARC.Field.None'}}">
-          <label>{{localize "LASTARC.Field.AdvancedClass"}}</label>
         </div>
         {{#unless this.isOnly}}
           <button type="button" class="la-class-row__remove" data-action="removeClass"
