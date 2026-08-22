@@ -46,6 +46,25 @@ LASTARC.attributeOrder = ["str", "vit", "agi", "int", "mnd", "chr"];
 LASTARC.attributeModifierClamp = { min: -5, max: 10 };
 
 /* -------------------------------------------------------------------------- */
+/*  Defences (§4.1)                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Which attribute normally feeds each defence.
+ *
+ * A technick may substitute a different one (issue #69). The request was for
+ * "an option to select what stat to use for defences", not one hardcoded swap,
+ * so the mechanism is a `grants.defenceAttribute` entry rather than a boolean
+ * flag per attribute/defence combination. This map is what a blank entry means,
+ * and what the sheet offers as the default option.
+ *
+ * The SLOT keeps its own rules when the attribute changes: Reflex still loses a
+ * positive bonus while flat-footed and still meets the armour cap, whichever
+ * attribute is filling it. See `substituteDefenceMod` in derivation.mjs.
+ */
+LASTARC.defenceAttributes = Object.freeze({ ref: "agi", fort: "vit", will: "mnd" });
+
+/* -------------------------------------------------------------------------- */
 /*  Break Gauge (§6)                                                           */
 /* -------------------------------------------------------------------------- */
 

@@ -262,6 +262,26 @@ function grantsSchema() {
       fort: new fields.NumberField({ initial: 0, integer: true }),
       will: new fields.NumberField({ initial: 0, integer: true })
     }),
+    /**
+     * Substitute the attribute a defence is calculated from (#69).
+     *
+     * Blank keeps `LASTARC.defenceAttributes` — the usual Agi/Vit/Mnd. A key
+     * names the attribute to use instead, for this defence only.
+     *
+     * NOT a `flags` entry, even though it is not a number: a flag is a boolean,
+     * and the request was for "an option to SELECT what stat to use", which is
+     * eighteen booleans expressed as three choices. `reroll.skill` is the
+     * precedent for a non-numeric grant.
+     */
+    defenceAttribute: new fields.SchemaField(Object.fromEntries(
+      Object.keys(LASTARC.defenceAttributes).map((slot) => [
+        slot,
+        new fields.StringField({
+          initial: "", blank: true,
+          choices: ["", ...Object.keys(LASTARC.attributes)]
+        })
+      ])
+    )),
     breakThreshold: new fields.NumberField({ initial: 0, integer: true }),
     heroPoints: new fields.NumberField({ initial: 0, integer: true }),
     /** Improved Initiative: steps the die DOWN the ladder, since lowest acts first. */

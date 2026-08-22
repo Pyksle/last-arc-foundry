@@ -151,6 +151,29 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
      * consumers and no producer, so Skill Focus and Skill Training could not be
      * expressed at all (issue #39).
      */
+    /**
+     * Defence-attribute substitutions (#69).
+     *
+     * Built here rather than in the template because each row needs its slot's
+     * DEFAULT attribute named in the blank option — "Agility (default)" tells
+     * the reader what leaving it alone means, which a bare empty option does
+     * not. Handlebars cannot look one key up in another table.
+     */
+    if (sys.grants?.defenceAttribute) {
+      const attrLabel = (k) => game.i18n.localize(LASTARC.attributes[k].label);
+      context.defenceAttributeRows = Object.entries(LASTARC.defenceAttributes)
+        .map(([slot, fallback]) => ({
+          slot,
+          label: game.i18n.localize(`LASTARC.Defence.${slot}`),
+          value: sys.grants.defenceAttribute[slot] ?? "",
+          defaultLabel: game.i18n.format("LASTARC.Field.DefenceAttributeDefault", {
+            attribute: attrLabel(fallback)
+          }),
+          options: Object.keys(LASTARC.attributes)
+            .map((value) => ({ value, label: attrLabel(value) }))
+        }));
+    }
+
     if (sys.grants?.skills) {
       context.grantedSkills = sys.grants.skills.map((s, index) => ({ ...s, index }));
       context.skillOptions = [

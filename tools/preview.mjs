@@ -548,6 +548,22 @@ export function itemContext(type) {
      */
     ...ROWS.itemChoiceOptions(),
     /**
+     * Defence-attribute substitutions (#69). Built from the config so the
+     * preview cannot drift from the sheet, and with one slot actually SET —
+     * a fixture where every row sits on its default would render identically
+     * whether or not the selected-option branch worked.
+     */
+    defenceAttributeRows: Object.entries(LASTARC.defenceAttributes)
+      .map(([slot, fallback]) => ({
+        slot,
+        label: localize(`LASTARC.Defence.${slot}`),
+        value: slot === "ref" ? "int" : "",
+        defaultLabel: localize("LASTARC.Field.DefenceAttributeDefault")
+          .replace("{attribute}", localize(LASTARC.attributes[fallback].label)),
+        options: Object.keys(LASTARC.attributes)
+          .map((value) => ({ value, label: localize(LASTARC.attributes[value].label) }))
+      })),
+    /**
      * The rest of what the item sheet assigns. Prereq readouts, derived
      * labels and the panel switches — none of them come from a config list, so
      * they are stated here and policed by the guard above rather than by hope.

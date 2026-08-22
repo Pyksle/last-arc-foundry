@@ -119,6 +119,31 @@ export function reconcilePersistent(step, persistentSteps) {
  *      unarmoured — `Math.min(x, undefined)` is NaN, which would silently
  *      poison Reflex, Threshold, and every comparison downstream.
  */
+/**
+ * Resolve which attribute modifier fills a defence slot (issue #69).
+ *
+ * A technick may let a character calculate a defence from a different attribute.
+ * The substitution happens HERE, at the input, so every rule the slot already
+ * had continues to apply to whatever fills it — the armour cap and the
+ * flat-footed denial both still bite. Issue #69 is explicit that the armour cap
+ * survives the swap, and substituting further down would have quietly handed
+ * the character an uncapped bonus that also ignored being caught unaware.
+ *
+ * `Math.max`, not an assignment, because the wording is "you MAY use". A
+ * defence is a standing number rather than a roll the player opts into, so the
+ * only coherent reading is that they never take the worse of the two. This also
+ * keeps the §4.1 rule that a NEGATIVE modifier always applies in full: with Agi
+ * −2 and Int +5 the max is +5, which the armour cap may then reduce, while with
+ * Agi +6 and Int +2 the character simply keeps their Agility.
+ *
+ * @param {number} defaultMod     the slot's usual attribute modifier
+ * @param {?number} substituteMod  the substitute, or null/undefined for none
+ */
+export function substituteDefenceMod(defaultMod, substituteMod) {
+  if (substituteMod == null || !Number.isFinite(substituteMod)) return defaultMod;
+  return Math.max(defaultMod, substituteMod);
+}
+
 export function agiContributionToRef(agiMod, { maxAgiBonus = Infinity, agiDenied = false } = {}) {
   if (agiMod < 0) return agiMod;
   if (agiDenied) return 0;
@@ -264,7 +289,13 @@ export function computeDefences({
   agiDenied = false,
   incapacitated = false,
   agiOverride = null,
-  noEquipmentBenefit = false
+  noEquipmentBenefit = false,
+  /**
+   * Per-slot attribute substitutions (issue #69), already resolved to modifiers
+   * by the caller. `{ref: 3}` means "a technick offers Int +3 in place of Agi
+   * for Reflex"; null or absent means the slot keeps its usual attribute.
+   */
+  substituteMods = {}
 } = {}) {
   // Agi takes both floors. They are the same operation with different
   // triggers, and both are `Math.min`, so the order between them is irrelevant
@@ -272,10 +303,18 @@ export function computeDefences({
   //
   // Mnd takes only the incapacitation floor: the status key is `agiOverride`
   // and it means what it says. Nothing in the table overrides Mnd on its own.
+  //
+  // The substitution runs FIRST, so a substituted attribute inherits the floors
+  // rather than escaping them: a helpless character does not keep a +5 Int
+  // Reflex bonus just because the number came from somewhere new.
+  const subAgi = substituteDefenceMod(agiMod, substituteMods.ref);
+  const subVit = substituteDefenceMod(vitMod, substituteMods.fort);
+  const subMnd = substituteDefenceMod(mndMod, substituteMods.will);
+
   const effAgi = applyAgiOverride(
-    applyIncapacitationOverride(agiMod, incapacitated), agiOverride
+    applyIncapacitationOverride(subAgi, incapacitated), agiOverride
   );
-  const effMnd = applyIncapacitationOverride(mndMod, incapacitated);
+  const effMnd = applyIncapacitationOverride(subMnd, incapacitated);
 
   // `noEquipmentBenefit` (toad) removes the armour entirely, not just its
   // bonus — the Agi cap goes too, because a cap that exists only by virtue of
@@ -302,7 +341,7 @@ export function computeDefences({
              + sizeMod + (technicks.ref  ?? 0) + (misc.ref  ?? 0) + bp,
     // Fortitude takes NO incapacitation override — §4.1 applies the −5 floor to
     // Agi (Reflex) and Mnd (Will) only. Vitality is used as-is.
-    fort: 10 + level + vitMod + (classBonus.fort ?? 0)
+    fort: 10 + level + subVit + (classBonus.fort ?? 0)
              + (technicks.fort ?? 0) + (misc.fort ?? 0) + bp,
     will: 10 + level + effMnd + (classBonus.will ?? 0)
              + (technicks.will ?? 0) + (misc.will ?? 0) + bp
@@ -682,6 +721,17 @@ export function aggregateGrants(grantsList = []) {
     dr: 0,
     skills: {},
     /**
+     * Attribute substitutions per defence (#69), as a LIST of attribute keys
+     * per slot rather than a single winner.
+     *
+     * Two technicks may each offer a different attribute for the same defence,
+     * and both are permissive ("you MAY use"), so the character is entitled to
+     * whichever is best. Resolving that needs the actor's modifiers, which this
+     * Foundry-free aggregator does not have — so it collects the offers and
+     * lets `resolveDefenceSubstitutes` pick.
+     */
+    defenceAttribute: { ref: [], fort: [], will: [] },
+    /**
      * Rerolls granted by technicks, talents and races (#48).
      *
      * Kept as a LIST rather than summed, because each entry has to name its
@@ -700,6 +750,13 @@ export function aggregateGrants(grantsList = []) {
 
   for (const g of grantsList) {
     if (!g) continue;
+
+    for (const slot of Object.keys(out.defenceAttribute)) {
+      const attr = g.defenceAttribute?.[slot];
+      if (attr && !out.defenceAttribute[slot].includes(attr)) {
+        out.defenceAttribute[slot].push(attr);
+      }
+    }
 
     out.defences.ref += g.defences?.ref ?? 0;
     out.defences.fort += g.defences?.fort ?? 0;
@@ -745,6 +802,33 @@ export function aggregateGrants(grantsList = []) {
 }
 
 /**
+ * Pick one substitute modifier per defence from the offers collected above (#69).
+ *
+ * Separate from `aggregateGrants` because choosing needs the actor's attribute
+ * modifiers, and the aggregator only sees items. Kept Foundry-free so the choice
+ * is unit tested rather than discovered in a world.
+ *
+ * `Math.max` across the offers for the same reason `substituteDefenceMod` uses
+ * it: every offer is permissive, so a character holding two of them takes the
+ * better one. Returns null for a slot with no offers, which reads downstream as
+ * "keep the usual attribute" rather than as a modifier of zero.
+ *
+ * @param {{ref?:string[], fort?:string[], will?:string[]}} offers  attribute keys per slot
+ * @param {Record<string, number>} mods  attribute key -> modifier
+ * @returns {{ref:?number, fort:?number, will:?number}}
+ */
+export function resolveDefenceSubstitutes(offers = {}, mods = {}) {
+  const out = { ref: null, fort: null, will: null };
+  for (const slot of Object.keys(out)) {
+    const available = (offers[slot] ?? [])
+      .map((attr) => mods?.[attr])
+      .filter((m) => Number.isFinite(m));
+    if (available.length) out[slot] = Math.max(...available);
+  }
+  return out;
+}
+
+/**
  * Does a `grants` block carry any payload at all?
  *
  * Asked by the item sheet so a purely behavioural trait — one that works
@@ -770,6 +854,10 @@ export function hasGrantPayload(grants) {
 
   const d = grants.defences ?? {};
   if (d.ref || d.fort || d.will) return true;
+  // A defence-attribute substitution (#69) adds no number, but it is very much
+  // a payload — without this the Grants panel would tell the reader the block
+  // is empty on purpose while a technick was rewriting their Reflex.
+  if (Object.values(grants.defenceAttribute ?? {}).some((a) => a)) return true;
   if (grants.breakThreshold || grants.heroPoints || grants.initiativeSteps) return true;
   if (grants.speed || grants.secondWindUses) return true;
   if (grants.hp || grants.mp || grants.dr) return true;

@@ -384,6 +384,16 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     // clears.
     const effSize = D.effectiveSize(this.details.size, statuses.treatedAsSize);
     const sizeMod = LASTARC.sizes[effSize]?.mod ?? 0;
+    // Attribute substitutions offered by technicks (#69). Resolved here because
+    // choosing the best offer needs this actor's modifiers; the aggregator only
+    // saw the items.
+    const substituteMods = D.resolveDefenceSubstitutes(
+      grants.defenceAttribute,
+      Object.fromEntries(
+        Object.keys(LASTARC.attributes).map((k) => [k, this.attributes[k]?.mod ?? 0])
+      )
+    );
+
     const computed = D.computeDefences({
       level,
       agiMod: this.attributes.agi.mod,
@@ -402,7 +412,8 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       agiDenied,
       incapacitated,
       agiOverride: statuses.agiOverride,
-      noEquipmentBenefit: statuses.noEquipmentBenefit
+      noEquipmentBenefit: statuses.noEquipmentBenefit,
+      substituteMods
     });
 
     this.defences.ref.value = computed.ref;
@@ -423,7 +434,8 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       agiDenied: true,
       incapacitated,
       agiOverride: statuses.agiOverride,
-      noEquipmentBenefit: statuses.noEquipmentBenefit
+      noEquipmentBenefit: statuses.noEquipmentBenefit,
+      substituteMods
     }).ref;
 
     // Subtotal WITHOUT the break penalty, so the sheet tooltip reconciles
