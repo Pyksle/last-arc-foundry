@@ -275,7 +275,7 @@ describe("the character can actually name an advanced class", () => {
   /**
    * This is the defect, not a style point. `choices: Object.keys(LASTARC.classes)`
    * meant the schema rejected any class the system did not ship, so a GM could
-   * author a Dragoon and no character could ever be one.
+   * author an advanced class and no character could ever take one.
    */
   test("the class name is no longer restricted to the shipped six", () => {
     const block = model.slice(model.indexOf("classes: new fields.ArrayField"),

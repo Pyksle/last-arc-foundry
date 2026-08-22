@@ -191,17 +191,6 @@ LASTARC.classes = {
   warrior:  { label: "LASTARC.Class.warrior",  hp1: 30, hpPer: 6, mp1: 6,  mpPer: 2, initDie: "d10", ref: 0, fort: 2, will: 1, trainedSkills: 6 }
 };
 
-/**
- * Advanced classes (§14, Ch.12) — names only in the demo. Declared now so the
- * data model accepts an advanced class layered over a base class without a
- * migration when the full release lands.
- */
-LASTARC.advancedClasses = [
-  "archmage", "assassin", "battlemage", "berserker", "bishop", "bladeDancer",
-  "dragoon", "druid", "gladiator", "necromancer", "paladin", "purloiner",
-  "sabreur", "shikari", "summoner", "troubador", "warlock"
-];
-
 /** Initiative dice for non-player categories (§3.2). Lower is better (§8). */
 LASTARC.initiativeDice = {
   nonheroic: "d10",

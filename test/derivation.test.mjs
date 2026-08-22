@@ -425,7 +425,7 @@ describe("§4.5 skill modifiers", () => {
   });
 
   test("an unknown class still throws rather than guessing", () => {
-    assert.throws(() => trainedSkillCount("archmage", 2), /Unknown class/);
+    assert.throws(() => trainedSkillCount("zzUndefined", 2), /Unknown class/);
   });
 });
 
