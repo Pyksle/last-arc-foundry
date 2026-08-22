@@ -282,7 +282,11 @@ describe("no decoy technick flags", () => {
                    // Quick Reload changes which action slot pays for a reload
                    // rather than modifying any roll, so it is read where
                    // reloading lives.
-                   "module/dice/ammunition.mjs"].map(read).join("\n");
+                   "module/dice/ammunition.mjs",
+                   // Beast Shape gates a whole PANEL rather than a roll — it is
+                   // what a druid ticks to be offered forms at all, so it is
+                   // read where the sheet decides whether to draw them.
+                   "module/sheets/character-sheet.mjs"].map(read).join("\n");
 
   test("every flag in the picker is read by the rules engine", () => {
     const decoys = LASTARC.technickFlags.filter((f) => !readers.includes(`"${f}"`));
@@ -482,6 +486,17 @@ describe("every row field has an input", () => {
      * than the literal-name match it replaces, because it also catches a band
      * added to the config and forgotten everywhere else.
      */
+    /**
+     * A beast form is LEARNED by dropping the creature on the panel, which is
+     * where the pointer and its display come from. The three numbers beside
+     * them — level and the two maxima — are typed, because they are what the
+     * arithmetic reads and a druid must be able to correct a statblock nobody
+     * has finished entering.
+     */
+    "beastShape.forms.uuid": "ACTION — the actor pointer, set by dropping a beast on the panel",
+    "beastShape.forms.name": "ACTION — copied from the beast when the form is learned",
+    "beastShape.forms.img": "ACTION — copied from the beast when the form is learned",
+
     "attacks.rangeBands.pointBlank": "GENERATED — see npc-range-bands.test.mjs",
     "attacks.rangeBands.short": "GENERATED — see npc-range-bands.test.mjs",
     "attacks.rangeBands.mid": "GENERATED — see npc-range-bands.test.mjs",

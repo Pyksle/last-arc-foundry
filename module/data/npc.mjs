@@ -33,6 +33,20 @@ export class LastArcNpcData extends foundry.abstract.TypeDataModel {
 
       details: new fields.SchemaField({
         cr: new fields.NumberField({ initial: 1, min: 0 }),
+        /**
+         * Creature level, which is NOT the challenge rating.
+         *
+         * Beasts are built with levels the way characters are — hit points at
+         * 5+Vit per level, natural armour reaching DR 5/10/15 at 4th, 8th and
+         * 12th, attribute points every fourth — and several abilities compare
+         * against a creature's level directly. Beast Shape needs it twice over:
+         * the MP to assume a form is twice the beast's level, and the druid's
+         * bonus is the gap between the two levels.
+         *
+         * Left at 0 by default rather than 1, so a statblock nobody has filled
+         * in reads as "not stated" instead of quietly claiming to be 1st level.
+         */
+        level: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
         xp: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
         type: new fields.StringField({ initial: "" }),
         temperament: new fields.StringField({ initial: "" }),

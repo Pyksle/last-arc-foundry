@@ -667,6 +667,76 @@
     </button>
   </section>
 
+  {{#if beastShape.show}}
+    {{!-- Beast Shape (Druid). Absent unless this character has forms or is
+          wearing one — every other character would see an empty box. --}}
+    <section class="la-panel la-panel--beastforms" data-section="beastforms">
+      {{> laSectionTitle id="beastforms"}}
+
+      <p class="la-note {{#if beastShape.over}}is-warning{{/if}}">
+        {{localize "LASTARC.Note.FormsKnown"}} {{beastShape.known}} / {{beastShape.allowance}}
+      </p>
+
+      {{#if beastShape.active}}
+        <div class="la-beastform is-active">
+          <span class="la-beastform__name">{{beastShape.active.name}}</span>
+          <span class="la-beastform__meta">
+            {{localize "LASTARC.BeastShape.Lasts" turns=beastShape.active.duration}}{{#if beastShape.active.expiresRound}}
+              {{localize "LASTARC.BeastShape.ThroughRound" round=beastShape.active.expiresRound}}{{/if}}
+          </span>
+          {{#if beastShape.active.bonus}}
+            {{!-- Stated, never applied — only defences could be automated on an
+                  NPC and a third of a bonus is one nobody can audit. --}}
+            <span class="la-beastform__bonus"
+                  data-tooltip="{{localize 'LASTARC.BeastShape.BonusTip'}}"
+            >{{localize "LASTARC.BeastShape.BonusShort" n=beastShape.active.bonus}}</span>
+          {{/if}}
+          <button type="button" class="la-beastform__revert" data-action="beastRevert"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.BeastRevert'}}">
+            {{localize "LASTARC.Action.Revert"}}
+          </button>
+        </div>
+      {{/if}}
+
+      <div class="la-beastforms">
+        {{#each beastShape.forms}}
+          <div class="la-beastform {{#if this.isActive}}is-current{{/if}}">
+            <img class="la-item__img" src="{{this.img}}" alt="">
+            <span class="la-beastform__name">{{this.name}}</span>
+            <div class="la-field la-field--narrow">
+              <input type="number" name="system.beastShape.forms.{{this.index}}.level"
+                     value="{{this.level}}" min="0">
+              <label>{{localize "LASTARC.Field.CreatureLevel"}}</label>
+            </div>
+            <div class="la-field la-field--narrow">
+              <input type="number" name="system.beastShape.forms.{{this.index}}.maxHp"
+                     value="{{this.maxHp}}" min="0">
+              <label>{{localize "LASTARC.Field.MaxHp"}}</label>
+            </div>
+            <div class="la-field la-field--narrow">
+              <input type="number" name="system.beastShape.forms.{{this.index}}.maxMp"
+                     value="{{this.maxMp}}" min="0">
+              <label>{{localize "LASTARC.Field.MaxMp"}}</label>
+            </div>
+            <span class="la-beastform__cost"
+                  data-tooltip="{{localize 'LASTARC.BeastShape.CostTip'}}">{{this.cost}} MP</span>
+            <button type="button" class="la-beastform__take" data-action="beastTransform"
+                    data-form-uuid="{{this.uuid}}"
+                    {{#if ../beastShape.active}}disabled{{/if}}
+                    data-tooltip="{{localize 'LASTARC.Tooltip.BeastTransform'}}">
+              {{localize "LASTARC.Action.Transform"}}
+            </button>
+            <button type="button" class="la-item__delete" data-action="beastForget"
+                    data-form-uuid="{{this.uuid}}"
+                    data-tooltip="{{localize 'LASTARC.Tooltip.BeastForget'}}">×</button>
+          </div>
+        {{else}}
+          <p class="la-note">{{localize "LASTARC.Note.NoBeastForms"}}</p>
+        {{/each}}
+      </div>
+    </section>
+  {{/if}}
+
   <section class="la-panel la-panel--technicks" data-section="technicks">
     {{> laSectionTitle id="technicks"}}
 

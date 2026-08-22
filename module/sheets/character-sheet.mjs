@@ -36,6 +36,9 @@ import {
 import { situationalOptions } from "../dice/situational.mjs";
 import * as ROWS from "../sheet-rows.mjs";
 import * as CLASSES from "../class-source.mjs";
+import * as BS from "../beast-shape.mjs";
+import { hasTechnickFlag } from "../dice/attack.mjs";
+import { learnForm, forgetForm, transformInto, revertForm } from "../beast-shape-actions.mjs";
 import { applyHealing } from "../dice/healing.mjs";
 import * as CONS from "../consumables.mjs";
 import { useConsumable } from "../dice/consume.mjs";
@@ -79,6 +82,9 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       lootAmmo: LastArcCharacterSheet.#onLootAmmo,
       castSpell: LastArcCharacterSheet.#onCastSpell,
       performItem: LastArcCharacterSheet.#onPerform,
+      beastTransform: LastArcCharacterSheet.#onBeastTransform,
+      beastRevert: LastArcCharacterSheet.#onBeastRevert,
+      beastForget: LastArcCharacterSheet.#onBeastForget,
       addPersistent: LastArcCharacterSheet.#onAddPersistent,
       clearPersistent: LastArcCharacterSheet.#onClearPersistent,
       heroBoost: LastArcCharacterSheet.#onHeroBoost,
@@ -236,6 +242,44 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.defenceRows = ROWS.defenceRows(sys, src);
 
     /**
+     * Beast Shape (Druid).
+     *
+     * `show` gates the whole panel: a character with no forms and no active
+     * shape has nothing to see, and every non-druid at the table would
+     * otherwise carry an empty box down their sheet forever.
+     *
+     * `cost` is computed here rather than stored, because it is twice the
+     * beast's level and the level is editable in the same row — a stored copy
+     * would disagree with the number beside it the moment anybody corrected a
+     * statblock.
+     */
+    const bs = sys.beastShape;
+    const active = bs.active.uuid ? bs.active : null;
+    context.beastShape = {
+      /**
+       * The talent turns the panel on, not the forms.
+       *
+       * Gated on forms alone, a druid who had just taken Beast Shape saw
+       * nothing — and the only way to learn a first form is to drop a beast on
+       * the panel that is not there. Forms and an active shape still show it
+       * too, so a character who acquired one by any other route is not stranded
+       * either.
+       */
+      show: hasTechnickFlag(this.document, "beastShape")
+        || bs.forms.length > 0 || !!active,
+      active,
+      allowance: BS.formAllowance(sys.attributes.int.mod),
+      known: bs.forms.length,
+      over: bs.forms.length > BS.formAllowance(sys.attributes.int.mod),
+      forms: bs.forms.map((f, index) => ({
+        ...f,
+        index,
+        cost: BS.transformCost(f.level),
+        isActive: BS.isActiveForm(bs.active, f.uuid)
+      }))
+    };
+
+    /**
      * Every class the world defines, not just the six that ship — see
      * `class-source.mjs`. Advanced classes sort last and carry a marker rather
      * than being hidden: a GM whose party is nowhere near level 8 still wants
@@ -334,9 +378,43 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     }
   }
 
+  /**
+   * Learn a form by dropping a beast on the panel.
+   *
+   * Wired here for the same reason as the hotbar drag: a `dragDrop` entry in
+   * DEFAULT_OPTIONS would need its own permission callback, and this is one
+   * selector with one payload shape.
+   *
+   * Only an NPC can be learned. Dropping a character would store a pointer to
+   * something whose HP and MP are DERIVED from classes, and the whole mechanism
+   * reads those as printed statblock numbers.
+   */
+  #wireBeastFormDrop() {
+    const panel = this.element?.querySelector('[data-section="beastforms"]');
+    if (!panel) return;
+
+    panel.addEventListener("dragover", (event) => event.preventDefault());
+    panel.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      let data = null;
+      try {
+        data = JSON.parse(event.dataTransfer?.getData("text/plain") ?? "null");
+      } catch { return; }
+      if (data?.type !== "Actor" || !data.uuid) return;
+
+      const beast = await fromUuid(data.uuid);
+      if (beast?.type !== "npc") {
+        ui.notifications?.warn(game.i18n.localize("LASTARC.BeastShape.NotABeast"));
+        return;
+      }
+      await learnForm(this.document, beast);
+    });
+  }
+
   _onRender(context, options) {
     super._onRender(context, options);
     this.#wireHotbarDrag();
+    this.#wireBeastFormDrop();
     applyLayout(this, "character");
     restoreScroll(this);
   }
@@ -1271,6 +1349,18 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const item = this.document.items.get(target.dataset.itemId);
     if (!item) return;
     await rollItemAction(this.document, item, event);
+  }
+
+  static async #onBeastTransform(event, target) {
+    await transformInto(this.document, target.dataset.formUuid);
+  }
+
+  static async #onBeastRevert(event, target) {
+    await revertForm(this.document);
+  }
+
+  static async #onBeastForget(event, target) {
+    await forgetForm(this.document, target.dataset.formUuid);
   }
 
   static async #onCreateItem(event, target) {

@@ -1,0 +1,68 @@
+{{!-- Beast Shape. Two cards in one template because they are two halves of one
+      transaction and a reader comparing them wants the same shape twice.
+
+      The bonus line is the important one: the system deliberately does NOT
+      apply it, because only a third of it (defences) could be automated on an
+      NPC and a partly-applied bonus is one nobody can audit. See the note at
+      the top of beast-shape-actions.mjs. --}}
+<div class="lastarc-card lastarc-card--beastshape">
+
+  <header class="lastarc-card__head">
+    <img src="{{img}}" alt="" class="lastarc-card__img">
+    <div class="lastarc-card__title">
+      {{!-- The DRUID is the actor on both cards. Naming the form here read as
+            the beast transforming, which is the one misreading this card can
+            afford least — the image is already the beast's. --}}
+      <span class="lastarc-card__weapon">{{actorName}}</span>
+      <span class="lastarc-card__sub">
+        {{#if transforming}}
+          {{localize "LASTARC.BeastShape.CardTakes" name=formName}}
+        {{else}}
+          {{#if forced}}
+            {{localize "LASTARC.BeastShape.CardForced"}}
+          {{else}}
+            {{localize "LASTARC.BeastShape.CardReverts"}}
+          {{/if}}
+        {{/if}}
+      </span>
+    </div>
+    {{#if transforming}}
+      <div class="lastarc-card__total" data-tooltip="{{localize 'LASTARC.BeastShape.CostTip'}}">
+        −{{cost}}
+      </div>
+    {{/if}}
+  </header>
+
+  {{#if transforming}}
+    <p class="lastarc-calc">
+      <span class="lastarc-calc__sum">
+        {{localize "LASTARC.BeastShape.Lasts" turns=duration}}{{#if expiresRound}}
+          {{localize "LASTARC.BeastShape.ThroughRound" round=expiresRound}}{{/if}}
+      </span>
+    </p>
+
+    {{#if bonus}}
+      {{!-- Stated, not applied. The card is the only place this number is
+            written down, so it says all three things it affects. --}}
+      <p class="lastarc-note">{{localize "LASTARC.BeastShape.BonusNote" n=bonus}}</p>
+    {{/if}}
+  {{else}}
+    <p class="lastarc-calc">
+      <span class="lastarc-calc__sum">
+        {{localize "LASTARC.BeastShape.RevertCost" hp=lostHp mp=lostMp}}
+      </span>
+    </p>
+  {{/if}}
+
+  <p class="lastarc-verdict {{#if unconscious}}lastarc-verdict--bad{{else}}lastarc-verdict--good{{/if}}">
+    <strong>{{actorName}}</strong>
+    <span class="lastarc-vs">{{hp}} / {{hpMax}} · {{mp}} / {{mpMax}}</span>
+  </p>
+
+  {{#if unconscious}}
+    {{!-- The one rule at this table where 0 HP arrives as arithmetic rather
+          than as a blow, and the book is explicit that it does not kill. --}}
+    <p class="lastarc-note">{{localize "LASTARC.BeastShape.UnconsciousNote"}}</p>
+  {{/if}}
+
+</div>

@@ -31,6 +31,8 @@ import * as AMMO from "./ammunition.mjs";
 import * as AMMOSTORE from "./dice/ammunition.mjs";
 import * as LAYOUT from "./sheets/sheet-layout-controls.mjs";
 import * as GUARD from "./status-guard.mjs";
+import * as BS from "./beast-shape.mjs";
+import { learnForm, forgetForm, transformInto, revertForm } from "./beast-shape-actions.mjs";
 
 const SYSTEM_ID = "last-arc";
 
@@ -44,6 +46,7 @@ export function registerQuenchBatches() {
     registerAmmunitionBatch(quench);
     registerDefenceAttributeBatch(quench);
     registerAdvancedClassBatch(quench);
+    registerBeastShapeBatch(quench);
   });
 }
 
@@ -1048,6 +1051,21 @@ function registerSheetBatch(quench) {
               "editable field, and defences, HP, MP and half-level bonuses all read " +
               "it, so levelling a class moved nothing.",
             "details.classLevelTotal": "DERIVED — the same sum, kept for display",
+            /**
+             * The form in play. Every field here is written by the transform
+             * action and read back by the revert, and none of it is a thing a
+             * player types — the two maxima in particular are a RECORD of what
+             * was lent, so an editable copy would let the refund differ from
+             * the loan.
+             */
+            "beastShape.active.uuid": "ACTION — set by taking a form",
+            "beastShape.active.name": "ACTION — set by taking a form",
+            "beastShape.active.bonus": "ACTION — computed when the form is taken",
+            "beastShape.active.duration": "ACTION — computed when the form is taken",
+            "beastShape.active.expiresRound": "ACTION — computed when the form is taken",
+            "beastShape.active.beastMaxHp": "ACTION — the record of what the form lent, " +
+              "repaid on revert; an input would let the refund differ from the loan",
+            "beastShape.active.beastMaxMp": "ACTION — as beastMaxHp",
             "resources.hp.max": "DERIVED from class, level and Vitality",
             "resources.mp.max": "DERIVED from class, level and Mind",
             "resources.heroPoints.max": "DERIVED from level and technick grants",
@@ -3053,6 +3071,22 @@ function registerAmmunitionBatch(quench) {
       const { describe, it, assert } = context;
 
       const FLAG = "sheetLayout";
+
+      /**
+       * Sections a fresh character does not draw.
+       *
+       * `actions` needs an active combat; `beastforms` needs a druid who has
+       * learned one — every other character would carry an empty panel down
+       * their sheet forever. Both are the reason `moveSection` consults what is
+       * RENDERED rather than what is declared.
+       *
+       * A named set rather than a growing chain of `!==`, so the next
+       * conditional panel is one entry and a sentence instead of an edit in two
+       * places that quietly disagree.
+       */
+      const CONDITIONAL = new Set(["actions", "beastforms"]);
+      const alwaysDrawn = (ids) => ids.filter((id) => !CONDITIONAL.has(id));
+
       const sections = (sheet) =>
         [...sheet.element.querySelectorAll(".la-panel[data-section]")]
           .map((el) => el.dataset.section);
@@ -3084,7 +3118,7 @@ function registerAmmunitionBatch(quench) {
 
               // Out of combat there is no Actions panel, which is the whole
               // reason moveSection consults what is rendered.
-              assert.deepEqual(found, declared.filter((id) => id !== "actions"));
+              assert.deepEqual(found, alwaysDrawn(declared));
             });
           });
         });
@@ -3246,7 +3280,7 @@ function registerAmmunitionBatch(quench) {
               assert.deepEqual(
                 sections(sheet),
                 LASTARC.sheetSections.character
-                  .map((s) => s.id).filter((id) => id !== "actions"));
+                  .map((s) => s.id).filter((id) => !CONDITIONAL.has(id)));
               assert.isUndefined(game.user.getFlag(SYSTEM_ID, `${FLAG}.${pc.id}`),
                 "reset must UNSET; setFlag merges and would leave the entry behind");
             });
@@ -3942,5 +3976,316 @@ function registerAdvancedClassBatch(quench) {
       });
     },
     { displayName: "Last Arc — Advanced classes" }
+  );
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*  Beast Shape (Druid)                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The arithmetic is unit tested. What only a live Foundry can show is whether
+ * the combined pool SURVIVES — `resources.hp.max` is assigned on every prepare,
+ * so a design that stored the combined maximum would look right for exactly as
+ * long as nothing re-prepared the actor, which in Foundry is about a second.
+ * That is the test worth having here; the rest is the round trip through real
+ * documents.
+ */
+function registerBeastShapeBatch(quench) {
+  quench.registerBatch(
+    `${SYSTEM_ID}.beastShape`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      /** A beast statblock with a level, which is not its CR. */
+      const BEAST = {
+        name: "ZZ prowler", type: "npc",
+        system: {
+          details: { level: 4, cr: 3 },
+          resources: { hp: { value: 30, max: 30 }, mp: { value: 6, max: 6 } }
+        }
+      };
+
+      async function withBeast(fn) {
+        const beast = await Actor.create(BEAST);
+        try {
+          return await fn(beast);
+        } finally {
+          await beast?.delete();
+        }
+      }
+
+      /** A druid with mana to spend and an unambiguous level gap. */
+      const DRUID = {
+        system: {
+          classes: [{ name: "initiate", levels: 10 }],
+          attributes: { int: { value: 16 }, vit: { value: 14 } }
+        }
+      };
+
+      describe("§ the pools combine, and stay combined", function () {
+        it("taking a form adds the beast's maxima and charges twice its level",
+          async function () {
+            this.timeout(30_000);
+            await withBeast(async (beast) => {
+              await withActor(DRUID, async (druid) => {
+                await learnForm(druid, beast);
+                assert.equal(druid.system.beastShape.forms.length, 1);
+
+                const hpMax = druid.system.resources.hp.max;
+                const mpBefore = druid.system.resources.mp.value;
+                await druid.update({ "system.resources.mp.value": 20 });
+
+                await transformInto(druid, beast.uuid);
+                const sys = druid.system;
+
+                assert.equal(sys.resources.hp.max, hpMax + 30,
+                  "the combined maximum is not what the character reports");
+                assert.equal(sys.resources.mp.value, 20 - 8 + 6,
+                  "the cost or the beast's mana did not land");
+                assert.equal(sys.beastShape.active.uuid, beast.uuid);
+                assert.equal(sys.beastShape.active.bonus, 6,
+                  "level 10 druid, level 4 beast");
+                assert.isAbove(mpBefore, -1);
+              });
+            });
+          });
+
+        /**
+         * THE test. `resources.hp.max` is reassigned by prepareDerivedData every
+         * time anything touches the actor, so a stored combined maximum is gone
+         * by the next update — silently, with the sheet showing the druid's own
+         * maximum while they hold the beast's hit points.
+         */
+        it("the combined maximum survives a re-prepare", async function () {
+          this.timeout(30_000);
+          await withBeast(async (beast) => {
+            await withActor(DRUID, async (druid) => {
+              await learnForm(druid, beast);
+              await druid.update({ "system.resources.mp.value": 20 });
+              const solo = druid.system.resources.hp.max;
+
+              await transformInto(druid, beast.uuid);
+              assert.equal(druid.system.resources.hp.max, solo + 30);
+
+              // Anything at all. A rename re-prepares the document.
+              await druid.update({ name: "ZZ druid renamed" });
+              druid.prepareData();
+              assert.equal(druid.system.resources.hp.max, solo + 30,
+                "the combined maximum was wiped by the next prepare");
+            });
+          });
+        });
+      });
+
+      describe("§ giving it back", function () {
+        it("the round trip returns the druid to where they began", async function () {
+          this.timeout(30_000);
+          await withBeast(async (beast) => {
+            await withActor(DRUID, async (druid) => {
+              await learnForm(druid, beast);
+              await druid.update({
+                "system.resources.hp.value": 40, "system.resources.mp.value": 20 });
+              const hpMax = druid.system.resources.hp.max;
+
+              await transformInto(druid, beast.uuid);
+              await revertForm(druid);
+
+              const sys = druid.system;
+              assert.equal(sys.resources.hp.value, 40, "hit points did not survive");
+              assert.equal(sys.resources.mp.value, 20 - 8, "only the cost should be gone");
+              assert.equal(sys.resources.hp.max, hpMax, "the maximum stayed combined");
+              assert.equal(sys.beastShape.active.uuid, "", "still wearing the form");
+            });
+          });
+        });
+
+        /**
+         * The rule that can end a character on a subtraction. The book says
+         * unconscious, explicitly.
+         */
+        it("reverting into zero leaves the druid at 0, not dead", async function () {
+          this.timeout(30_000);
+          await withBeast(async (beast) => {
+            await withActor(DRUID, async (druid) => {
+              await learnForm(druid, beast);
+              await druid.update({ "system.resources.mp.value": 20 });
+              await transformInto(druid, beast.uuid);
+
+              // Spend the whole combined pool down into the beast's share.
+              await druid.update({ "system.resources.hp.value": 20 });
+              const result = await revertForm(druid);
+
+              assert.equal(druid.system.resources.hp.value, 0);
+              assert.isTrue(result.unconscious,
+                "the card would not say this was survivable");
+            });
+          });
+        });
+
+        it("forgetting the form being worn takes it off first", async function () {
+          this.timeout(30_000);
+          await withBeast(async (beast) => {
+            await withActor(DRUID, async (druid) => {
+              await learnForm(druid, beast);
+              await druid.update({ "system.resources.mp.value": 20 });
+              await transformInto(druid, beast.uuid);
+              const combined = druid.system.resources.hp.max;
+
+              await forgetForm(druid, beast.uuid);
+
+              assert.equal(druid.system.beastShape.forms.length, 0);
+              assert.equal(druid.system.beastShape.active.uuid, "");
+              assert.isBelow(druid.system.resources.hp.max, combined,
+                "the beast's hit points are still on a druid with no forms");
+            });
+          });
+        });
+      });
+
+      describe("§ the panel", function () {
+        it("appears only once there is a form to show", async function () {
+          this.timeout(30_000);
+          await withBeast(async (beast) => {
+            await withActor(DRUID, async (druid) => {
+              await druid.sheet.render(true);
+              await settle();
+              try {
+                assert.isNull(druid.sheet.element.querySelector('[data-section="beastforms"]'),
+                  "every non-druid at the table carries an empty panel");
+
+                await learnForm(druid, beast);
+                await druid.sheet.render(true);
+                await settle();
+
+                const panel = druid.sheet.element.querySelector('[data-section="beastforms"]');
+                assert.isNotNull(panel, "a druid with a form has nowhere to use it");
+                assert.isNotNull(panel.querySelector('[data-action="beastTransform"]'));
+                assert.include(panel.textContent, "ZZ prowler");
+              } finally {
+                await druid.sheet.close();
+              }
+            });
+          });
+        });
+
+        /**
+         * The defect this flag exists for. Gated on forms alone, a druid who
+         * had just taken Beast Shape saw no panel — and the only way to learn a
+         * first form is to drop a beast on the panel that is not there. A
+         * feature reachable only by characters who have already used it.
+         */
+        it("appears for a druid with the talent and no forms yet", async function () {
+          this.timeout(30_000);
+          await withActor(DRUID, async (druid) => {
+            await druid.createEmbeddedDocuments("Item", [{
+              name: "ZZ shapeshifting", type: "talent",
+              system: { flags: ["beastShape"], active: true }
+            }]);
+            await druid.sheet.render(true);
+            await settle();
+            try {
+              const panel = druid.sheet.element.querySelector('[data-section="beastforms"]');
+              assert.isNotNull(panel,
+                "a druid who has just taken the talent has nowhere to learn a form");
+              assert.isNotNull(panel.querySelector('[data-section], .la-note'),
+                "the panel is there but says nothing about how to use it");
+            } finally {
+              await druid.sheet.close();
+            }
+          });
+        });
+
+        /**
+         * The drop is the only way in, so it is worth exercising for real
+         * rather than calling `learnForm` and trusting the wiring.
+         */
+        it("dropping a beast on the panel learns it", async function () {
+          this.timeout(30_000);
+          await withBeast(async (beast) => {
+            await withActor(DRUID, async (druid) => {
+              await druid.createEmbeddedDocuments("Item", [{
+                name: "ZZ shapeshifting", type: "talent",
+                system: { flags: ["beastShape"], active: true }
+              }]);
+              await druid.sheet.render(true);
+              await settle();
+              try {
+                const panel = druid.sheet.element.querySelector('[data-section="beastforms"]');
+                const dt = new DataTransfer();
+                dt.setData("text/plain", JSON.stringify({ type: "Actor", uuid: beast.uuid }));
+                panel.dispatchEvent(new DragEvent("drop", {
+                  dataTransfer: dt, bubbles: true, cancelable: true }));
+                await settle(600);
+
+                assert.equal(druid.system.beastShape.forms.length, 1,
+                  "the drop handler did not learn the beast");
+                assert.equal(druid.system.beastShape.forms[0].level, 4,
+                  "the statblock's level was not read across");
+              } finally {
+                await druid.sheet.close();
+              }
+            });
+          });
+        });
+
+        /**
+         * Only an NPC can be learned.
+         *
+         * A character's HP and MP are DERIVED from their classes, and this
+         * whole mechanism reads both as printed statblock numbers — a druid who
+         * learned the party's warrior would get a form whose maxima moved every
+         * time that player levelled, and whose revert cost moved with them.
+         *
+         * The `type !== "Actor"` check above it is a fast path, not this: it
+         * survived being deleted, because the payload it rejects is rejected
+         * again here. This is the assertion that holds.
+         */
+        it("a character cannot be learned as a form", async function () {
+          this.timeout(30_000);
+          await withActor({ name: "ZZ quarry" }, async (prey) => {
+            await withActor(DRUID, async (druid) => {
+              await druid.createEmbeddedDocuments("Item", [{
+                name: "ZZ shapeshifting", type: "talent",
+                system: { flags: ["beastShape"], active: true }
+              }]);
+              await druid.sheet.render(true);
+              await settle();
+              try {
+                const panel = druid.sheet.element.querySelector('[data-section="beastforms"]');
+                const dt = new DataTransfer();
+                dt.setData("text/plain", JSON.stringify({ type: "Actor", uuid: prey.uuid }));
+                panel.dispatchEvent(new DragEvent("drop", {
+                  dataTransfer: dt, bubbles: true, cancelable: true }));
+                await settle(600);
+
+                assert.equal(druid.system.beastShape.forms.length, 0,
+                  "a player character was stored as a beast form");
+              } finally {
+                await druid.sheet.close();
+              }
+            });
+          });
+        });
+
+        /** Beasts are built with levels; the sheet had only a challenge rating. */
+        it("an NPC can be given a level", async function () {
+          this.timeout(30_000);
+          await withNpc({}, async (npc) => {
+            await npc.sheet.render(true);
+            await settle();
+            try {
+              assert.isNotNull(
+                npc.sheet.element.querySelector('input[name="system.details.level"]'),
+                "a beast's level cannot be entered, so Beast Shape cannot price it");
+            } finally {
+              await npc.sheet.close();
+            }
+          });
+        });
+      });
+    },
+    { displayName: "Last Arc — Beast Shape" }
   );
 }

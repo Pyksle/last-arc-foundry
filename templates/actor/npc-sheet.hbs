@@ -34,6 +34,14 @@
           <input type="number" name="system.details.cr" value="{{system.details.cr}}" min="0">
           <label>{{localize "LASTARC.Field.CR"}}</label>
         </div>
+        {{!-- Level, which is not the challenge rating. Beasts are built with
+              levels the way characters are, and several abilities compare
+              against a creature's level directly. --}}
+        <div class="la-field la-field--narrow"
+             data-tooltip="{{localize 'LASTARC.Tooltip.CreatureLevel'}}">
+          <input type="number" name="system.details.level" value="{{system.details.level}}" min="0">
+          <label>{{localize "LASTARC.Field.CreatureLevel"}}</label>
+        </div>
         <div class="la-field la-field--narrow">
           <input type="number" name="system.details.xp" value="{{system.details.xp}}" min="0">
           <label>{{localize "LASTARC.Field.Experience"}}</label>
