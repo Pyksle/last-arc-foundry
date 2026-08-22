@@ -43,6 +43,7 @@ export function registerQuenchBatches() {
     registerCombatBatch(quench);
     registerAmmunitionBatch(quench);
     registerDefenceAttributeBatch(quench);
+    registerAdvancedClassBatch(quench);
   });
 }
 
@@ -3753,5 +3754,193 @@ function registerDefenceAttributeBatch(quench) {
       });
     },
     { displayName: "Last Arc — Defence attribute" }
+  );
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*  Classes as documents (advanced classes)                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The class list stopped being a closed set, and that is a sheet change.
+ *
+ * The unit suite proves the resolution order and the three advanced-class
+ * rules. It cannot see the two things that actually reach a player: whether the
+ * dropdown offers a class the GM authored, and whether a character sheet still
+ * OPENS when it holds a class nothing in the world defines — which only became
+ * possible because the schema's `choices` list is gone.
+ */
+function registerAdvancedClassBatch(quench) {
+  quench.registerBatch(
+    `${SYSTEM_ID}.advancedClasses`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      /** A GM-authored advanced class, living in the world like any other item. */
+      const ADVANCED = {
+        name: "ZZ Advanced", type: "class",
+        system: {
+          slug: "zz-advanced",
+          hp: { first: 24, perLevel: 5 }, mp: { first: 6, perLevel: 3 },
+          initiativeDie: "d4", defences: { ref: 2, fort: 0, will: 4 },
+          trainedSkills: 0, isAdvanced: true
+        }
+      };
+
+      async function withWorldClass(data, fn) {
+        const item = await Item.create(data);
+        try {
+          return await fn(item);
+        } finally {
+          await item?.delete();
+        }
+      }
+
+      async function withSheet(actor, fn) {
+        await actor.sheet.render(true);
+        await settle();
+        try {
+          return await fn(actor.sheet);
+        } finally {
+          await actor.sheet.close();
+        }
+      }
+
+      describe("the dropdown offers what the GM authored", function () {
+        it("an authored class appears, marked, after the shipped ones",
+          async function () {
+            this.timeout(30_000);
+            await withWorldClass(ADVANCED, async () => {
+              await withActor({}, async (actor) => {
+                await withSheet(actor, (sheet) => {
+                  const select = sheet.element.querySelector(
+                    'select[name="system.classes.0.name"]');
+                  assert.isNotNull(select, "the class dropdown is gone");
+                  const values = [...select.options].map((o) => o.value);
+                  assert.include(values, "zz-advanced",
+                    "a class the GM authored is not offered to a character");
+                  for (const key of Object.keys(LASTARC.classes)) {
+                    assert.include(values, key, `the shipped class ${key} stopped being offered`);
+                  }
+                  const opt = [...select.options].find((o) => o.value === "zz-advanced");
+                  assert.match(opt.textContent, /advanced/i,
+                    "nothing on the option says it is an advanced class");
+                  assert.equal(values.at(-1), "zz-advanced",
+                    "advanced classes must come after the base ones");
+                });
+              });
+            });
+          });
+
+        /**
+         * The free-text box that used to sit here was read by nothing. It is
+         * gone, and a player must not still be offered it — a field that saves
+         * a value nothing consumes is how this area accumulated three orphans.
+         */
+        it("the retired advanced free-text box is not rendered", async function () {
+          this.timeout(30_000);
+          await withActor({}, async (actor) => {
+            await withSheet(actor, (sheet) => {
+              assert.isNull(
+                sheet.element.querySelector('[name="system.classes.0.advanced"]'),
+                "the dead advanced box is still on the sheet");
+            });
+          });
+        });
+      });
+
+      describe("taking levels in one changes the character", function () {
+        it("the derived numbers move, through real documents", async function () {
+          this.timeout(30_000);
+          await withWorldClass(ADVANCED, async () => {
+            await withActor({}, async (actor) => {
+              await actor.update({ "system.classes": [{ name: "warrior", levels: 7 }] });
+              const before = {
+                hp: actor.system.resources.hp.max,
+                will: actor.system.defences.will.classBonus,
+                die: actor.system.initiative.effectiveDie
+              };
+
+              await actor.update({ "system.classes": [
+                { name: "warrior", levels: 7 }, { name: "zz-advanced", levels: 3 }
+              ] });
+              const vit = actor.system.attributes.vit.mod;
+
+              assert.equal(actor.system.resources.hp.max - before.hp, 3 * (5 + vit),
+                "the advanced class's per-level hit points did not land");
+              assert.equal(actor.system.defences.will.classBonus - before.will, 4,
+                "the advanced class's defence bonus was dropped as a second class");
+              assert.equal(actor.system.initiative.effectiveDie, before.die,
+                "an advanced class changed the initiative die, which none of them print");
+              assert.equal(actor.system.details.level, 10);
+
+              /**
+               * The assertion above cannot fail on its own — the die is read
+               * from the FIRST class, so a second one could never move it. This
+               * is the case that can: the advanced class alone, where the naive
+               * read hands back the d4 stored on the item instead of falling
+               * through to the default.
+               */
+              await actor.update({
+                "system.classes": [{ name: "zz-advanced", levels: 3 }] });
+              assert.equal(actor.system.initiative.effectiveDie, "d10",
+                "an advanced class supplied an initiative die it does not have");
+            });
+          });
+        });
+
+        /**
+         * A world class item can be deleted while characters still name it.
+         * That could not happen while the schema restricted the field to the
+         * shipped six, and a sheet that throws while preparing DOES NOT OPEN AT
+         * ALL — the #66 failure, in a new place.
+         */
+        it("a character naming a class nothing defines still opens",
+          async function () {
+            this.timeout(30_000);
+            await withWorldClass(ADVANCED, async () => {
+              await withActor({}, async (actor) => {
+                await actor.update({ "system.classes": [
+                  { name: "warrior", levels: 7 }, { name: "zz-advanced", levels: 3 }
+                ] });
+                return null;
+              });
+            });
+
+            // The class item is deleted by now; a fresh actor naming it must
+            // still prepare and render.
+            await withActor({}, async (actor) => {
+              await actor.update({ "system.classes": [{ name: "zz-vanished", levels: 4 }] });
+
+              /**
+               * Foundry keeps a sheet open even when prepareDerivedData throws,
+               * so "it rendered" proves nothing on its own — this test passed
+               * with the resource guard removed entirely.
+               *
+               * `effectiveDie` is the tell. It is ASSIGNED in
+               * prepareDerivedData, well after the resource block, and it is
+               * not a schema field — so if the unknown class propagates out of
+               * that block it is never written, and every derived value below
+               * it is silently missing while the sheet looks fine.
+               */
+              assert.equal(actor.system.initiative.effectiveDie, "d10",
+                "derivation stopped at the unknown class instead of carrying on");
+              assert.isTrue(Number.isFinite(actor.system.resources.hp.max),
+                "an unknown class left a non-numeric hit point maximum");
+              assert.equal(actor.system.details.level, 4,
+                "the levels are still the character's, whatever the class is");
+
+              await withSheet(actor, (sheet) => {
+                assert.isNotNull(sheet.element, "the sheet did not open");
+                assert.isNotNull(
+                  sheet.element.querySelector('select[name="system.classes.0.name"]'),
+                  "the sheet opened but the class row is missing");
+              });
+            });
+          });
+      });
+    },
+    { displayName: "Last Arc — Advanced classes" }
   );
 }

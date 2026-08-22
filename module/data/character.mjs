@@ -16,6 +16,7 @@
 
 import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
+import { buildClassCatalogue, resolveClass } from "../class-source.mjs";
 
 const fields = foundry.data.fields;
 
@@ -114,16 +115,25 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       /**
        * Ordered — entry [0] is the FIRST class taken, which grants the level-1
        * HP/MP values and (by default) the only set of class defence bonuses.
-       * `advanced` layers an advanced class over the base one (§14); declared
-       * now so the full release doesn't force a migration.
+       *
+       * NO `choices` LIST. It used to be `Object.keys(LASTARC.classes)`, which
+       * is what capped a character at the six classes the system ships: an
+       * advanced class could not be named here at all, whatever the GM authored.
+       * The name is now a slug resolved through `class-source.mjs` — an actor's
+       * own class item, then the world's, then the shipped table — so a GM can
+       * author a class and a character can take levels in it.
+       *
+       * An `advanced` free-text box used to sit beside these two. It was read by
+       * nothing, and its shape was wrong besides: the book has you take LEVELS
+       * in an advanced class, with its own ten-level table, so it is another
+       * entry in this list rather than a label hung off a base class.
        */
       classes: new fields.ArrayField(
         new fields.SchemaField({
-          name: new fields.StringField({ initial: "warrior", choices: Object.keys(LASTARC.classes) }),
-          levels: new fields.NumberField({ initial: 1, integer: true, min: 1 }),
-          advanced: new fields.StringField({ initial: "", blank: true, nullable: true })
+          name: new fields.StringField({ initial: "warrior" }),
+          levels: new fields.NumberField({ initial: 1, integer: true, min: 1 })
         }),
-        { initial: [{ name: "warrior", levels: 1, advanced: null }] }
+        { initial: [{ name: "warrior", levels: 1 }] }
       ),
 
       resources: new fields.SchemaField({
@@ -273,6 +283,18 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
   prepareDerivedData() {
     const settings = this.#settings();
 
+    /**
+     * Every class this character could be referring to, resolved ONCE.
+     *
+     * Four separate consumers below ask what a class is worth — HP, MP, the
+     * defence bonuses, the trained-skill allowance and the initiative die — and
+     * each used to reach into `LASTARC.classes` on its own. That is what capped
+     * the game at six classes. Built here rather than per consumer because it
+     * walks the world's item list, and doing that five times per prepare, per
+     * actor, is a cost nobody asked for.
+     */
+    const classes = this.#classCatalogue();
+
     // 1. Attribute modifiers ------------------------------------------------
     for (const key of Object.keys(LASTARC.attributes)) {
       const attr = this.attributes[key];
@@ -310,7 +332,7 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     // Intelligence, and the count derives from the items actually on the actor.
     // Neither may be bound to an input — see the class docstring.
     this.study = this.#studyLimits();
-    this.trainedSkills = this.#trainedSkillLimits(grants);
+    this.trainedSkills = this.#trainedSkillLimits(grants, classes);
 
     /**
      * Rerolls this character's traits offer (#48). Read-only, derived from the
@@ -351,7 +373,8 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     // 6. Class bonuses ------------------------------------------------------
     let classBonus;
     try {
-      classBonus = D.classDefenceBonuses(this.classes, settings.multiclassRegrantsLevel1Benefits);
+      classBonus = D.classDefenceBonuses(
+        this.classes, settings.multiclassRegrantsLevel1Benefits, classes);
     } catch (err) {
       console.warn(`Last Arc | ${this.parent?.name}: ${err.message}`);
       classBonus = { ref: 0, fort: 0, will: 0 };
@@ -476,8 +499,8 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
 
     // 9. Resources ----------------------------------------------------------
     try {
-      this.resources.hp.max = D.hpMax(this.classes, this.attributes.vit.mod);
-      this.resources.mp.max = D.mpMax(this.classes, this.attributes.mnd.mod);
+      this.resources.hp.max = D.hpMax(this.classes, this.attributes.vit.mod, classes);
+      this.resources.mp.max = D.mpMax(this.classes, this.attributes.mnd.mod, classes);
     } catch (err) {
       console.warn(`Last Arc | ${this.parent?.name}: ${err.message}`);
     }
@@ -597,7 +620,7 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     this.#prepareSkills({ level, armour, step, grants });
 
     // 12. Initiative --------------------------------------------------------
-    this.initiative.effectiveDie = this.#initiativeDie(grants.initiativeSteps);
+    this.initiative.effectiveDie = this.#initiativeDie(grants.initiativeSteps, classes);
 
     // 13. Effective damage modifiers ----------------------------------------
     // Agony strips resistances and immunities and adds universal weakness, so
@@ -675,10 +698,29 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
    * Both the manual field and technick grants contribute; the technick is
    * repeatable, so multiple copies stack.
    */
-  #initiativeDie(grantedSteps = 0) {
-    const base = this.classes.length
-      ? (LASTARC.classes[this.classes[0].name]?.initDie ?? "d10")
-      : "d10";
+  /**
+   * Classes a GM has authored, over the six the system ships.
+   *
+   * `game.items` is guarded because actors prepare during world load and the
+   * collection is not reliably there yet on the first pass; a missing world
+   * list degrades to the shipped table rather than throwing, and the next
+   * prepare picks the authored classes up.
+   */
+  #classCatalogue() {
+    const owned = (this.parent?.items ?? []).filter((i) => i.type === "class");
+    const world = globalThis.game?.items?.filter?.((i) => i.type === "class") ?? [];
+    return buildClassCatalogue({ owned, world });
+  }
+
+  #initiativeDie(grantedSteps = 0, catalogue) {
+    /**
+     * From the FIRST class, which is always a base class — no advanced class in
+     * the book prints an initiative die, because you never start in one. A
+     * character who has one first is malformed data, and falls through to the
+     * default rather than borrowing whatever the class item happened to store.
+     */
+    const first = this.classes.length ? resolveClass(this.classes[0].name, catalogue) : null;
+    const base = (first && !first.isAdvanced ? first.initDie : null) ?? "d10";
     try {
       return D.improvedInitiativeDie(base, this.initiative.bonusSteps + grantedSteps);
     } catch {
@@ -786,7 +828,7 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
    * are choices from the same pool. If that reading is wrong the number is
    * visibly wrong, which is the point of showing it.
    */
-  #trainedSkillLimits(grants = {}) {
+  #trainedSkillLimits(grants = {}, catalogue) {
     /**
      * A skill a technick TRAINED counts as known, and raises the allowance by
      * the same one (issue #43).
@@ -813,7 +855,8 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
 
     let max = null;
     try {
-      max = D.trainedSkillCount(this.classes?.[0]?.name, this.attributes.int.mod, halfElf)
+      max = D.trainedSkillCount(
+        this.classes?.[0]?.name, this.attributes.int.mod, halfElf, catalogue)
         + grantedKeys.length;
     } catch {
       // No class chosen yet, or one whose table entry is unset. Showing nothing

@@ -35,6 +35,7 @@ import {
 } from "./effect-panel.mjs";
 import { situationalOptions } from "../dice/situational.mjs";
 import * as ROWS from "../sheet-rows.mjs";
+import * as CLASSES from "../class-source.mjs";
 import { applyHealing } from "../dice/healing.mjs";
 import * as CONS from "../consumables.mjs";
 import { useConsumable } from "../dice/consume.mjs";
@@ -234,8 +235,17 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
     context.defenceRows = ROWS.defenceRows(sys, src);
 
-    context.classOptions = Object.entries(LASTARC.classes)
-      .map(([k, c]) => ({ value: k, label: c.label }));
+    /**
+     * Every class the world defines, not just the six that ship — see
+     * `class-source.mjs`. Advanced classes sort last and carry a marker rather
+     * than being hidden: a GM whose party is nowhere near level 8 still wants
+     * to see what is coming, and the prerequisite belongs to the character
+     * rather than to the option.
+     */
+    context.classOptions = CLASSES.classOptions(CLASSES.buildClassCatalogue({
+      owned: this.document.items.filter((i) => i.type === "class"),
+      world: globalThis.game?.items?.filter?.((i) => i.type === "class") ?? []
+    }));
 
     // `isFirst` drives the label — entry 0 grants the level-1 HP/MP values and,
     // by default, the only set of class defence bonuses, so it is not
@@ -1339,7 +1349,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
   static async #onAddClass(event, target) {
     const current = this.document.system.classes.map((c) => ({ ...c }));
     await this.document.update({
-      "system.classes": [...current, { name: "warrior", levels: 1, advanced: null }]
+      "system.classes": [...current, { name: "warrior", levels: 1 }]
     });
   }
 

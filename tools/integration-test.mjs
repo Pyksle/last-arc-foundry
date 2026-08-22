@@ -27,7 +27,16 @@ const URL_BASE = arg("url") ?? process.env.FOUNDRY_URL ?? "http://localhost:3000
 const USER = arg("user") ?? process.env.FOUNDRY_USER ?? "Gamemaster";
 const PASSWORD = arg("password") ?? process.env.FOUNDRY_PASSWORD ?? "";
 const HEADED = process.argv.includes("--headed");
-const TIMEOUT = Number(arg("timeout") ?? 180_000);
+/**
+ * The whole Quench run, not one test.
+ *
+ * 180s was the original budget and the suite reached 159s of it, which is not
+ * headroom — a slower machine, or one flaky combat test retrying, times the run
+ * out and reports "Quench timed out" with zero results, which reads exactly
+ * like a system that fails to load. Raised with room to grow; a real hang still
+ * ends the run, just not a merely slow one.
+ */
+const TIMEOUT = Number(arg("timeout") ?? 300_000);
 
 let chromium;
 try {

@@ -104,7 +104,11 @@ describe("§43 a granted skill counts, and pays for itself", () => {
   });
 
   test("the limits are computed after grants are available", () => {
-    assert.match(model, /#trainedSkillLimits\(grants\)/,
+    // `grants` FIRST, with anything allowed after it — the helper also takes
+    // the resolved class catalogue now. Pinning the whole argument list would
+    // make this guard fail every time an unrelated input is threaded through,
+    // which teaches the next person to loosen it rather than read it.
+    assert.match(model, /#trainedSkillLimits\(grants[,)]/,
       "called without grants, it cannot see granted training at all");
   });
 });

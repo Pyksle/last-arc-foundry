@@ -10,6 +10,7 @@
  */
 
 import { LASTARC } from "./config.mjs";
+import { buildClassCatalogue, resolveClass } from "./class-source.mjs";
 
 /* -------------------------------------------------------------------------- */
 /*  Rounding (§1)                                                              */
@@ -382,21 +383,31 @@ export function breakThreshold({ fort = 10, size = "medium", technicks = 0, item
  * @param {number} attrMod  Vit for HP, Mnd for MP.
  * @param {"hp"|"mp"} kind
  */
-export function resourceMax(classes, attrMod, kind = "hp") {
+export function resourceMax(classes, attrMod, kind = "hp", catalogue) {
   if (!classes?.length) return 0;
+  const map = catalogue ?? buildClassCatalogue();
 
-  const first = LASTARC.classes[classes[0].name];
-  if (!first) throw new Error(`Unknown class: ${classes[0].name}`);
-
-  const baseKey = kind === "hp" ? "hp1" : "mp1";
+  const firstKey = kind === "hp" ? "hpFirst" : "mpFirst";
   const perKey = kind === "hp" ? "hpPer" : "mpPer";
 
-  // Level 1 of the first class.
-  let total = first[baseKey] + attrMod;
+  const first = resolveClass(classes[0].name, map);
+  if (!first) throw new Error(`Unknown class: ${classes[0].name}`);
+
+  /**
+   * Level 1 of the first class.
+   *
+   * An ADVANCED class has no level-1 value: the book's earliest entry for one
+   * is character level 8, so it can never legitimately be first. A class item
+   * still carries the field — the schema gives it a default like any other — so
+   * reading it would hand out a base class's opening hit points for a class
+   * that has none. Fall back to the per-level value instead, which is the
+   * number that entry is actually entitled to, and which is never NaN.
+   */
+  let total = (first.isAdvanced ? first[perKey] : first[firstKey]) + attrMod;
 
   // Every subsequent level, charged to whichever class granted it.
   for (const [i, entry] of classes.entries()) {
-    const cls = LASTARC.classes[entry.name];
+    const cls = resolveClass(entry.name, map);
     if (!cls) throw new Error(`Unknown class: ${entry.name}`);
     const levelsAfterFirst = i === 0 ? entry.levels - 1 : entry.levels;
     total += levelsAfterFirst * (cls[perKey] + attrMod);
@@ -405,8 +416,8 @@ export function resourceMax(classes, attrMod, kind = "hp") {
   return Math.max(0, total);
 }
 
-export const hpMax = (classes, vitMod) => resourceMax(classes, vitMod, "hp");
-export const mpMax = (classes, mndMod) => resourceMax(classes, mndMod, "mp");
+export const hpMax = (classes, vitMod, catalogue) => resourceMax(classes, vitMod, "hp", catalogue);
+export const mpMax = (classes, mndMod, catalogue) => resourceMax(classes, mndMod, "mp", catalogue);
 
 /**
  * Class defence bonuses, granted once at class level 1 (§4.3).
@@ -414,16 +425,31 @@ export const mpMax = (classes, mndMod) => resourceMax(classes, mndMod, "mp");
  * §15 A9: §4.3 and A5 disagree about whether a second class re-grants these.
  * `regrantOnMulticlass` exposes the choice; default false is A5's reading.
  */
-export function classDefenceBonuses(classes, regrantOnMulticlass = false) {
+export function classDefenceBonuses(classes, regrantOnMulticlass = false, catalogue) {
   const out = { ref: 0, fort: 0, will: 0 };
   if (!classes?.length) return out;
-  const sources = regrantOnMulticlass ? classes : classes.slice(0, 1);
-  for (const entry of sources) {
-    const cls = LASTARC.classes[entry.name];
+  const map = catalogue ?? buildClassCatalogue();
+
+  for (const [i, entry] of classes.entries()) {
+    const cls = resolveClass(entry.name, map);
     if (!cls) throw new Error(`Unknown class: ${entry.name}`);
-    out.ref += cls.ref;
-    out.fort += cls.fort;
-    out.will += cls.will;
+
+    /**
+     * An ADVANCED class grants its bonus unconditionally.
+     *
+     * The A5 reading behind `regrantOnMulticlass` is about a SECOND BASE class
+     * — whether picking up a level of mage entitles a warrior to a second set
+     * of level-1 benefits. An advanced class is not that argument: every one of
+     * them states its own bonus at its own 1st level, and it is the only
+     * defence bonus that class will ever give. Gating it on the multiclass
+     * setting would mean a GM who reads A5 the strict way gets advanced classes
+     * that silently grant nothing at all.
+     */
+    if (i === 0 || cls.isAdvanced || regrantOnMulticlass) {
+      out.ref += cls.defences.ref;
+      out.fort += cls.defences.fort;
+      out.will += cls.defences.will;
+    }
   }
   return out;
 }
@@ -668,8 +694,8 @@ export function knownPerformanceLimit(bardicStudyTakings = 0, intMod = 0) {
  * true once the class tables were read in. The stale claim outlived the
  * limitation and read exactly like a live constraint (issue #34).
  */
-export function trainedSkillCount(className, intMod = 0, halfElf = false) {
-  const cls = LASTARC.classes[className];
+export function trainedSkillCount(className, intMod = 0, halfElf = false, catalogue) {
+  const cls = resolveClass(className, catalogue ?? buildClassCatalogue());
   if (!cls) throw new Error(`Unknown class: ${className}`);
   if (cls.trainedSkills === null) {
     throw new Error(

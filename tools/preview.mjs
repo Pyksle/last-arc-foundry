@@ -323,7 +323,7 @@ export function buildContext() {
     },
     defenceRows: ROWS.defenceRows(sysForRows, sourceForRows),
     classes: classes.map((c, index) => ({
-      ...c, advanced: "", index, isFirst: index === 0, isOnly: classes.length === 1
+      ...c, index, isFirst: index === 0, isOnly: classes.length === 1
     })),
 
     // A usable weapon and one that is too large, so the disabled/unusable state
