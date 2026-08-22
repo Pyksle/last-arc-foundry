@@ -503,6 +503,20 @@ LASTARC.technickFlags = [
    * and would be wrong in between. Counted, not merely tested for — both are
    * explicitly repeatable.
    */
+  /**
+   * Beast Shape (Druid): the talent that lets a character learn beast forms.
+   *
+   * A flag rather than a `grants` entry because it grants no NUMBER — it turns
+   * a whole panel on. Without it the Beast Forms panel appears only once a
+   * druid already has a form, and the only way to get the first one is to drop
+   * a beast on that panel: a feature reachable only by characters who have
+   * already used it, which is the defect this project keeps producing.
+   *
+   * The allowance it carries (1 + Int modifier forms) is derived rather than
+   * granted, for the same reason as the two study technicks below: the number
+   * moves when Intelligence does, and a flat grant would be wrong in between.
+   */
+  "beastShape",
   "arcaneStudy",          // +1+Int spells known per taking (minimum 1)
   "bardicStudy"           // +1+Int performances known per taking (minimum 1)
 ];
@@ -1323,6 +1337,10 @@ LASTARC.sheetSections = {
     { id: "attacks", label: "LASTARC.Section.Attacks" },
     { id: "spells", label: "LASTARC.Section.Spells" },
     { id: "performances", label: "LASTARC.Section.Performances" },
+    // Beside the other things a character activates, and before the traits that
+    // grant them. Rendered only for a druid who has learned a form or is
+    // wearing one — like `actions`, which is absent outside combat.
+    { id: "beastforms", label: "LASTARC.Section.BeastForms" },
     { id: "technicks", label: "LASTARC.Section.Technicks" },
     { id: "features", label: "LASTARC.Section.Features" },
     { id: "inventory", label: "LASTARC.Section.Inventory" },

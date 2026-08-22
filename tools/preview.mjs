@@ -475,6 +475,26 @@ export function buildContext() {
     // Race-granted senses, shown beside the character's own box (#65). Set so
     // the offline render exercises the branch rather than proving nothing.
     raceSenses: "ZZ low-light vision",
+    /**
+     * Beast Shape, with a form ACTIVE — the panel has two states and the one
+     * that only appears mid-encounter is the one nobody would otherwise look
+     * at. `show` is true here so the section renders at all; a real character
+     * with no forms does not draw it.
+     */
+    beastShape: {
+      show: true,
+      allowance: 3,
+      known: 2,
+      over: false,
+      active: { uuid: "Actor.zz1", name: "ZZ prowler", bonus: 3,
+                duration: 7, expiresRound: 4 },
+      forms: [
+        { uuid: "Actor.zz1", name: "ZZ prowler", img: "icons/svg/mystery-man.svg",
+          index: 0, level: 4, maxHp: 30, maxMp: 6, cost: 8, isActive: true },
+        { uuid: "Actor.zz2", name: "ZZ skitterer", img: "icons/svg/mystery-man.svg",
+          index: 1, level: 1, maxHp: 8, maxMp: 0, cost: 2, isActive: false }
+      ]
+    },
     movementInput: { fly: 0, hover: false },
     secondWindPips: ROWS.secondWindPips(sysForRows, format),
     /**

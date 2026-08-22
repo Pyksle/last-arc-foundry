@@ -216,6 +216,45 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
         bonusSteps: new fields.NumberField({ initial: 0, integer: true, min: 0 })
       }),
 
+      /**
+       * Beast Shape (Druid).
+       *
+       * `forms` are the shapes this druid has learned — each a pointer to a
+       * beast ACTOR plus a cache of the numbers the arithmetic needs. The
+       * pointer is the identity; the cache exists because the actor can be
+       * deleted or unavailable exactly when a card needs drawing, and it is
+       * refreshed from the live actor on every transform so it cannot rot.
+       *
+       * `active` is the form in play. It carries its own copy of the beast's
+       * maxima rather than reading them back off the form entry, because the
+       * revert cost must be the maximum that was ADDED — a GM who edits the
+       * beast mid-encounter would otherwise refund a different number from the
+       * one that was granted, and the druid would gain or lose hit points from
+       * a bookkeeping edit.
+       */
+      beastShape: new fields.SchemaField({
+        forms: new fields.ArrayField(
+          new fields.SchemaField({
+            uuid: new fields.StringField({ initial: "" }),
+            name: new fields.StringField({ initial: "" }),
+            img: new fields.StringField({ initial: "" }),
+            level: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
+            maxHp: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
+            maxMp: new fields.NumberField({ initial: 0, integer: true, min: 0 })
+          }),
+          { initial: [] }
+        ),
+        active: new fields.SchemaField({
+          uuid: new fields.StringField({ initial: "", blank: true }),
+          name: new fields.StringField({ initial: "", blank: true }),
+          bonus: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
+          duration: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
+          expiresRound: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
+          beastMaxHp: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
+          beastMaxMp: new fields.NumberField({ initial: 0, integer: true, min: 0 })
+        })
+      }),
+
       bulk: new fields.SchemaField({
         // DERIVED, not authored — recomputed from the inventory on every
         // prepareDerivedData. Persisted only so the field exists for effects to
@@ -504,6 +543,24 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     } catch (err) {
       console.warn(`Last Arc | ${this.parent?.name}: ${err.message}`);
     }
+
+    /**
+     * Beast Shape combines the druid's pools with the beast's.
+     *
+     * DERIVED, from the active form, rather than written onto the maximum when
+     * the druid transforms. `hp.max` is assigned two lines up on every single
+     * prepare, so a stored combined maximum is overwritten before anybody sees
+     * it — the trap in the class docstring, and the reason the ACTIVE FORM is
+     * what gets stored and the maximum is what gets computed.
+     *
+     * Added before the withering and dim multipliers below, so a status that
+     * halves a character's maximum halves the whole pool they are actually
+     * fighting with rather than only the half they brought.
+     */
+    const inForm = this.beastShape.active;
+    this.resources.hp.max += inForm.beastMaxHp;
+    this.resources.mp.max += inForm.beastMaxMp;
+    this.beastShape.inForm = !!inForm.uuid;
 
     // Withering and dim halve the maxima. Multipliers COMPOUND in
     // aggregateStatuses rather than summing — two halvings give a quarter, not
