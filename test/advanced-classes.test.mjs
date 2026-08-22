@@ -163,13 +163,26 @@ describe("a class name resolves to one stat block", () => {
       "a weapon named like a class rewrote the class");
   });
 
+  /**
+   * The early-sorting fixture is the whole test. This asserted that the last
+   * option was the advanced one, using a fixture slugged `zz-advanced` — which
+   * sorts last alphabetically anyway, so the assertion held with the grouping
+   * removed entirely and vouched for nothing. Caught by mutation, not by review.
+   */
   test("the dropdown lists everything, base classes first, advanced marked", () => {
-    const opts = classOptions(buildClassCatalogue({ world: [zzAdvanced] }));
+    const early = { ...zzAdvanced, name: "AAA probe",
+      system: { ...zzAdvanced.system, slug: "aaa-probe" } };
+    const opts = classOptions(buildClassCatalogue({ world: [early, zzAdvanced] }));
     const values = opts.map((o) => o.value);
     assert.ok(values.includes("zz-advanced"), "an authored class was not offered");
-    assert.equal(opts.at(-1).value, "zz-advanced", "advanced classes must sort last");
-    assert.equal(opts.at(-1).isAdvanced, true, "nothing marks it as advanced");
-    assert.ok(opts.slice(0, -1).every((o) => !o.isAdvanced));
+    assert.ok(values.includes("aaa-probe"));
+
+    const firstAdvanced = opts.findIndex((o) => o.isAdvanced);
+    assert.ok(firstAdvanced > 0, "an advanced class was listed before every base class");
+    assert.ok(opts.slice(firstAdvanced).every((o) => o.isAdvanced),
+      "an advanced class was interleaved with the base ones");
+    assert.equal(opts[firstAdvanced].value, "aaa-probe",
+      "the alphabetical tie-break within the advanced group was lost");
   });
 });
 
