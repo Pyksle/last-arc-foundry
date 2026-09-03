@@ -366,6 +366,21 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     const grants = this.#aggregateGrants();
     this.grants = grants;
 
+    /**
+     * Proficiency, ticked plus granted (#75).
+     *
+     * A SEPARATE derived path, never written back into `proficiencies`. Those
+     * three fields are inputs — the checkboxes on the Proficiencies panel — and
+     * `prepareDerivedData` assigning to an input stores the computed value and
+     * shows the reader the old one back. That has shipped twice here already.
+     *
+     * A union rather than a replacement, because both sources are real: a
+     * character may tick Knives themselves AND hold a technick that grants it,
+     * and dropping the technick must not take away the tick.
+     */
+    this.effectiveProficiencies =
+      D.effectiveProficiencies(this.proficiencies, grants.proficiencies);
+
     // 3b. Spells and performances known (issue #33) -------------------------
     // Read-only on both sides: the limit derives from the study technicks and
     // Intelligence, and the count derives from the items actually on the actor.
@@ -704,7 +719,11 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
 
   #prepareSkills({ level, armour, step, grants }) {
     const acp = armour?.checkPenalty ?? 0;
-    const proficient = !armour?.type || this.proficiencies.armour.includes(armour.type);
+    // Granted armour proficiency counts here too (#75) — a technick that makes
+    // you proficient in heavy armour must also stop that armour penalising the
+    // skills it covers, or half the technick silently does nothing.
+    const proficient = !armour?.type
+      || this.effectiveProficiencies.armour.includes(armour.type);
 
     for (const [key, cfg] of Object.entries(LASTARC.allSkills)) {
       const skill = this.skills[key];

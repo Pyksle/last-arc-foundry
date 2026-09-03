@@ -61,11 +61,45 @@ function choiceArrays() {
     if (!file.endsWith(".mjs")) continue;
     const src = read(`module/data/${file}`);
 
+    /**
+     * The same mount-point machinery `rowFields` needs, and for the same reason.
+     *
+     * `grantsSchema()` is a free function declared BEFORE the classes, so a
+     * line-based walk attributed everything inside it to whichever class
+     * happened to precede it in the file — `LastArcShieldData`, which does not
+     * carry grants at all — and reported the leaf under its bare name with the
+     * `grants.` path thrown away. Both halves of that are wrong, and the wrong
+     * class name is the more dangerous half: the fix it invites is a SECTIONS
+     * entry for a model that does not have the field.
+     *
+     * A helper's leaves are attributed to the HELPER, because one template block
+     * renders it for every type that mounts it — one guard, one entry, rather
+     * than four that must agree.
+     */
+    const mounts = {};
+    for (const [, field, fn] of src.matchAll(/^\s*(\w+):\s*(\w+Schema)\(\)/gm)) {
+      mounts[fn] = field;
+    }
+
     let cls = "?";
+    let helper = null;
+    const stack = [];
     const lines = src.split("\n");
     for (let i = 0; i < lines.length; i++) {
       const c = lines[i].match(/^export class (\w+)/);
-      if (c) cls = c[1];
+      if (c) { cls = c[1]; helper = null; stack.length = 0; }
+
+      const fn = lines[i].match(/^function (\w+Schema)\(/);
+      if (fn) { helper = mounts[fn[1]] ? fn[1] : null; stack.length = 0; }
+
+      // Enclosing SchemaFields, so the leaf reports its full path.
+      const sf = lines[i].match(/^(\s*)(\w+):\s*new fields\.SchemaField\(\{\s*$/);
+      if (sf) {
+        const depth = sf[1].length;
+        while (stack.length && stack[stack.length - 1].depth >= depth) stack.pop();
+        stack.push({ name: sf[2], depth });
+        continue;
+      }
 
       const m = lines[i].match(/^\s*(\w+):\s*new fields\.ArrayField\(\s*(.*)$/);
       if (!m) continue;
@@ -92,7 +126,15 @@ function choiceArrays() {
       }
       if (!/^new fields\.StringField\(\{[^}]*choices:/.test(element)) continue;
 
-      out.push({ file, cls, field: m[1] });
+      const depth = lines[i].match(/^(\s*)/)[1].length;
+      while (stack.length && stack[stack.length - 1].depth >= depth) stack.pop();
+      const path = [
+        helper ? mounts[helper] : null,
+        ...stack.map((e) => e.name),
+        m[1]
+      ].filter(Boolean).join(".");
+
+      out.push({ file, cls: helper ?? cls, field: path });
     }
   }
   return out;
@@ -122,7 +164,13 @@ const SECTIONS = {
    * `hasFlags` rather than `isTechnick` — a racial has no prerequisites block,
    * so the two questions are deliberately different.
    */
-  LastArcFeatureData: ["hasFlags"]
+  LastArcFeatureData: ["hasFlags"],
+  /**
+   * `grantsSchema()` is mounted by four subtypes and rendered by ONE template
+   * block, gated on `hasGrants`. Attributing its leaves to the helper rather
+   * than to each mounting class is what keeps that one guard one entry.
+   */
+  grantsSchema: ["hasGrants"]
 };
 
 /** Text of every `{{#if <guard>}}…{{/if}}`, brace-matched rather than greedy. */

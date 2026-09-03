@@ -49,6 +49,11 @@ const SOLE_PAYLOADS = {
   mp: { mp: 3 },
   dr: { dr: 1 },
   recoveryMinorActions: { recoveryMinorActions: 2 },
+  // #75 — a proficiency adds no number and is very much a payload: an
+  // inert-looking Weapon Proficiency technick is the complaint that produced it.
+  "proficiencies.weapons": { proficiencies: { weapons: ["knives"] } },
+  "proficiencies.armour": { proficiencies: { armour: ["heavy"] } },
+  "proficiencies.shields": { proficiencies: { shields: true } },
   "skills.focus": { skills: [{ key: "athletics", focus: 1 }] },
   "skills.bonus": { skills: [{ key: "athletics", bonus: 2 }] },
   "skills.trained": { skills: [{ key: "athletics", trained: true }] },

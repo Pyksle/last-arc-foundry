@@ -204,12 +204,17 @@
     <h3 class="la-prof__title">{{localize "LASTARC.Field.WeaponProficiency"}}</h3>
     <div class="la-prof">
       {{#each weaponProficiencies}}
-        <button type="button" class="la-prof__box {{#if this.active}}is-active{{/if}}"
+        {{!-- A granted tick says so. A box that turns itself on and refuses to
+              turn off is indistinguishable from a bug unless it names who did
+              it — the same answer `grantedTrained` gives for a skill. --}}
+        <button type="button" class="la-prof__box {{#if this.active}}is-active{{/if}}
+                       {{#if this.granted}}is-granted{{/if}}"
                 role="checkbox" aria-checked="{{#if this.active}}true{{else}}false{{/if}}"
                 data-action="toggleProficiency" data-prof="weapons" data-key="{{this.key}}"
-                data-edits="proficiencies.weapons">
+                data-edits="proficiencies.weapons"
+                {{#if this.granted}}data-tooltip="{{localize 'LASTARC.Note.ProficiencyGranted'}}"{{/if}}>
           <span class="la-prof__tick">{{#if this.active}}✓{{else}}·{{/if}}</span>
-          {{localize this.label}}
+          {{localize this.label}}{{#if this.granted}} ◈{{/if}}
         </button>
       {{/each}}
     </div>
@@ -217,22 +222,25 @@
     <h3 class="la-prof__title">{{localize "LASTARC.Field.ArmourProficiency"}}</h3>
     <div class="la-prof">
       {{#each armourProficiencies}}
-        <button type="button" class="la-prof__box {{#if this.active}}is-active{{/if}}"
+        <button type="button" class="la-prof__box {{#if this.active}}is-active{{/if}}
+                       {{#if this.granted}}is-granted{{/if}}"
                 role="checkbox" aria-checked="{{#if this.active}}true{{else}}false{{/if}}"
                 data-action="toggleProficiency" data-prof="armour" data-key="{{this.key}}"
-                data-edits="proficiencies.armour">
+                data-edits="proficiencies.armour"
+                {{#if this.granted}}data-tooltip="{{localize 'LASTARC.Note.ProficiencyGranted'}}"{{/if}}>
           <span class="la-prof__tick">{{#if this.active}}✓{{else}}·{{/if}}</span>
-          {{localize this.label}}
+          {{localize this.label}}{{#if this.granted}} ◈{{/if}}
         </button>
       {{/each}}
       <button type="button"
-              class="la-prof__box {{#if system.proficiencies.shields}}is-active{{/if}}"
+              class="la-prof__box {{#if system.effectiveProficiencies.shields}}is-active{{/if}}
+                     {{#if shieldProficiencyGranted}}is-granted{{/if}}"
               role="checkbox"
-              aria-checked="{{#if system.proficiencies.shields}}true{{else}}false{{/if}}"
+              aria-checked="{{#if system.effectiveProficiencies.shields}}true{{else}}false{{/if}}"
               data-action="toggleProficiency" data-prof="shields" data-edits="proficiencies.shields"
-              data-tooltip="{{localize 'LASTARC.Tooltip.ShieldProficiency'}}">
-        <span class="la-prof__tick">{{#if system.proficiencies.shields}}✓{{else}}·{{/if}}</span>
-        {{localize "LASTARC.Field.ShieldProficiency"}}
+              data-tooltip="{{#if shieldProficiencyGranted}}{{localize 'LASTARC.Note.ProficiencyGranted'}}{{else}}{{localize 'LASTARC.Tooltip.ShieldProficiency'}}{{/if}}">
+        <span class="la-prof__tick">{{#if system.effectiveProficiencies.shields}}✓{{else}}·{{/if}}</span>
+        {{localize "LASTARC.Field.ShieldProficiency"}}{{#if shieldProficiencyGranted}} ◈{{/if}}
       </button>
     </div>
   </section>

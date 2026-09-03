@@ -222,6 +222,14 @@ export function buildContext() {
     details: { level },
     breakGauge: { penalty: D.breakPenaltyOrZero(breakStep), step: breakStep, persistentSteps },
     proficiencies: { weapons: LASTARC.weaponCategories.slice(0, 3), armour: ["light"] },
+    /**
+     * The derived union (#75), with a GRANTED shield proficiency the ticks do
+     * not carry — the preview's job is to show the state a fixture of plain
+     * ticks cannot reach.
+     */
+    effectiveProficiencies: {
+      weapons: LASTARC.weaponCategories.slice(0, 4), armour: ["light", "medium"], shields: true
+    },
     attributes: attrs,
     skills: Object.fromEntries([...skills, ...weaponSkills].map((s) => [s.key, s])),
     defences: Object.fromEntries(LASTARC.opposableDefences.map((key) => [key, {
@@ -573,6 +581,22 @@ export function itemContext(type) {
      * a fixture where every row sits on its default would render identically
      * whether or not the selected-option branch worked.
      */
+    /**
+     * Granted proficiencies (#75), with one of each ALREADY TICKED — a fixture
+     * where every box is empty renders identically whether or not the selected
+     * branch works.
+     */
+    /**
+     * Built by the real row builder, with one of each ALREADY TICKED — a
+     * fixture where every box is empty renders identically whether or not the
+     * selected branch works. Labels stay as LASTARC keys, because that is what
+     * the template localises.
+     */
+    ...ROWS.grantProficiencyRows({
+      weapons: [LASTARC.weaponCategories[0]],
+      armour: [Object.keys(LASTARC.armourTypes)[0]],
+      shields: true
+    }),
     defenceAttributeRows: Object.entries(LASTARC.defenceAttributes)
       .map(([slot, fallback]) => ({
         slot,

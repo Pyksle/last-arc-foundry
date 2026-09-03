@@ -758,6 +758,15 @@ export function aggregateGrants(grantsList = []) {
      */
     defenceAttribute: { ref: [], fort: [], will: [] },
     /**
+     * Proficiencies conferred by traits (#75), as a UNION rather than a count.
+     *
+     * Proficiency is a yes-or-no per category, so two technicks naming knives
+     * make a character no more proficient than one does — and a character who
+     * loses one of them keeps the other's. A list of distinct keys is the only
+     * shape that survives both.
+     */
+    proficiencies: { weapons: [], armour: [], shields: false },
+    /**
      * Rerolls granted by technicks, talents and races (#48).
      *
      * Kept as a LIST rather than summed, because each entry has to name its
@@ -776,6 +785,13 @@ export function aggregateGrants(grantsList = []) {
 
   for (const g of grantsList) {
     if (!g) continue;
+
+    for (const kind of ["weapons", "armour"]) {
+      for (const key of g.proficiencies?.[kind] ?? []) {
+        if (!out.proficiencies[kind].includes(key)) out.proficiencies[kind].push(key);
+      }
+    }
+    if (g.proficiencies?.shields) out.proficiencies.shields = true;
 
     for (const slot of Object.keys(out.defenceAttribute)) {
       const attr = g.defenceAttribute?.[slot];
@@ -855,6 +871,29 @@ export function resolveDefenceSubstitutes(offers = {}, mods = {}) {
 }
 
 /**
+ * Proficiency a character actually has: what they ticked, plus what traits give
+ * them (#75).
+ *
+ * A UNION, not a replacement. Both sources are real — a character may tick
+ * Knives themselves AND hold a technick that grants it, and dropping the
+ * technick must not take away the tick they set. Shields is the same question
+ * asked of a boolean.
+ *
+ * Pure, and here rather than inline in the character model, because the three
+ * kinds are the same operation three times and an inline copy is three chances
+ * to get one of them wrong in a way nothing can see. That is not hypothetical:
+ * the first version of this dropped granted ARMOUR proficiency and every test
+ * stayed green, because the guard was reading the weapons line.
+ */
+export function effectiveProficiencies(ticked = {}, granted = {}) {
+  return {
+    weapons: [...new Set([...(ticked.weapons ?? []), ...(granted.weapons ?? [])])],
+    armour: [...new Set([...(ticked.armour ?? []), ...(granted.armour ?? [])])],
+    shields: !!(ticked.shields || granted.shields)
+  };
+}
+
+/**
  * Does a `grants` block carry any payload at all?
  *
  * Asked by the item sheet so a purely behavioural trait — one that works
@@ -884,6 +923,11 @@ export function hasGrantPayload(grants) {
   // a payload — without this the Grants panel would tell the reader the block
   // is empty on purpose while a technick was rewriting their Reflex.
   if (Object.values(grants.defenceAttribute ?? {}).some((a) => a)) return true;
+  // Nor does a proficiency (#75), and the same reasoning applies twice over:
+  // an inert-looking Weapon Proficiency technick is exactly the complaint that
+  // produced the field.
+  const prof = grants.proficiencies ?? {};
+  if (prof.shields || (prof.weapons ?? []).length || (prof.armour ?? []).length) return true;
   if (grants.breakThreshold || grants.heroPoints || grants.initiativeSteps) return true;
   if (grants.speed || grants.secondWindUses) return true;
   if (grants.hp || grants.mp || grants.dr) return true;

@@ -1033,5 +1033,10 @@
   "LASTARC.BeastShape.UnconsciousNote": "Reduced to 0 HP by returning. Unconscious, not dead.",
   "LASTARC.BeastShape.AlreadyKnown": "{name} is already one of your forms.",
   "LASTARC.BeastShape.AlreadyShifted": "Already in a beast form. Revert first.",
-  "LASTARC.BeastShape.NotABeast": "Only an NPC can be learned as a beast form."
+  "LASTARC.BeastShape.NotABeast": "Only an NPC can be learned as a beast form.",
+  "LASTARC.Field.GrantsWeaponProficiency": "Grants weapon proficiency",
+  "LASTARC.Field.GrantsArmourProficiency": "Grants armour proficiency",
+  "LASTARC.Field.GrantsShieldProficiency": "Grants shield proficiency",
+  "LASTARC.Tooltip.GrantsProficiency": "Proficiencies a character gains from this trait. Record Weapon Proficiency here and the −5 for a weapon they are not proficient with stops applying, without anybody also having to tick the box on the character sheet.",
+  "LASTARC.Note.ProficiencyGranted": "Granted by a trait — untick it there, not here."
 }

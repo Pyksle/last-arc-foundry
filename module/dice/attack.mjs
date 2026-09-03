@@ -399,7 +399,10 @@ export function weaponProfileFor(actor, weapon, { isThrown = false } = {}) {
     strMod: sys.attributes.str.mod,
     agiMod: sys.attributes.agi.mod,
     skills: sys.skills,
-    proficientCategories: sys.proficiencies?.weapons ?? [],
+    // Ticked plus granted (#75). Falls back to the raw ticks for an actor whose
+    // model does not derive the union — an NPC has neither, and reads as [].
+    proficientCategories:
+      sys.effectiveProficiencies?.weapons ?? sys.proficiencies?.weapons ?? [],
     category: weapon.system.category,
     weaponSize: weapon.system.size,
     atkBonus: weapon.system.atkBonus ?? 0,
