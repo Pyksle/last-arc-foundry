@@ -282,6 +282,27 @@ function grantsSchema() {
         })
       ])
     )),
+    /**
+     * Proficiencies this trait confers (#75).
+     *
+     * Weapon Proficiency is a TECHNICK — a player writes it down as an item and
+     * expects it to work. It could not: proficiency lived only in the tick
+     * boxes on the character sheet, so the technick was inert and the character
+     * kept taking the −5 for a weapon they were trained in, with nothing on
+     * either sheet connecting the two. The item existed and was wired to
+     * nothing, which is this repository's oldest defect.
+     *
+     * All three together, because Block reads shield proficiency exactly as the
+     * attack pipeline reads weapon proficiency, and a trait that grants one
+     * kind and not the others would just move the gap.
+     */
+    proficiencies: new fields.SchemaField({
+      weapons: new fields.ArrayField(
+        new fields.StringField({ choices: LASTARC.weaponCategories }), { initial: [] }),
+      armour: new fields.ArrayField(
+        new fields.StringField({ choices: Object.keys(LASTARC.armourTypes) }), { initial: [] }),
+      shields: new fields.BooleanField({ initial: false })
+    }),
     breakThreshold: new fields.NumberField({ initial: 0, integer: true }),
     heroPoints: new fields.NumberField({ initial: 0, integer: true }),
     /** Improved Initiative: steps the die DOWN the ladder, since lowest acts first. */

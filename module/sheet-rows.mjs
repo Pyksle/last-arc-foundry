@@ -43,16 +43,54 @@ export const identityLocalize = (key) => key;
 export function proficiencyRows(sys) {
   const weapons = sys.proficiencies?.weapons ?? [];
   const armour = sys.proficiencies?.armour ?? [];
+  /**
+   * A granted proficiency is shown as ACTIVE and marked as granted (#75).
+   *
+   * Marked rather than silently ticked: a box that turns itself on and cannot
+   * be turned off is indistinguishable from a bug unless it says who did it.
+   * The same answer `grantedTrained` gives for a skill Skill Training trained.
+   */
+  const gw = sys.grants?.proficiencies?.weapons ?? [];
+  const ga = sys.grants?.proficiencies?.armour ?? [];
   return {
     weaponProficiencies: LASTARC.weaponCategories.map((key) => ({
       key,
       label: `LASTARC.WeaponCategory.${key}`,
-      active: weapons.includes(key)
+      active: weapons.includes(key) || gw.includes(key),
+      granted: gw.includes(key) && !weapons.includes(key)
     })),
     armourProficiencies: Object.keys(LASTARC.armourTypes).map((key) => ({
       key,
       label: `LASTARC.ArmourType.${key}`,
-      active: armour.includes(key)
+      active: armour.includes(key) || ga.includes(key),
+      granted: ga.includes(key) && !armour.includes(key)
+    })),
+    shieldProficiencyGranted:
+      !!sys.grants?.proficiencies?.shields && !sys.proficiencies?.shields
+  };
+}
+
+/**
+ * The same two closed sets, as a trait's GRANTS rather than a character's ticks
+ * (#75).
+ *
+ * Shares this module with `proficiencyRows` deliberately: the two pickers offer
+ * identical keys and identical labels, and the moment they are built in two
+ * places one of them starts offering a category the other cannot honour.
+ */
+export function grantProficiencyRows(granted = {}) {
+  const weapons = granted.weapons ?? [];
+  const armour = granted.armour ?? [];
+  return {
+    grantWeaponProficiencies: LASTARC.weaponCategories.map((key) => ({
+      key,
+      label: `LASTARC.WeaponCategory.${key}`,
+      selected: weapons.includes(key)
+    })),
+    grantArmourProficiencies: Object.keys(LASTARC.armourTypes).map((key) => ({
+      key,
+      label: `LASTARC.ArmourType.${key}`,
+      selected: armour.includes(key)
     }))
   };
 }

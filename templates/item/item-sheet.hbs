@@ -575,6 +575,43 @@
         </div>
       </div>
 
+      {{!-- Proficiencies this trait confers (#75). Weapon Proficiency is a
+            technick a player writes down and expects to work; before this it
+            was inert, and the character kept taking the −5 for a weapon they
+            were trained in. --}}
+      {{#if grantWeaponProficiencies}}
+        <div class="la-prof-grid"
+             data-tooltip="{{localize 'LASTARC.Tooltip.GrantsProficiency'}}">
+          <h3 class="la-subhead">{{localize "LASTARC.Field.GrantsWeaponProficiency"}}</h3>
+          {{#each grantWeaponProficiencies}}
+            <button type="button" class="la-prof {{#if this.selected}}is-active{{/if}}"
+                    role="switch" aria-checked="{{#if this.selected}}true{{else}}false{{/if}}"
+                    data-action="toggleGrantWeaponProf" data-key="{{this.key}}"
+                    data-edits="grants.proficiencies.weapons">
+              <span class="la-prof__tick">{{#if this.selected}}✓{{else}}·{{/if}}</span>
+              {{localize this.label}}
+            </button>
+          {{/each}}
+
+          <h3 class="la-subhead">{{localize "LASTARC.Field.GrantsArmourProficiency"}}</h3>
+          {{#each grantArmourProficiencies}}
+            <button type="button" class="la-prof {{#if this.selected}}is-active{{/if}}"
+                    role="switch" aria-checked="{{#if this.selected}}true{{else}}false{{/if}}"
+                    data-action="toggleGrantArmourProf" data-key="{{this.key}}"
+                    data-edits="grants.proficiencies.armour">
+              <span class="la-prof__tick">{{#if this.selected}}✓{{else}}·{{/if}}</span>
+              {{localize this.label}}
+            </button>
+          {{/each}}
+
+          <label class="la-check">
+            <input type="checkbox" name="system.grants.proficiencies.shields"
+                   {{#if system.grants.proficiencies.shields}}checked{{/if}}>
+            {{localize "LASTARC.Field.GrantsShieldProficiency"}}
+          </label>
+        </div>
+      {{/if}}
+
       {{!-- Which attribute each defence is calculated from (#69). Blank keeps
             the book's default, and the option NAMES that default so the reader
             does not have to already know which attribute feeds which slot. --}}

@@ -59,7 +59,9 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       addSkillGrant: LastArcItemSheet.#onAddSkillGrant,
       deleteSkillGrant: LastArcItemSheet.#onDeleteSkillGrant,
       toggleDamageType: LastArcItemSheet.#onToggleDamageType,
-      toggleTechnickFlag: LastArcItemSheet.#onToggleTechnickFlag
+      toggleTechnickFlag: LastArcItemSheet.#onToggleTechnickFlag,
+      toggleGrantWeaponProf: LastArcItemSheet.#onToggleGrantWeaponProf,
+      toggleGrantArmourProf: LastArcItemSheet.#onToggleGrantArmourProf
     }
   };
 
@@ -172,6 +174,17 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
           options: Object.keys(LASTARC.attributes)
             .map((value) => ({ value, label: attrLabel(value) }))
         }));
+    }
+
+    /**
+     * Proficiencies this trait confers (#75).
+     *
+     * Checkbox rows rather than a comma box, for the reason the character
+     * sheet's own picker gives: both are closed sets, and asking somebody to
+     * type `bludgeons` correctly to stop losing 5 from every attack is a trap.
+     */
+    if (sys.grants?.proficiencies) {
+      Object.assign(context, ROWS.grantProficiencyRows(sys.grants.proficiencies));
     }
 
     if (sys.grants?.skills) {
@@ -516,5 +529,23 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   static async #onToggleTechnickFlag(event, target) {
     await this.#toggleInArray("flags", target.dataset.key, LASTARC.technickFlags);
+  }
+
+  /**
+   * Two handlers rather than one taking the kind from a data attribute.
+   *
+   * Each names its path as a LITERAL, because that is how the reachability
+   * guard traces a toggle button to the field it writes. A computed path reads
+   * to that guard as a button wired to nothing — which, for its purposes, is
+   * indistinguishable from actually being wired to nothing.
+   */
+  static async #onToggleGrantWeaponProf(event, target) {
+    await this.#toggleInArray(
+      "grants.proficiencies.weapons", target.dataset.key, LASTARC.weaponCategories);
+  }
+
+  static async #onToggleGrantArmourProf(event, target) {
+    await this.#toggleInArray(
+      "grants.proficiencies.armour", target.dataset.key, Object.keys(LASTARC.armourTypes));
   }
 }

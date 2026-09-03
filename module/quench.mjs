@@ -47,6 +47,7 @@ export function registerQuenchBatches() {
     registerDefenceAttributeBatch(quench);
     registerAdvancedClassBatch(quench);
     registerBeastShapeBatch(quench);
+    registerGrantedProficiencyBatch(quench);
   });
 }
 
@@ -4287,5 +4288,187 @@ function registerBeastShapeBatch(quench) {
       });
     },
     { displayName: "Last Arc — Beast Shape" }
+  );
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*  Proficiency a trait confers (#75)                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The unit suite proves the union and the aggregate. What only a live Foundry
+ * can show is the chain the report was actually about: a technick written down
+ * as an ITEM, on a real character, removing the −5 from a real attack roll —
+ * and doing it for all three kinds, since a trait that fixes weapons and
+ * silently misses armour would look fixed to the person who filed it.
+ */
+function registerGrantedProficiencyBatch(quench) {
+  quench.registerBatch(
+    `${SYSTEM_ID}.grantedProficiencies`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      const KNIFE = {
+        name: "ZZ shiv", type: "weapon",
+        system: { category: "knives", size: "small", equipped: true }
+      };
+
+      /** The technick a player writes down and expects to work. */
+      const trait = (proficiencies) => ({
+        name: "ZZ proficiency trait", type: "technick",
+        system: { active: true, grants: { proficiencies } }
+      });
+
+      async function withKnifeWielder(fn) {
+        return withActor({}, async (actor) => {
+          const [weapon] = await actor.createEmbeddedDocuments("Item", [KNIFE]);
+          return fn(actor, weapon);
+        });
+      }
+
+      const penalty = (profile) =>
+        profile.attack.parts.find((p) => p.label === "LASTARC.Mod.nonProficient")?.value ?? 0;
+
+      describe("§ the report: trained in knives, still taking the −5", function () {
+        it("a technick granting the proficiency removes it", async function () {
+          this.timeout(30_000);
+          await withKnifeWielder(async (actor, weapon) => {
+            assert.equal(penalty(ATK.weaponProfileFor(actor, weapon)), -5,
+              "the fixture is not reproducing the reported state");
+
+            await actor.createEmbeddedDocuments("Item", [trait({ weapons: ["knives"] })]);
+
+            assert.equal(penalty(ATK.weaponProfileFor(actor, weapon)), 0,
+              "the technick is still inert — the whole of issue #75");
+          });
+        });
+
+        /**
+         * The switch every conditional technick carries. A suspended trait
+         * grants nothing, and proficiency must not be the one exception —
+         * `#aggregateGrants` skips inactive items and this proves the
+         * proficiency block rides in that same skip.
+         */
+        it("suspending the technick takes the proficiency back", async function () {
+          this.timeout(30_000);
+          await withKnifeWielder(async (actor, weapon) => {
+            const [t] = await actor.createEmbeddedDocuments(
+              "Item", [trait({ weapons: ["knives"] })]);
+            assert.equal(penalty(ATK.weaponProfileFor(actor, weapon)), 0);
+
+            await t.update({ "system.active": false });
+            assert.equal(penalty(ATK.weaponProfileFor(actor, weapon)), -5,
+              "a switched-off technick is still granting proficiency");
+          });
+        });
+
+        /** A tick the player set is theirs, and a trait leaving does not take it. */
+        it("a granted proficiency does not overwrite one the player ticked",
+          async function () {
+            this.timeout(30_000);
+            await withKnifeWielder(async (actor, weapon) => {
+              await actor.update({ "system.proficiencies.weapons": ["knives"] });
+              const [t] = await actor.createEmbeddedDocuments(
+                "Item", [trait({ weapons: ["knives"] })]);
+              await t.delete();
+
+              assert.equal(penalty(ATK.weaponProfileFor(actor, weapon)), 0,
+                "losing the trait took away a proficiency the player set themselves");
+            });
+          });
+      });
+
+      describe("§ the other two kinds", function () {
+        /**
+         * Armour proficiency decides whether the armour check penalty applies
+         * to every skill that carries one. A trait that fixed weapons and
+         * missed this would look fixed to whoever filed the report.
+         */
+        it("granted armour proficiency stops the armour check penalty",
+          async function () {
+            this.timeout(30_000);
+            await withActor({}, async (actor) => {
+              await actor.createEmbeddedDocuments("Item", [{
+                name: "ZZ plate", type: "armour",
+                system: { equipped: true, type: "heavy", checkPenalty: 6 }
+              }]);
+              assert.equal(actor.system.skills.lightWeapon.armourCheckPenalty, 6,
+                "the fixture is not producing a penalty to remove");
+
+              await actor.createEmbeddedDocuments("Item", [trait({ armour: ["heavy"] })]);
+              assert.equal(actor.system.skills.lightWeapon.armourCheckPenalty, 0,
+                "the granted armour proficiency did not reach the skill penalty");
+            });
+          });
+
+        it("granted shield proficiency reaches the Block reaction", async function () {
+          this.timeout(30_000);
+          await withActor({}, async (actor) => {
+            assert.isFalse(actor.system.effectiveProficiencies.shields);
+            await actor.createEmbeddedDocuments("Item", [trait({ shields: true })]);
+            assert.isTrue(actor.system.effectiveProficiencies.shields,
+              "Block still reads this character as non-proficient with a shield");
+          });
+        });
+      });
+
+      describe("§ the pickers", function () {
+        it("the character sheet marks a granted tick as granted", async function () {
+          this.timeout(30_000);
+          await withActor({}, async (actor) => {
+            await actor.createEmbeddedDocuments("Item", [trait({ weapons: ["knives"] })]);
+            await actor.sheet.render(true);
+            await settle();
+            try {
+              const box = actor.sheet.element.querySelector(
+                '[data-action="toggleProficiency"][data-key="knives"]');
+              assert.isNotNull(box, "the knives box is gone from the picker");
+              assert.equal(box.getAttribute("aria-checked"), "true",
+                "a granted proficiency does not read as proficient");
+              assert.isTrue(box.classList.contains("is-granted"),
+                "nothing tells the reader why a box they did not tick is on");
+            } finally {
+              await actor.sheet.close();
+            }
+          });
+        });
+
+        /**
+         * The trait's own picker. The field is an array of fixed choices, and
+         * both fields of that shape in this codebase shipped with no input at
+         * all (issue #32) — so this is the check that it can be SET.
+         */
+        it("the trait sheet can actually set one", async function () {
+          this.timeout(30_000);
+          const item = await Item.create(trait({}));
+          try {
+            await item.sheet.render(true);
+            await settle();
+            const box = item.sheet.element.querySelector(
+              '[data-action="toggleGrantWeaponProf"][data-key="knives"]');
+            assert.isNotNull(box, "a trait has no way to grant weapon proficiency");
+
+            box.click();
+            await settle();
+            assert.include(item.system.grants.proficiencies.weapons, "knives",
+              "the toggle rendered but wrote nothing");
+
+            assert.isNotNull(
+              item.sheet.element.querySelector(
+                '[data-action="toggleGrantArmourProf"][data-key="heavy"]'),
+              "armour proficiency cannot be granted");
+            assert.isNotNull(
+              item.sheet.element.querySelector(
+                'input[name="system.grants.proficiencies.shields"]'),
+              "shield proficiency cannot be granted");
+          } finally {
+            await item.sheet.close();
+            await item.delete();
+          }
+        });
+      });
+    },
+    { displayName: "Last Arc — Granted proficiencies" }
   );
 }

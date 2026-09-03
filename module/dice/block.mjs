@@ -87,6 +87,10 @@ const skillTotal = (actor, key) => D.skillTotalOf(actor.system?.skills, key);
  * as non-proficient would silently dock it 5 and double its repeat-block rate.
  */
 function shieldProficient(actor) {
+  // Ticked plus granted (#75). An NPC has neither and is treated as proficient,
+  // which is the existing rule and not something this change touches.
+  const effective = actor.system?.effectiveProficiencies;
+  if (effective) return !!effective.shields;
   const proficiencies = actor.system?.proficiencies;
   return proficiencies ? !!proficiencies.shields : true;
 }
