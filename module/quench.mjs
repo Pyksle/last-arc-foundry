@@ -4270,6 +4270,51 @@ function registerBeastShapeBatch(quench) {
           });
         });
 
+        /**
+         * A control that renders is not the same as a control you can see.
+         *
+         * Every assertion in this batch queried rows by `data-action`, which is
+         * exactly as true of an element collapsed to nothing — and that is what
+         * happened: the name had `min-width: 0` while nothing else in the row
+         * shrank, so at the sheet's own width the name reached zero and the
+         * Transform button fell off the right-hand edge. Green suite, unusable
+         * panel. Geometry is the only thing that can tell the difference.
+         */
+        it("the row's name and its Transform button have actual size",
+          async function () {
+            this.timeout(30_000);
+            await withBeast(async (beast) => {
+              await withActor(DRUID, async (druid) => {
+                await learnForm(druid, beast);
+                await druid.sheet.render(true, { position: { width: 620 } });
+                await settle();
+                try {
+                  const row = druid.sheet.element.querySelector(".la-beastform");
+                  assert.isNotNull(row, "the form row is gone");
+
+                  for (const [what, sel] of [
+                    ["the form's name", ".la-beastform__name"],
+                    ["the Transform button", '[data-action="beastTransform"]']
+                  ]) {
+                    const box = row.querySelector(sel).getBoundingClientRect();
+                    assert.isAbove(box.width, 8, `${what} has collapsed to nothing`);
+                    assert.isAbove(box.height, 8, `${what} has no height`);
+                  }
+
+                  // …and inside the panel, not spilling past its right edge.
+                  const panel = druid.sheet.element
+                    .querySelector('[data-section="beastforms"]').getBoundingClientRect();
+                  const take = row.querySelector('[data-action="beastTransform"]')
+                    .getBoundingClientRect();
+                  assert.isAtMost(Math.round(take.right), Math.round(panel.right),
+                    "the Transform button is clipped off the side of the panel");
+                } finally {
+                  await druid.sheet.close();
+                }
+              });
+            });
+          });
+
         /** Beasts are built with levels; the sheet had only a challenge rating. */
         it("an NPC can be given a level", async function () {
           this.timeout(30_000);

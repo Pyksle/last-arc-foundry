@@ -711,21 +711,23 @@
           <div class="la-beastform {{#if this.isActive}}is-current{{/if}}">
             <img class="la-item__img" src="{{this.img}}" alt="">
             <span class="la-beastform__name">{{this.name}}</span>
-            <div class="la-field la-field--narrow">
-              <input type="number" name="system.beastShape.forms.{{this.index}}.level"
-                     value="{{this.level}}" min="0">
-              <label>{{localize "LASTARC.Field.CreatureLevel"}}</label>
-            </div>
-            <div class="la-field la-field--narrow">
-              <input type="number" name="system.beastShape.forms.{{this.index}}.maxHp"
-                     value="{{this.maxHp}}" min="0">
-              <label>{{localize "LASTARC.Field.MaxHp"}}</label>
-            </div>
-            <div class="la-field la-field--narrow">
-              <input type="number" name="system.beastShape.forms.{{this.index}}.maxMp"
-                     value="{{this.maxMp}}" min="0">
-              <label>{{localize "LASTARC.Field.MaxMp"}}</label>
-            </div>
+            {{!-- Bare inputs, not `la-field` stacks. Three of those are 240px
+                  of a row that has 560 to spend, and since none of them shrink
+                  the name collapsed to nothing and the buttons fell off the
+                  right-hand edge at the default sheet width. The tooltip
+                  carries the label. --}}
+            <input type="number" class="la-beastform__num"
+                   name="system.beastShape.forms.{{this.index}}.level"
+                   value="{{this.level}}" min="0"
+                   data-tooltip="{{localize 'LASTARC.Field.CreatureLevel'}}">
+            <input type="number" class="la-beastform__num"
+                   name="system.beastShape.forms.{{this.index}}.maxHp"
+                   value="{{this.maxHp}}" min="0"
+                   data-tooltip="{{localize 'LASTARC.Field.MaxHp'}}">
+            <input type="number" class="la-beastform__num"
+                   name="system.beastShape.forms.{{this.index}}.maxMp"
+                   value="{{this.maxMp}}" min="0"
+                   data-tooltip="{{localize 'LASTARC.Field.MaxMp'}}">
             <span class="la-beastform__cost"
                   data-tooltip="{{localize 'LASTARC.BeastShape.CostTip'}}">{{this.cost}} MP</span>
             <button type="button" class="la-beastform__take" data-action="beastTransform"

@@ -578,38 +578,48 @@
       {{!-- Proficiencies this trait confers (#75). Weapon Proficiency is a
             technick a player writes down and expects to work; before this it
             was inert, and the character kept taking the −5 for a weapon they
-            were trained in. --}}
+            were trained in.
+
+            `la-prof` is the GRID CONTAINER and `la-prof__box` the item — the
+            first version of this put the container class on every button, so
+            each one became its own 8rem-column grid and threw its label out of
+            the box. Copy the character sheet's proficiency panel, not half of
+            it. --}}
       {{#if grantWeaponProficiencies}}
-        <div class="la-prof-grid"
-             data-tooltip="{{localize 'LASTARC.Tooltip.GrantsProficiency'}}">
-          <h3 class="la-subhead">{{localize "LASTARC.Field.GrantsWeaponProficiency"}}</h3>
+        <h3 class="la-prof__title"
+            data-tooltip="{{localize 'LASTARC.Tooltip.GrantsProficiency'}}">
+          {{localize "LASTARC.Field.GrantsWeaponProficiency"}}
+        </h3>
+        <div class="la-prof">
           {{#each grantWeaponProficiencies}}
-            <button type="button" class="la-prof {{#if this.selected}}is-active{{/if}}"
-                    role="switch" aria-checked="{{#if this.selected}}true{{else}}false{{/if}}"
+            <button type="button" class="la-prof__box {{#if this.selected}}is-active{{/if}}"
+                    role="checkbox" aria-checked="{{#if this.selected}}true{{else}}false{{/if}}"
                     data-action="toggleGrantWeaponProf" data-key="{{this.key}}"
                     data-edits="grants.proficiencies.weapons">
               <span class="la-prof__tick">{{#if this.selected}}✓{{else}}·{{/if}}</span>
               {{localize this.label}}
             </button>
           {{/each}}
+        </div>
 
-          <h3 class="la-subhead">{{localize "LASTARC.Field.GrantsArmourProficiency"}}</h3>
+        <h3 class="la-prof__title">{{localize "LASTARC.Field.GrantsArmourProficiency"}}</h3>
+        <div class="la-prof">
           {{#each grantArmourProficiencies}}
-            <button type="button" class="la-prof {{#if this.selected}}is-active{{/if}}"
-                    role="switch" aria-checked="{{#if this.selected}}true{{else}}false{{/if}}"
+            <button type="button" class="la-prof__box {{#if this.selected}}is-active{{/if}}"
+                    role="checkbox" aria-checked="{{#if this.selected}}true{{else}}false{{/if}}"
                     data-action="toggleGrantArmourProf" data-key="{{this.key}}"
                     data-edits="grants.proficiencies.armour">
               <span class="la-prof__tick">{{#if this.selected}}✓{{else}}·{{/if}}</span>
               {{localize this.label}}
             </button>
           {{/each}}
-
-          <label class="la-check">
-            <input type="checkbox" name="system.grants.proficiencies.shields"
-                   {{#if system.grants.proficiencies.shields}}checked{{/if}}>
-            {{localize "LASTARC.Field.GrantsShieldProficiency"}}
-          </label>
         </div>
+
+        <label data-tooltip="{{localize 'LASTARC.Tooltip.GrantsProficiency'}}">
+          <input type="checkbox" name="system.grants.proficiencies.shields"
+                 {{#if system.grants.proficiencies.shields}}checked{{/if}}>
+          {{localize "LASTARC.Field.GrantsShieldProficiency"}}
+        </label>
       {{/if}}
 
       {{!-- Which attribute each defence is calculated from (#69). Blank keeps

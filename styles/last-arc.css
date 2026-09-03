@@ -2964,3 +2964,105 @@
    tooltip names the permission to ask the GM for. */
 img[data-action="editImage"] { cursor: pointer; }
 img[data-action="editImage"].is-locked { cursor: default; }
+
+/* ---------------------------------------------------------------------------
+   Beast Forms (Druid)
+
+   Shipped in 0.55.0 with no rules at all — every class here was a hook the
+   stylesheet had never heard of, so the panel rendered as stacked default
+   buttons. The Quench batch passed throughout, because it queried the rows by
+   `data-action`, which is true of an unstyled element too. `test/css-hooks`
+   is the guard that now says so.
+
+   Deliberately the same shape as `.la-item`: a form in the list is a row like
+   any other, and a reader should not have to learn a second layout for it.
+--------------------------------------------------------------------------- */
+
+.la-beastforms { display: flex; flex-direction: column; gap: 1px; }
+
+.la-beastform {
+  display: flex;
+  align-items: center;
+  /* WRAPS. A sheet at its default width has about 560px here, and a row that
+     cannot wrap loses whatever does not fit off the right-hand edge — which is
+     the Transform button, the one control the panel exists for. */
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  padding: 0.2rem 0.3rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--la-rule) 40%, transparent);
+}
+.la-beastforms .la-beastform:nth-child(even) {
+  background: color-mix(in srgb, var(--la-paper-3) 25%, transparent);
+}
+
+/* The form in play, above the list. A plate rather than a row: it is the one
+   piece of state on this panel, not one option among several. */
+.la-beastform.is-active {
+  border: 1px solid var(--la-bronze);
+  border-radius: var(--la-radius);
+  background: color-mix(in srgb, var(--la-bronze) 10%, transparent);
+  margin-bottom: 0.4rem;
+}
+.la-beastform.is-current .la-beastform__name { color: var(--la-bronze); }
+
+.la-beastform__name {
+  /* A FLOOR, not `min-width: 0`. Nothing else in this row shrinks, so a name
+     allowed to reach zero is the first thing that disappears — and a form you
+     cannot identify is not a form you can choose. */
+  flex: 1 1 7rem;
+  min-width: 5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--la-font-body);
+  font-size: 0.88rem;
+  color: var(--la-ink);
+}
+.la-beastform__meta,
+.la-beastform__cost {
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  color: var(--la-ink-faint);
+}
+/* Stated, not applied — so it has to read as a value the player must carry,
+   not as something already in the numbers. */
+.la-beastform__bonus {
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  color: var(--la-bronze);
+}
+
+/* The cached statblock numbers. Compact on purpose — they are a record the
+   player may correct, not the point of the row. */
+.la-beastform__num {
+  flex: 0 0 auto;
+  width: 2.8rem;
+  padding: 0 0.15rem;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--la-rule);
+  border-radius: 0;
+  color: var(--la-ink-soft);
+  font-family: var(--la-font-body);
+  font-size: 0.72rem;
+  text-align: center;
+}
+.la-beastform__num:focus { border-bottom-color: var(--la-bronze); color: var(--la-ink); }
+
+.la-beastform__take,
+.la-beastform__revert {
+  flex: 0 0 auto;
+  padding: 0.1rem 0.5rem;
+  background: none;
+  border: 1px solid var(--la-rule);
+  border-radius: var(--la-radius);
+  color: var(--la-ink-soft);
+  font-family: var(--la-font-body);
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+.la-beastform__take:hover:not(:disabled),
+.la-beastform__revert:hover { border-color: var(--la-bronze); color: var(--la-ink); }
+.la-beastform__take:disabled { opacity: 0.35; cursor: default; }
