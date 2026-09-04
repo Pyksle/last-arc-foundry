@@ -256,40 +256,46 @@ describe("§ the label actually reaches the sheet", () => {
       "`!` shows the label on every item that actually grants something");
 
     /**
-     * Read out of the GRANTING_TYPES DECLARATION, not searched for in the file.
+     * ASKED OF THE DOCUMENT, so there is no list to keep in step.
      *
-     * The first version of this matched `"technick"` anywhere in item-sheet.mjs
-     * — and line 82 says `item.type === "technick" || item.type === "talent"`
-     * for an unrelated reason, so both literals were present whether or not the
-     * set held them. Deleting `technick` from GRANTING_TYPES removes the whole
-     * Grants panel from the most-used granting subtype in the system, and the
-     * suite stayed green. A guard satisfied by a line it is not about is not a
-     * guard.
+     * This used to read the subtypes out of a hardcoded `GRANTING_TYPES` set
+     * and compare it against the schema — a guard for a drift that could only
+     * exist because the sheet stated the answer a second time. It bit twice
+     * before it was written: deleting `technick` from that set removes the
+     * Grants panel from the most-used granting subtype in the system, and an
+     * earlier version of this test stayed green through it because line 82 of
+     * item-sheet.mjs happens to contain the literal `"technick"` for an
+     * unrelated reason.
+     *
+     * The set is gone. `hasGrants` is the presence of the block on the item, a
+     * fact that cannot disagree with itself — which is what let armour and
+     * shields gain a grants block with no sheet change at all.
      */
-    const declared = itemSheet.match(/GRANTING_TYPES\s*=\s*new Set\(\[([^\]]*)\]/)?.[1];
-    assert.ok(declared, "GRANTING_TYPES is not a literal Set any more — this " +
-      "guard has lost its target and would assert nothing");
-    const inSet = [...declared.matchAll(/"([\w]+)"/g)].map((m) => m[1]);
-    assert.deepEqual(inSet.sort(),
-      ["accessory", "feature", "prostheticLimb", "talent", "technick"].sort(),
-      "GRANTING_TYPES must name exactly the subtypes whose schema carries a " +
-      "grants block — a missing one loses its whole Grants panel");
+    assert.match(itemSheet, /context\.hasGrants\s*=\s*!!\s*sys\.grants/,
+      "hasGrants must come from the document's own block; anything else is a " +
+      "second statement of which subtypes grant, free to disagree with the schema");
+    // The DECLARATION, not the word. The comment above `hasGrants` names the
+    // set it replaced, and a guard that its own explanation trips is a guard
+    // people delete rather than read.
+    assert.ok(!/GRANTING_TYPES\s*=/.test(itemSheet),
+      "a hardcoded list of granting subtypes is back — it will drift");
   });
 
-  test("the old per-model flag is gone rather than left beside the new one", () => {
-    assert.ok(!/this\.hasNumericGrants\s*=/.test(items),
-      "a data model still computes hasNumericGrants — two answers to one question " +
-      "is what put this defect in the file to begin with");
-  });
-
-  test("the template branches on it and the string exists", () => {
-    assert.match(itemTemplate, /\{\{#if behaviouralGrants\}\}/,
-      "the template never reads the flag, so the label still does not exist");
-    assert.match(itemTemplate, /LASTARC\.Note\.BehaviouralGrants/);
-    assert.ok(lang["LASTARC.Note.BehaviouralGrants"],
-      "LASTARC.Note.BehaviouralGrants is missing from lang/en.json");
-    assert.match(css, /\.la-note--behavioural\s*\{/,
-      "the modifier class is applied in the template and styled nowhere");
+  /**
+   * The schema side of the same invariant: every model that mounts
+   * `grantsSchema()` gets the panel for free now, so this asserts the mounting
+   * rather than a mirror of it.
+   */
+  test("armour and shields carry a grants block", () => {
+    const models = read("module/data/items.mjs");
+    for (const cls of ["LastArcArmourData", "LastArcShieldData"]) {
+      const at = models.indexOf(`export class ${cls}`);
+      assert.notEqual(at, -1, `${cls} is gone`);
+      const body = models.slice(at, models.indexOf("\n}", at));
+      assert.match(body, /grants: grantsSchema\(\)/,
+        `${cls} cannot carry enchantment — a robe granting +1 to all three ` +
+        `defences loses two thirds of itself to cleanData`);
+    }
   });
 });
 
