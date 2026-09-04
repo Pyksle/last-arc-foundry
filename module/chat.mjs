@@ -238,8 +238,15 @@ async function onGrantedReroll(button, message) {
   }
 
   const flags = message.flags?.["last-arc"] ?? {};
+
+  /**
+   * Some traits improve the reroll they grant rather than merely offering it.
+   * The bonus rides on the SECOND die only — it is not part of the original
+   * roll's modifier and must not be added to the card being replaced.
+   */
+  const bonus = D.rerollBonus(grant, attributeMods(actor));
   const result = await rerollWithoutCost(original, {
-    kind: grant.kind, mod: rollModifier(flags)
+    kind: grant.kind, mod: rollModifier(flags) + bonus
   });
 
   await markRerollSpent(actor, grant);
@@ -252,7 +259,14 @@ async function onGrantedReroll(button, message) {
       `<p class="lastarc-verdict">${game.i18n.format("LASTARC.Reroll.Applied", {
         source: grant.source ?? "—",
         original: result.original, rerolled: result.rerolled, kept: result.kept
-      })}</p></div>`,
+      })}</p>` +
+      // Stated when there was one. A reroll that quietly came out higher than
+      // the die shows is a card nobody can check.
+      (bonus ? `<p class="lastarc-note">${game.i18n.format("LASTARC.Reroll.Bonus", {
+        n: bonus > 0 ? `+${bonus}` : String(bonus),
+        attribute: game.i18n.localize(LASTARC.attributes[grant.bonusAttribute].label)
+      })}</p>` : "") +
+      `</div>`,
     rolls: [result.roll]
   });
 
@@ -505,6 +519,12 @@ async function onHeroReroll(button, message) {
 }
 
 /** The modifier a rolled message was made with, whatever kind it was. */
+/** This actor's attribute modifiers, keyed the way `rerollBonus` expects. */
+function attributeMods(actor) {
+  return Object.fromEntries(Object.keys(LASTARC.attributes)
+    .map((k) => [k, actor?.system?.attributes?.[k]?.mod ?? 0]));
+}
+
 function rollModifier(flags) {
   return flags?.mods?.total ?? flags?.mod ?? 0;
 }

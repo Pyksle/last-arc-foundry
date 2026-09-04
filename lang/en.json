@@ -1055,5 +1055,11 @@
   "LASTARC.Tooltip.GrantTrainedSkills": "Extra skills this character may train, on top of their class allowance. A budget they spend themselves — use the skill rows above to train a specific skill instead.",
   "LASTARC.Tooltip.GrantBonusTechnicks": "Extra technicks this character may take. A readout only: the system does not police how many technicks are on a sheet.",
   "LASTARC.Note.OverCap": "Above this character's racial cap.",
-  "LASTARC.Note.GrantedSkillAllowance": "including {n} from traits"
+  "LASTARC.Note.GrantedSkillAllowance": "including {n} from traits",
+  "LASTARC.Field.RerollBonus": "…and add",
+  "LASTARC.Field.RerollNoBonus": "— no bonus —",
+  "LASTARC.Field.RerollBonusMultiplier": "× times",
+  "LASTARC.Tooltip.RerollBonus": "An attribute modifier added to the rerolled die — for a trait that improves the reroll it grants rather than only offering it. Applies to the second roll only, never to the original.",
+  "LASTARC.Tooltip.RerollBonusMultiplier": "How many times to count that modifier. 2 for \"twice their Strength\". Ignored unless an attribute is chosen.",
+  "LASTARC.Reroll.Bonus": "{n} from {attribute}, on the reroll only."
 }

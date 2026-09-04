@@ -116,7 +116,9 @@ const NOT_A_PAYLOAD = {
   "reroll.weaponCategory": "scopes a reroll to a weapon group; inert without a kind",
   // Narrows an existing reroll rather than granting one. A trait with this and
   // no kind ticked grants nothing to limit.
-  "reroll.perEncounter": "limits a reroll; inert unless a reroll kind is also set"
+  "reroll.perEncounter": "limits a reroll; inert unless a reroll kind is also set",
+  "reroll.bonusAttribute": "improves a reroll; inert unless a reroll kind is also set",
+  "reroll.bonusMultiplier": "scales that bonus; inert without an attribute to scale"
 };
 
 describe("§ the drift guard covers the whole schema", () => {

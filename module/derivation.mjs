@@ -836,6 +836,8 @@ export function aggregateGrants(grantsList = []) {
           attribute: g.reroll.attribute || null,
           weaponCategory: g.reroll.weaponCategory || null,
           perEncounter: !!g.reroll.perEncounter,
+          bonusAttribute: g.reroll.bonusAttribute || null,
+          bonusMultiplier: g.reroll.bonusMultiplier ?? 1,
           source: g.__source ?? null,
           /**
            * WHICH ITEM, so a once-per-encounter grant can be marked spent
@@ -994,6 +996,29 @@ export function rerollApplies(grant = {}, {
     if (skillKey && LASTARC.allSkills[skillKey]?.attr === grant.attribute) return true;
   }
   return false;
+}
+
+/**
+ * The modifier a granted reroll adds to the SECOND die (#79).
+ *
+ * Zero unless the grant names an attribute, so every existing reroll is
+ * untouched. Multiplied rather than flat because the value moves with the
+ * character — "twice their Strength" is a different number at 3rd level and at
+ * 12th, and a flat copy would be wrong in between.
+ *
+ * A missing or non-numeric modifier yields 0 rather than NaN: a half-built
+ * character must not turn its reroll into `1d20 + NaN`, which evaluates to
+ * nothing and reports nothing.
+ */
+export function rerollBonus(grant = {}, mods = {}) {
+  // Belt and braces: the finite check below returns 0 for an unnamed attribute
+  // anyway (`mods[undefined]` is undefined), so removing this line changes
+  // nothing observable. Kept because it states the intent at the top, where a
+  // reader looks — not because a test can tell the difference.
+  if (!grant.bonusAttribute) return 0;
+  const mod = mods?.[grant.bonusAttribute];
+  if (!Number.isFinite(mod)) return 0;
+  return Math.trunc(mod * Math.max(1, Math.trunc(grant.bonusMultiplier ?? 1)));
 }
 
 /**

@@ -441,7 +441,24 @@ function grantsSchema() {
        * hook to write or forget. Outside combat there is no encounter to be
        * once per, and the grant is simply offered; see `unspentRerolls`.
        */
-      perEncounter: new fields.BooleanField({ initial: false })
+      perEncounter: new fields.BooleanField({ initial: false }),
+      /**
+       * An attribute modifier added to the REROLLED die (#79).
+       *
+       * A racial spends its once-per-encounter reroll to add twice its
+       * Strength to a reroll with a weapon it specialises in — so the trait
+       * does not merely grant the reroll, it improves the one it grants. That
+       * is not a scope and not a kind; it is a modifier that exists only on the
+       * second roll, and nothing else in the system produces one.
+       *
+       * A multiplier rather than a flat number because the value moves with the
+       * character, exactly as the study technicks do. "Twice their Str" is 2;
+       * "their Str" is 1.
+       */
+      bonusAttribute: new fields.StringField({
+        initial: "", blank: true, choices: ["", ...Object.keys(LASTARC.attributes)]
+      }),
+      bonusMultiplier: new fields.NumberField({ initial: 1, integer: true, min: 1 })
     }),
     skills: new fields.ArrayField(
       new fields.SchemaField({
