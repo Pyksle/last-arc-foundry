@@ -48,6 +48,7 @@ export function registerQuenchBatches() {
     registerAdvancedClassBatch(quench);
     registerBeastShapeBatch(quench);
     registerGrantedProficiencyBatch(quench);
+    registerArmourGrantsBatch(quench);
   });
 }
 
@@ -4515,5 +4516,145 @@ function registerGrantedProficiencyBatch(quench) {
       });
     },
     { displayName: "Last Arc — Granted proficiencies" }
+  );
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*  Enchanted armour and shields                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Armour could only ever add to REFLEX.
+ *
+ * A robe granting "+1 to all defences" therefore had nowhere to put two thirds
+ * of itself: recorded as armour, Fortitude and Will were dropped by `cleanData`
+ * without a word; recorded as an accessory it stopped being armour, losing its
+ * type, its Agility cap, its check penalty and its visibility to armour
+ * proficiency.
+ *
+ * The panel is the other half. `hasGrants` was a hardcoded set of subtype names
+ * that no longer mentions anything — it asks the document — and this is where
+ * that gets checked against a subtype that has only just acquired the block.
+ */
+function registerArmourGrantsBatch(quench) {
+  quench.registerBatch(
+    `${SYSTEM_ID}.armourGrants`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      const ROBE = {
+        name: "ZZ enchanted robe", type: "armour",
+        system: {
+          equipped: true, type: "mystic", refBonus: 1, checkPenalty: 0,
+          grants: { defences: { ref: 1, fort: 1, will: 1 } }
+        }
+      };
+
+      const snap = (a) => ({
+        ref: a.system.defences.ref.value,
+        fort: a.system.defences.fort.value,
+        will: a.system.defences.will.value
+      });
+
+      describe("§ enchantment on top of protection", function () {
+        it("a robe reaches all three defences, and its own bonus still counts",
+          async function () {
+            this.timeout(30_000);
+            await withActor({}, async (actor) => {
+              const before = snap(actor);
+              const [robe] = await actor.createEmbeddedDocuments("Item", [ROBE]);
+              const worn = snap(actor);
+
+              assert.equal(worn.fort - before.fort, 1,
+                "Fortitude was dropped — the whole complaint");
+              assert.equal(worn.will - before.will, 1, "Will was dropped");
+              /**
+               * TWO on Reflex, not one. `refBonus` is what the armour physically
+               * is and `grants.defences.ref` is what has been enchanted onto it;
+               * collapsing them would silently halve the item.
+               */
+              assert.equal(worn.ref - before.ref, 2,
+                "the printed armour bonus and the enchantment are not both landing");
+
+              // And it is still ARMOUR, which is the reason not to use an accessory.
+              assert.equal(robe.system.type, "mystic");
+              assert.equal(robe.system.refBonus, 1);
+            });
+          });
+
+        it("stowing it takes the whole item off", async function () {
+          this.timeout(30_000);
+          await withActor({}, async (actor) => {
+            const before = snap(actor);
+            const [robe] = await actor.createEmbeddedDocuments("Item", [ROBE]);
+            await robe.update({ "system.equipped": false });
+
+            assert.deepEqual(snap(actor), before,
+              "a robe in the pack is still defending its owner");
+          });
+        });
+
+        it("a shield carries enchantment the same way", async function () {
+          this.timeout(30_000);
+          await withActor({}, async (actor) => {
+            const before = snap(actor);
+            await actor.createEmbeddedDocuments("Item", [{
+              name: "ZZ warded buckler", type: "shield",
+              system: { equipped: true, grants: { defences: { will: 2 } } }
+            }]);
+            assert.equal(snap(actor).will - before.will, 2);
+          });
+        });
+      });
+
+      describe("§ the panel follows the schema", function () {
+        /**
+         * `hasGrants` used to be a hardcoded list of subtype names. A subtype
+         * that gained a grants block and was forgotten in that list carried the
+         * data and offered no way to enter it — which is the same defect as
+         * having no block at all, and harder to see.
+         */
+        it("every subtype with a grants block gets the panel", async function () {
+          this.timeout(60_000);
+          const withGrants = Object.keys(CONFIG.Item.dataModels)
+            .filter((t) => CONFIG.Item.dataModels[t].defineSchema?.().grants);
+          assert.include(withGrants, "armour", "armour did not gain a grants block");
+          assert.include(withGrants, "shield", "shields did not gain one");
+
+          for (const type of withGrants) {
+            const item = await Item.create({ name: `ZZ ${type}`, type });
+            try {
+              await item.sheet.render(true);
+              await settle();
+              assert.isNotNull(
+                item.sheet.element.querySelector('input[name="system.grants.defences.will"]'),
+                `${type} carries a grants block with no way to fill it in`);
+            } finally {
+              await item.sheet.close();
+              await item.delete();
+            }
+          }
+        });
+
+        /** …and a subtype without one is not offered an empty panel. */
+        it("a weapon is not given a Grants panel it has no block for",
+          async function () {
+            this.timeout(30_000);
+            const item = await Item.create({ name: "ZZ blade", type: "weapon" });
+            try {
+              await item.sheet.render(true);
+              await settle();
+              assert.isNull(
+                item.sheet.element.querySelector('input[name="system.grants.defences.will"]'),
+                "the panel is being drawn from something other than the schema");
+            } finally {
+              await item.sheet.close();
+              await item.delete();
+            }
+          });
+      });
+    },
+    { displayName: "Last Arc — Armour grants" }
   );
 }

@@ -187,7 +187,22 @@ export class LastArcArmourData extends PhysicalItemData {
        * POSITIVE magnitude (§4.5 rev2). §4.5 subtracts this; storing it negative
        * would grant a bonus for wearing armour you are not proficient with.
        */
-      checkPenalty: new fields.NumberField({ initial: 0, integer: true, min: 0 })
+      checkPenalty: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
+
+      /**
+       * Enchantment, on top of what the armour physically is.
+       *
+       * `refBonus` above is the armour's own protection and reaches Reflex
+       * ONLY. A robe granting +1 to all three defences therefore had nowhere to
+       * put two thirds of itself: recorded as armour the Fortitude and Will
+       * halves were dropped by `cleanData` without a word, and recorded as an
+       * accessory it stopped being armour — no type, no Agility cap, no check
+       * penalty, and invisible to armour proficiency.
+       *
+       * The same block accessories already carry, gated the same way: worn
+       * counts, stowed does not.
+       */
+      grants: grantsSchema()
     };
   }
 
@@ -233,7 +248,10 @@ export class LastArcShieldData extends PhysicalItemData {
       blockSkill: new fields.StringField({
         initial: "", blank: true,
         choices: ["", "lightWeapon", "oneHanded", "twoHanded"]
-      })
+      }),
+
+      /** Enchantment, exactly as on armour above. */
+      grants: grantsSchema()
     };
   }
 

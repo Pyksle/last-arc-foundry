@@ -31,8 +31,7 @@ const PHYSICAL_TYPES = new Set(LASTARC.physicalItemTypes);
  */
 const CONSUMABLE_TYPES = new Set(["consumable", "spellScroll", "orchestralScore"]);
 
-/** Subtypes carrying a `grants` block of passive numeric bonuses. */
-const GRANTING_TYPES = new Set(["technick", "talent", "accessory", "prostheticLimb", "feature"]);
+
 
 /**
  * Turn an attribute-keyed ObjectField into one row of inputs, in PRINTED order
@@ -90,7 +89,17 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
      */
     context.hasFlags = context.isTechnick || item.type === "feature";
     context.isConsumable = CONSUMABLE_TYPES.has(item.type);
-    context.hasGrants = GRANTING_TYPES.has(item.type);
+    /**
+     * ASKED OF THE DOCUMENT, not of a list of subtype names.
+     *
+     * This was a hardcoded `GRANTING_TYPES` set — a second statement of which
+     * models mount `grantsSchema()`, free to disagree with the schema and
+     * silently hide the panel for a subtype that had just gained one. Armour
+     * and shields gaining a grants block is exactly the edit that would have
+     * done it. The block's presence on the document is the only fact here, and
+     * it cannot drift from itself.
+     */
+    context.hasGrants = !!sys.grants;
 
     /**
      * An empty grants block is not necessarily an unfinished one — most
