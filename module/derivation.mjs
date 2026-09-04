@@ -879,6 +879,40 @@ export function resolveDefenceSubstitutes(offers = {}, mods = {}) {
 }
 
 /**
+ * The most a declared trade may be set to at this level.
+ *
+ * 1 at first level, rising by 1 at 4th and every 4 thereafter, to a maximum of
+ * 5. Floored at 1 rather than 0: the talent's whole content is the option, and
+ * a level at which it offers nothing is not a level the book has.
+ */
+export function declaredTradeCap(level = 1) {
+  return Math.min(
+    LASTARC.declaredTradeMax,
+    1 + Math.floor(Math.max(1, level) / LASTARC.declaredTradeStep)
+  );
+}
+
+/**
+ * What a declared trade is actually worth, clamped to what the character may
+ * spend and doubled for a two-handed grip.
+ *
+ * `twoHanded` is asked of the WIELD the attack resolved, not of the weapon —
+ * a greatsword in a Large creature's hands is not two-handed for them, and the
+ * system already works that out for every attack. A weapon may also declare
+ * itself two-handed for this purpose alone, which is how a gauntlet that
+ * doubles unarmed damage is expressible without lying about its grip.
+ *
+ * Clamped rather than trusted: the cap is enforced where the number is USED,
+ * so a stale card, an edited flag or a level lost to a rebuild cannot pay out
+ * more than the character is entitled to.
+ */
+export function tradeDamageBonus(trade = 0, { twoHanded = false, level = 1 } = {}) {
+  const spent = Math.min(
+    Math.max(0, Math.trunc(trade)), declaredTradeCap(level));
+  return twoHanded ? spent * 2 : spent;
+}
+
+/**
  * Proficiency a character actually has: what they ticked, plus what traits give
  * them (#75).
  *

@@ -19,6 +19,7 @@
 
 import { LASTARC } from "./config.mjs";
 import * as D from "./derivation.mjs";
+import { hasTechnickFlag } from "./dice/attack.mjs";
 import * as AMMO from "./ammunition.mjs";
 import { rollAttack, defenceToBeat, targetConditions } from "./dice/attack.mjs";
 import { castSpell, performItem } from "./dice/magic.mjs";
@@ -74,7 +75,15 @@ export async function rollItemAction(actor, item, event = {}) {
       // Only for a weapon that actually eats arrows, in a world that counts
       // them — which excludes staves, and excludes every table with tracking
       // switched off.
-      ammoRounds: ammoTrackingOn() && AMMO.requiresAmmunition(item.system.category)
+      ammoRounds: ammoTrackingOn() && AMMO.requiresAmmunition(item.system.category),
+      /**
+       * Mighty Strikes buys melee damage with a melee penalty, so it is offered
+       * on melee attacks only, and only to a character who has the talent — a
+       * box everyone sees is a rule everyone thinks they have.
+       */
+      tradeCap: !isRanged && hasTechnickFlag(actor, "mightyStrikes")
+        ? D.declaredTradeCap(actor.system.details?.level ?? 1)
+        : 0
     });
     if (extra === null) return false;
 

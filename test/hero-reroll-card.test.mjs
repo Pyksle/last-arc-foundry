@@ -76,8 +76,15 @@ describe("§48 the reroll is rolled with the attack's modifier", () => {
 
 describe("§48 the rebuilt card is a real attack card", () => {
   test("the attack card stores its modifiers so one can be rebuilt", () => {
-    const flagBlock = attack.slice(attack.indexOf('type: "attack"'));
-    assert.match(flagBlock.slice(0, 3000), /\n\s*mods,\n/,
+    /**
+     * The FLAGS OBJECT, not a fixed character count after its first key. A
+     * 3000-character window went stale the moment a comment was added above
+     * `mods` — the guard failed with nothing wrong, which is the kind of noise
+     * that gets a guard deleted rather than read.
+     */
+    const start = attack.indexOf('type: "attack"');
+    const flagBlock = attack.slice(start, attack.indexOf("\n      }", start));
+    assert.match(flagBlock, /\n\s*mods,\n/,
       "mods is not on the attack card's flags, so a reroll has no modifier " +
       "total and no itemised parts to rebuild with");
   });

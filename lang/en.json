@@ -1046,5 +1046,11 @@
   "LASTARC.Field.RerollNoWeapon": "— no weapon group —",
   "LASTARC.Tooltip.RerollWeapon": "Offer the reroll on any attack made with a weapon of this group. This is the only scope that applies to attacks — a skill or attribute scope never offers itself on one.",
   "LASTARC.Field.RerollPerEncounter": "Once per encounter",
-  "LASTARC.Tooltip.RerollPerEncounter": "Limit this reroll to one use per encounter. Spent state is kept on the combatant, so it clears when the encounter ends. Outside combat there is no encounter to be once per, and the reroll is simply offered."
+  "LASTARC.Tooltip.RerollPerEncounter": "Limit this reroll to one use per encounter. Spent state is kept on the combatant, so it clears when the encounter ends. Outside combat there is no encounter to be once per, and the reroll is simply offered.",
+  "LASTARC.Mod.declaredTrade": "Declared trade",
+  "LASTARC.Situational.Trade": "Trade for damage (max {max})",
+  "LASTARC.Field.TradeCountsAsTwoHanded": "Counts as two-handed for a trade",
+  "LASTARC.Tooltip.TradeCountsAsTwoHanded": "Doubles a declared trade's damage bonus as though this were a two-handed weapon, whatever its actual grip. For gear that says so explicitly — an unarmed strike is not two-handed, and this is how one can still double.",
+  "LASTARC.TechnickFlag.mightyStrikes": "Mighty Strikes",
+  "LASTARC.TechnickFlagHint.mightyStrikes": "Before a melee attack, this character may take up to a penalty for an equal bonus to melee damage, doubled when wielding two-handed. The limit rises with level. Alt-click the attack to declare it."
 }
