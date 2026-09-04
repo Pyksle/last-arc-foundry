@@ -30,13 +30,16 @@ const HEADED = process.argv.includes("--headed");
 /**
  * The whole Quench run, not one test.
  *
- * 180s was the original budget and the suite reached 159s of it, which is not
- * headroom — a slower machine, or one flaky combat test retrying, times the run
- * out and reports "Quench timed out" with zero results, which reads exactly
- * like a system that fails to load. Raised with room to grow; a real hang still
- * ends the run, just not a merely slow one.
+ * 180s was the original budget, then 300s. The suite is 220 tests and ~430s
+ * now, and it grows with every batch — a timed-out run reports "Quench timed
+ * out" with zero results, which reads exactly like a system that fails to load.
+ *
+ * This is the whole run, not one test; Mocha's per-test budget is set in
+ * `quench.mjs` so it applies to a GM running the suite by hand too. Worth
+ * watching: at this rate the run is the slowest thing in the workflow, and
+ * splitting the batches would beat raising this a fourth time.
  */
-const TIMEOUT = Number(arg("timeout") ?? 300_000);
+const TIMEOUT = Number(arg("timeout") ?? 900_000);
 
 let chromium;
 try {
@@ -129,6 +132,25 @@ try {
 
   report(results);
   if ((results.stats.failures ?? 0) > 0) exitCode = 1;
+
+  /**
+   * A RUN THAT EXECUTED NOTHING IS NOT A GREEN RUN.
+   *
+   * Registration happens inside a hook; when it throws, Quench keeps no batches
+   * and this reported "0 tests, 0 failing" and exited 0. That is exactly how it
+   * looked when a closure bug made every batch fail to register — a completely
+   * broken suite, indistinguishable from a clean one, on a green exit code.
+   *
+   * The floor is deliberately far below the real count: its job is to catch
+   * nothing-ran, not to be edited every time a batch is added.
+   */
+  const MIN_TESTS = 50;
+  if ((results.stats.tests ?? 0) < MIN_TESTS) {
+    console.error(`\n✖ only ${results.stats.tests ?? 0} tests ran, expected at least ` +
+      `${MIN_TESTS} — the batches did not register. A hook that throws leaves ` +
+      `Quench with nothing to run and this looks identical to a clean suite.`);
+    exitCode = 1;
+  }
 
 } catch (err) {
   console.error(`\n✖ ${err.message}`);

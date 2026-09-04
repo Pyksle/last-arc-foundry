@@ -29,7 +29,9 @@
  *   must cancel the roll rather than roll at +0 — a dismissed dialog is "I did
  *   not mean to do that", and rolling anyway spends the moment.
  */
-export async function promptSituational({ title, rangeBands = null, ammoRounds = false } = {}) {
+export async function promptSituational({
+  title, rangeBands = null, ammoRounds = false, tradeCap = 0
+} = {}) {
   /**
    * The range band rides in this dialog rather than getting one of its own
    * (issue #36). Every shot is at SOME range, so a dedicated prompt would tax
@@ -67,8 +69,25 @@ export async function promptSituational({ title, rangeBands = null, ammoRounds =
         <input type="number" name="rounds" value="1" min="1" step="1">
       </label>` : "";
 
+  /**
+   * A declared trade — "up to −N on this attack for an equal bonus to damage".
+   *
+   * Shown only when the character actually has the talent and the attack can
+   * carry it, so nobody else is asked. Rides in this dialog for the same reason
+   * the range band does: it is a choice made at the moment of the roll, behind
+   * the same ALT gesture that already means "this roll is not the default".
+   *
+   * `max` is the level cap, enforced again where the number is spent — a form
+   * attribute is a courtesy to the player, not a rule.
+   */
+  const tradeRow = tradeCap > 0 ? `
+      <label>
+        <span>${game.i18n.format("LASTARC.Situational.Trade", { max: tradeCap })}</span>
+        <input type="number" name="trade" value="0" min="0" max="${tradeCap}" step="1">
+      </label>` : "";
+
   const content = `
-    <div class="la-situational">${bandRow}${roundsRow}
+    <div class="la-situational">${bandRow}${roundsRow}${tradeRow}
       <label>
         <span>${game.i18n.localize("LASTARC.Situational.Value")}</span>
         <input type="number" name="value" value="0"${rangeBands ? "" : " autofocus"}>
@@ -91,7 +110,10 @@ export async function promptSituational({ title, rangeBands = null, ammoRounds =
         rangeBand: button.form.elements.rangeBand?.value ?? null,
         rounds: button.form.elements.rounds
           ? Math.max(1, Math.trunc(Number(button.form.elements.rounds.value) || 1))
-          : null
+          : null,
+        trade: button.form.elements.trade
+          ? Math.max(0, Math.trunc(Number(button.form.elements.trade.value) || 0))
+          : 0
       })
     },
     rejectClose: false
@@ -115,14 +137,23 @@ export async function promptSituational({ title, rangeBands = null, ammoRounds =
  * Returns null when the prompt was dismissed, which callers must treat as
  * "do not roll".
  */
-export async function situationalOptions(event, { title, rangeBands = null, ammoRounds = false } = {}) {
+export async function situationalOptions(event, {
+  title, rangeBands = null, ammoRounds = false, tradeCap = 0
+} = {}) {
   if (!event?.altKey) return {};
 
-  const picked = await promptSituational({ title, rangeBands, ammoRounds });
+  const picked = await promptSituational({ title, rangeBands, ammoRounds, tradeCap });
   if (!picked) return null;
 
   return {
     situational: picked.value,
+    /**
+     * Its OWN number, never folded into `situational`. The damage roll has to
+     * tell a declared trade from a penalty for cover or darkness, and a single
+     * total cannot say which it was — paying out bonus damage for standing in
+     * the dark is the bug this separation exists to prevent.
+     */
+    trade: picked.trade ?? 0,
     // Shown in place of the generic "Situational" label when given, so the card
     // records WHY the number was there and the table can check it later.
     situationalNote: picked.note || null,

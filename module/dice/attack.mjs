@@ -86,6 +86,8 @@ export function attackModifiers({
   skillMod = 0,
   weaponAtkBonus = 0,
   proficient = true,
+  /** Points declared on a trade; costs this now and pays out on damage. */
+  trade = 0,
   twoWeapon = false,
   dualWieldRank = 0,
   ...situation
@@ -97,6 +99,12 @@ export function attackModifiers({
   add("LASTARC.Mod.weapon", weaponAtkBonus);
 
   if (!proficient) add("LASTARC.Mod.nonProficient", -5);
+  /**
+   * A declared trade, as its OWN part rather than folded into `situational`.
+   * The damage roll has to tell it from a penalty for cover or darkness, and a
+   * card that recorded only a total could not say which it was.
+   */
+  if (trade > 0) add("LASTARC.Mod.declaredTrade", -trade);
 
   if (twoWeapon) {
     const rank = Math.min(dualWieldRank, DUAL_WIELD_PENALTY.length - 1);
@@ -340,7 +348,9 @@ export function weaponAttackProfile({
   weaponFinesse = false,
   isThrown = false,
   /** The wielder's light-weapon skill preference, "" for automatic (#63). */
-  wieldSkill = ""
+  wieldSkill = "",
+  /** Points declared on a trade (Mighty Strikes), paid on the attack roll. */
+  trade = 0
 } = {}) {
   const wield = D.wieldCategory(actorSize, weaponSize, category);
   const unusable = wield === "unusable";
@@ -364,7 +374,7 @@ export function weaponAttackProfile({
     skillKey,
     skillMod,
     proficient,
-    attack: attackModifiers({ skillMod, weaponAtkBonus: atkBonus, proficient }),
+    attack: attackModifiers({ skillMod, weaponAtkBonus: atkBonus, proficient, trade }),
     damage: buildDamageTerms({
       level,
       strMod,
@@ -391,7 +401,7 @@ export function weaponAttackProfile({
  * The adapter exists so there is exactly one mapping from document shape to
  * profile inputs. A second reader is how the divergence started.
  */
-export function weaponProfileFor(actor, weapon, { isThrown = false } = {}) {
+export function weaponProfileFor(actor, weapon, { isThrown = false, trade = 0 } = {}) {
   const sys = actor.system;
   return weaponAttackProfile({
     actorSize: sys.details.size,
@@ -410,6 +420,7 @@ export function weaponProfileFor(actor, weapon, { isThrown = false } = {}) {
     breakPenalty: weapon.system.breakGauge?.penalty ?? 0,
     weaponFinesse: hasTechnickFlag(actor, "weaponFinesse"),
     wieldSkill: weapon.system.wieldSkill ?? "",
+    trade,
     isThrown
   });
 }
@@ -433,7 +444,18 @@ export async function rollAttack(actor, weapon, options = {}) {
 
   // The SAME profile the sheet's Attacks row displays. Deciding the skill and
   // the attribute here as well is what let the two drift (issue #40).
-  const profile = weaponProfileFor(actor, weapon, { isThrown: !!options.isThrown });
+  /**
+   * The trade is clamped HERE, against this character's level, rather than
+   * trusted from the dialog. The form's `max` is a courtesy to the player; the
+   * rule is enforced where the number is spent.
+   */
+  const trade = Math.min(
+    Math.max(0, Math.trunc(options.trade ?? 0)),
+    D.declaredTradeCap(sys.details?.level ?? 1)
+  );
+  const profile = weaponProfileFor(actor, weapon, {
+    isThrown: !!options.isThrown, trade
+  });
   const { wield, skillKey, isMelee } = profile;
 
   if (profile.unusable) {
@@ -511,7 +533,7 @@ export async function rollAttack(actor, weapon, options = {}) {
 
   await postAttackCard({
     actor, weapon, roll, mods, outcome, options, wield, isMelee, discardedNatural,
-    ammo: ammoSpent
+    ammo: ammoSpent, trade
   });
   return { roll, mods, outcome, wield, skillKey, isMelee, ammo: ammoSpent };
 }
@@ -525,7 +547,11 @@ export async function rollAttack(actor, weapon, options = {}) {
  */
 export async function rollDamage(
   actor, weapon,
-  { outcome, wield, isMelee, isThrown = false, damageType = null, prompt = true } = {}
+  {
+    outcome, wield, isMelee, isThrown = false, damageType = null, prompt = true,
+    /** Points declared on the attack this damage answers (Mighty Strikes). */
+    trade = 0
+  } = {}
 ) {
   const sys = actor.system;
 
@@ -568,7 +594,35 @@ export async function rollDamage(
     );
   }
 
-  const terms = profile.damage;
+  /**
+   * The declared trade, paid out here having been charged on the attack.
+   * Doubled for a two-handed grip — asked of the WIELD the attack resolved, or
+   * of a weapon that declares itself two-handed for this purpose alone (the
+   * gauntlet that doubles an unarmed strike).
+   */
+  const tradeBonus = D.tradeDamageBonus(trade, {
+    twoHanded: wield === "twoHanded" || !!weapon?.system?.tradeCountsAsTwoHanded,
+    level: sys.details?.level ?? 1
+  });
+
+  /**
+   * Added to the ITEMISED PARTS as well as the total.
+   *
+   * The damage card renders `terms.parts`, so a bonus that reached only the
+   * total would print a sum whose own working does not add up to it — the card
+   * shows its arithmetic precisely so a player can check it, and one that
+   * cannot be checked is worse than one that shows nothing.
+   */
+  const terms = tradeBonus > 0
+    ? {
+      ...profile.damage,
+      flat: profile.damage.flat + tradeBonus,
+      parts: [
+        ...profile.damage.parts,
+        { label: "LASTARC.Mod.declaredTrade", value: tradeBonus }
+      ]
+    }
+    : profile.damage;
 
   const result = await rollDamageDice({
     diceFormula: weapon.system.damage,
@@ -964,7 +1018,7 @@ export async function repostAttackAfterReroll(actor, flags, roll) {
 async function postAttackCard({
   actor, weapon, attack, attackIndex = null, roll, mods, outcome, options,
   wield = null, isMelee = null, discardedNatural = null, rerolled = false,
-  ammo = null
+  ammo = null, trade = 0
 }) {
   const isNpc = attack != null;
 
@@ -1052,6 +1106,17 @@ async function postAttackCard({
          * no longer resolves is a trait that silently stops working.
          */
         weaponCategory: weapon?.system?.category ?? null,
+        /**
+         * Points declared on a trade, so the damage button can pay out what the
+         * attack roll already cost. Stored rather than recomputed because the
+         * choice was made once, at the moment of the attack.
+         *
+         * ALWAYS written, including as 0. The conditional-spread trick beside
+         * `rerolled` suits a marker whose presence is its meaning; for a number
+         * the damage path reads back, an absent flag and a zero one would be
+         * indistinguishable to anybody auditing a card.
+         */
+        trade,
         attackIndex,
         outcome,
         /**

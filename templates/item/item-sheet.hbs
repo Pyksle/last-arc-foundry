@@ -173,6 +173,14 @@
         </select>
         <label>{{localize "LASTARC.Field.WieldSkill"}}</label>
       </div>
+      {{!-- Doubles a declared trade whatever the grip — for gear that says so
+            explicitly, since an unarmed strike is not two-handed. --}}
+      <label class="la-check"
+             data-tooltip="{{localize 'LASTARC.Tooltip.TradeCountsAsTwoHanded'}}">
+        <input type="checkbox" name="system.tradeCountsAsTwoHanded"
+               {{#if system.tradeCountsAsTwoHanded}}checked{{/if}}>
+        {{localize "LASTARC.Field.TradeCountsAsTwoHanded"}}
+      </label>
       <p class="la-note">{{localize "LASTARC.Note.WieldSkillOnlyLight"}}</p>
     </section>
   {{/if}}

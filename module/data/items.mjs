@@ -124,6 +124,16 @@ export class LastArcWeaponData extends PhysicalItemData {
       wieldSkill: new fields.StringField({
         initial: "", blank: true, choices: ["", "lightWeapon", "oneHanded"]
       }),
+      /**
+       * Counts as two-handed for a declared trade, whatever its grip.
+       *
+       * One field rather than a special case in the maths: the book has a
+       * gauntlet that doubles a Mighty Strikes trade "as if you were wielding a
+       * 2-handed weapon", and an unarmed strike is emphatically not two-handed.
+       * Anything else that wants the doubling ticks this instead of the wield
+       * category having to lie about the grip.
+       */
+      tradeCountsAsTwoHanded: new fields.BooleanField({ initial: false }),
 
       reach: new fields.NumberField({ initial: 1, min: 0 }),
       range: new fields.SchemaField({

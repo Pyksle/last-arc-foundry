@@ -516,6 +516,19 @@ LASTARC.technickFlags = [
    * granted, for the same reason as the two study technicks below: the number
    * moves when Intelligence does, and a flat grant would be wrong in between.
    */
+  /**
+   * Mighty Strikes: before a melee attack, take up to a −N penalty for an equal
+   * bonus to melee damage — DOUBLED when wielding two-handed.
+   *
+   * A flag rather than a grant because it grants no number. What it grants is
+   * the OPTION, and the number is chosen per attack by the player; `grants`
+   * carries constants, and a value the player picks each turn is not one.
+   *
+   * The doubling reads the wield category the attack already computed, so
+   * nothing new records whether a weapon is two-handed — the system has known
+   * that since it had to stamp it on the card for damage to resolve at all.
+   */
+  "mightyStrikes",
   "beastShape",
   "arcaneStudy",          // +1+Int spells known per taking (minimum 1)
   "bardicStudy"           // +1+Int performances known per taking (minimum 1)
@@ -1217,6 +1230,25 @@ LASTARC.shieldExpertBlockPenalty = 2;
  * half is level-scaled. See `resilientSecondWindBonus`.
  */
 LASTARC.resilientSecondWindBase = 5;
+
+/* -------------------------------------------------------------------------- */
+/*  Declared trades                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The ceiling on a declared trade — "up to a −N penalty for an equal bonus".
+ *
+ * A FAMILY, not one talent: four in the book share the wording, the duration
+ * ("until the start of your next turn") and this scaling, differing only in
+ * what the penalty buys — melee damage, Reflex from a melee attack, Reflex from
+ * a ranged one, or doubled spell damage. Only the first is implemented; the
+ * cap belongs here so the other three do not each arrive with their own copy
+ * of the same arithmetic.
+ */
+LASTARC.declaredTradeMax = 5;
+
+/** Character levels per step of that cap: 1 at 1st, +1 at 4th and every 4 after. */
+LASTARC.declaredTradeStep = 4;
 
 /** Flat penalty on any check made with a shield without Shield Proficiency. */
 LASTARC.nonProficientShieldPenalty = 5;

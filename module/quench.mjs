@@ -38,8 +38,56 @@ import { learnForm, forgetForm, transformInto, revertForm } from "./beast-shape-
 
 const SYSTEM_ID = "last-arc";
 
+/**
+ * Mocha's default per-test budget, raised once for every batch.
+ *
+ * The default is 2 SECONDS, and almost every test here creates documents and
+ * renders a sheet — so they pass on a quiet machine and fail in a batch of
+ * nine as soon as the suite is long enough to load it. That is the worst kind
+ * of red: it names tests that are not broken, on a run where nothing changed.
+ *
+ * Set here rather than in the harness so a GM running the suite from the Quench
+ * window gets the same budget, and set once rather than as `this.timeout()` on
+ * each test — nine of them had to be found by hand before this existed, and the
+ * next nine would have been found the same way.
+ */
+const TEST_BUDGET_MS = 30_000;
+
+/**
+ * Wrap a batch so every `describe` it creates carries the budget.
+ *
+ * Setting it on Mocha up front does not survive: `runBatches` rebuilds Mocha
+ * and the root suite comes back at 2000ms, which is measurable — the setting
+ * reads 30000 before a run and 2000 on the runner's own suites during one. A
+ * suite's timeout IS inherited by its children, so the only place it sticks is
+ * inside the describe, as the suite is built.
+ */
+function withBudget(fn) {
+  return (context) => fn({
+    ...context,
+    describe: (title, body) => context.describe(title, function () {
+      this.timeout(TEST_BUDGET_MS);
+      return body.call(this);
+    })
+  });
+}
+
 export function registerQuenchBatches() {
   Hooks.on("quenchReady", (quench) => {
+    /**
+     * A stand-in that wraps every batch as it registers, so this is one edit
+     * rather than one per batch — and so the next batch inherits it without
+     * anybody remembering. Quench itself is not modified: `Object.create`
+     * gives an object that delegates everything else straight through.
+     */
+    // `real` captured in its OWN binding, because the arrow below closes over
+    // the VARIABLE and `quench` is about to be reassigned — pointing it at the
+    // stand-in makes registerBatch call itself.
+    const real = quench;
+    const budgeted = Object.create(real);
+    budgeted.registerBatch = (id, fn, opts) =>
+      real.registerBatch(id, withBudget(fn), opts);
+    quench = budgeted;
     registerDocumentBatch(quench);
     registerDerivationBatch(quench);
     registerActiveEffectBatch(quench);
@@ -52,6 +100,7 @@ export function registerQuenchBatches() {
     registerGrantedProficiencyBatch(quench);
     registerArmourGrantsBatch(quench);
     registerRerollScopeBatch(quench);
+    registerDeclaredTradeBatch(quench);
   });
 }
 
@@ -4886,5 +4935,190 @@ function registerRerollScopeBatch(quench) {
       });
     },
     { displayName: "Last Arc — Reroll scope" }
+  );
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*  Declared trades — Mighty Strikes (#79)                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The arithmetic is pure and unit tested. What only a live Foundry can show is
+ * the round trip: the attack has to CHARGE for the trade and record it, and the
+ * damage roll launched from that card has to find it again and pay it out —
+ * doubled or not according to a wield category nothing new records, because the
+ * system has derived it from actor and weapon size all along.
+ */
+function registerDeclaredTradeBatch(quench) {
+  quench.registerBatch(
+    `${SYSTEM_ID}.declaredTrade`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      const lastFlags = () => [...game.messages].at(-1)?.flags?.["last-arc"] ?? {};
+
+      /** A character who has the talent, at a level that allows a real trade. */
+      const FIGHTER = {
+        system: {
+          classes: [{ name: "warrior", levels: 12 }],
+          attributes: { str: { value: 16 } }
+        }
+      };
+      const TALENT = {
+        name: "ZZ mighty", type: "talent",
+        system: { active: true, flags: ["mightyStrikes"] }
+      };
+      const weapon = (over = {}) => ({
+        name: "ZZ blade", type: "weapon",
+        system: {
+          category: "swords", size: "medium", equipped: true,
+          damage: "1d8", damageBonus: 0, ...over
+        }
+      });
+
+      async function armed(weaponData, fn) {
+        return withActor(FIGHTER, async (actor) => {
+          await actor.createEmbeddedDocuments("Item", [TALENT]);
+          const [w] = await actor.createEmbeddedDocuments("Item", [weaponData]);
+          return fn(actor, w);
+        });
+      }
+
+      describe("§ the attack charges for it", function () {
+        it("the roll is lower by the declared amount, and the card says so",
+          async function () {
+            this.timeout(30_000);
+            await armed(weapon(), async (actor, w) => {
+              const plain = await ATK.rollAttack(actor, w);
+              await settle();
+              const traded = await ATK.rollAttack(actor, w, { trade: 3 });
+              await settle();
+
+              assert.equal(plain.mods.total - traded.mods.total, 3,
+                "the trade cost the attack roll nothing");
+              const f = lastFlags();
+              assert.equal(f.trade, 3,
+                "the card does not record the trade, so damage can never pay it");
+              assert.include(
+                (f.mods?.parts ?? []).map((p) => p.label),
+                "LASTARC.Mod.declaredTrade",
+                "the trade has no line of its own on the attack card");
+            });
+          });
+
+        /**
+         * Clamped against the CHARACTER's level, not trusted from the caller.
+         * A level-1 fighter may spend one point however the dialog was edited.
+         */
+        it("more than the level allows is clamped at the roll", async function () {
+          this.timeout(30_000);
+          await withActor({ system: { classes: [{ name: "warrior", levels: 1 }] } },
+            async (actor) => {
+              await actor.createEmbeddedDocuments("Item", [TALENT]);
+              const [w] = await actor.createEmbeddedDocuments("Item", [weapon()]);
+              await ATK.rollAttack(actor, w, { trade: 99 });
+              await settle();
+              assert.equal(lastFlags().trade, 1,
+                "a level-1 character spent more than one point");
+            });
+        });
+      });
+
+      describe("§ the damage pays it out", function () {
+        /** One for one in one hand. */
+        it("a one-handed weapon adds the trade to the flat damage",
+          async function () {
+            this.timeout(30_000);
+            await armed(weapon(), async (actor, w) => {
+              const none = await ATK.rollDamage(actor, w,
+                { outcome: {}, wield: "oneHanded", isMelee: true, prompt: false, trade: 0 });
+              const three = await ATK.rollDamage(actor, w,
+                { outcome: {}, wield: "oneHanded", isMelee: true, prompt: false, trade: 3 });
+              assert.equal(three.terms.flat - none.terms.flat, 3,
+                "the declared trade bought no damage at all");
+            });
+          });
+
+        /**
+         * Two for one in two hands, off the WIELD the attack resolved — nothing
+         * new records whether a weapon is two-handed.
+         */
+        it("a two-handed grip doubles it", async function () {
+          this.timeout(30_000);
+          await armed(weapon(), async (actor, w) => {
+            const one = await ATK.rollDamage(actor, w,
+              { outcome: {}, wield: "oneHanded", isMelee: true, prompt: false, trade: 3 });
+            const two = await ATK.rollDamage(actor, w,
+              { outcome: {}, wield: "twoHanded", isMelee: true, prompt: false, trade: 3 });
+            assert.equal(two.terms.flat - one.terms.flat, 3,
+              "the two-handed doubling did not happen");
+          });
+        });
+
+        /** Gear may claim the doubling without claiming the grip. */
+        it("a weapon that counts as two-handed doubles an unarmed strike",
+          async function () {
+            this.timeout(30_000);
+            await armed(weapon({ category: "knuckles", tradeCountsAsTwoHanded: true }),
+              async (actor, w) => {
+                const plain = await ATK.rollDamage(actor, w,
+                  { outcome: {}, wield: "unarmed", isMelee: true, prompt: false, trade: 0 });
+                const traded = await ATK.rollDamage(actor, w,
+                  { outcome: {}, wield: "unarmed", isMelee: true, prompt: false, trade: 2 });
+                assert.equal(traded.terms.flat - plain.terms.flat, 4,
+                  "gear that says it doubles an unarmed strike did not");
+              });
+          });
+
+        /**
+         * The card renders `terms.parts`. A bonus in the total but not the
+         * breakdown prints a sum that does not add up.
+         */
+        it("the bonus appears in the itemised breakdown", async function () {
+          this.timeout(30_000);
+          await armed(weapon(), async (actor, w) => {
+            const r = await ATK.rollDamage(actor, w,
+              { outcome: {}, wield: "twoHanded", isMelee: true, prompt: false, trade: 2 });
+            const part = (r.terms.parts ?? [])
+              .find((p) => p.label === "LASTARC.Mod.declaredTrade");
+            assert.isNotNull(part ?? null, "the card's working omits the trade");
+            assert.equal(part.value, 4, "the itemised value is not the doubled one");
+            assert.equal(
+              r.terms.parts.reduce((n, p) => n + p.value, 0), r.terms.flat,
+              "the parts do not add up to the flat total the card prints");
+          });
+        });
+      });
+
+      describe("§ only a character who has it is offered it", function () {
+        it("the wield a trade doubles on is derived, not stored on the weapon",
+          async function () {
+            this.timeout(30_000);
+            await armed(weapon({ size: "large" }), async (actor, w) => {
+              const profile = ATK.weaponProfileFor(actor, w);
+              assert.equal(profile.wield, "twoHanded",
+                "a Large weapon on a Medium wielder is not resolving two-handed, " +
+                "so the doubling would need a field of its own after all");
+            });
+          });
+
+        it("a character without the talent has no trade to declare",
+          async function () {
+            this.timeout(30_000);
+            await withActor(FIGHTER, async (actor) => {
+              const [w] = await actor.createEmbeddedDocuments("Item", [weapon()]);
+              assert.isFalse(ATK.hasTechnickFlag(actor, "mightyStrikes"),
+                "the fixture already has the talent, so this proves nothing");
+              // The gate lives in the dispatcher; the roll itself still honours
+              // an explicit trade, which is what the GM override is for.
+              await ATK.rollAttack(actor, w);
+              await settle();
+              assert.equal(lastFlags().trade, 0);
+            });
+          });
+      });
+    },
+    { displayName: "Last Arc — Declared trade" }
   );
 }

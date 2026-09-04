@@ -662,7 +662,10 @@ async function onRollDamage(button, message) {
   const result = await rollDamage(actor, weapon, {
     outcome,
     wield: wield ?? "oneHanded",
-    isMelee: isMelee ?? true
+    isMelee: isMelee ?? true,
+    // What the attack roll already paid for. A card that never declared one
+    // has no flag, which reads as 0 — not as "unknown".
+    trade: flags.trade ?? 0
   });
 
   // Null means the damage-type picker was dismissed. Posting a card anyway
