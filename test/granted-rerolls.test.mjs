@@ -18,7 +18,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { LASTARC } from "../module/config.mjs";
-import { aggregateGrants, resolveReroll } from "../module/derivation.mjs";
+import {
+  aggregateGrants, resolveReroll, rerollApplies, offeredRerolls, rerollGrantId
+} from "../module/derivation.mjs";
 
 const read = (p) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.url)), "utf8");
 const chat = read("module/chat.mjs");
@@ -54,7 +56,10 @@ describe("§48 a grant survives the trip from item to actor", () => {
       { __source: "ZZ inert", reroll: { second: false, higher: false, skill: "survival" } }
     ]);
     assert.equal(g.rerolls.length, 1, "an untouched trait must grant nothing");
-    assert.deepEqual(g.rerolls[0], { kind: "second", skill: "survival", source: "ZZ trait" });
+    assert.deepEqual(g.rerolls[0], {
+      kind: "second", skill: "survival", attribute: null, weaponCategory: null,
+      perEncounter: false, source: "ZZ trait", sourceId: null
+    });
   });
 
   test("one trait can grant both kinds", () => {
@@ -212,8 +217,13 @@ describe("§48 a scoped grant only offers itself on its own skill", () => {
       "blank must normalise to null, or `!g.skill` would not read as unscoped");
   });
 
-  test("the offer filters by the rolled skill", () => {
-    assert.match(chat, /!g\.skill \|\| g\.skill === flags\.skillKey/,
+  /**
+   * Both sites now call the same helper. They used to be two copies of one
+   * expression with a comment on each warning they must agree — which is the
+   * shape of a bug waiting for somebody to edit one of them.
+   */
+  test("the offer filters through the shared matcher", () => {
+    assert.match(chat, /D\.offeredRerolls\(\s*actor\.system\?\.rerollGrants,\s*flags,/,
       "every grant is offered on every roll, so a trait that rerolls one skill " +
       "would offer itself on all of them");
   });
@@ -225,8 +235,11 @@ describe("§48 a scoped grant only offers itself on its own skill", () => {
    */
   test("the handler re-filters the same way before indexing", () => {
     const fn = chat.slice(chat.indexOf("async function onGrantedReroll"));
-    assert.match(fn.slice(0, 1200), /!g\.skill \|\| g\.skill === flagsForScope\.skillKey/,
+    assert.match(fn.slice(0, 1200), /D\.offeredRerolls\(/,
       "the handler indexes the unfiltered list, so it can spend the wrong grant");
+    // The SAME function, not a second filter that happens to agree today.
+    assert.ok(!/\.filter\(\(g\) =>/.test(fn.slice(0, 1200)),
+      "the handler has its own filter again — it will drift from the offer");
   });
 
   test("a check records which skill it was", () => {
@@ -244,5 +257,216 @@ describe("§48 a scoped grant only offers itself on its own skill", () => {
       assert.ok(!read(f).includes("usesPerRest"),
         `${f} still carries a per-rest limit that no rule asks for`);
     }
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+describe("§79 a reroll can be scoped to an attribute", () => {
+  const grant = (o) => ({ kind: "second", skill: null, attribute: null, source: "ZZ", ...o });
+
+  test("an unscoped grant still offers on everything", () => {
+    assert.equal(rerollApplies(grant({}), { skillKey: "survival" }), true);
+    assert.equal(rerollApplies(grant({}), {}), true);
+  });
+
+  test("an attribute scope covers every skill governed by it", () => {
+    const g = grant({ attribute: "str" });
+    const str = Object.entries(LASTARC.allSkills).filter(([, c]) => c.attr === "str");
+    assert.ok(str.length > 1, "the fixture needs more than one Strength skill to mean anything");
+    for (const [key] of str) {
+      assert.equal(rerollApplies(g, { skillKey: key }), true, `${key} was not covered`);
+    }
+  });
+
+  test("…and not the ones governed by something else", () => {
+    const g = grant({ attribute: "str" });
+    for (const [key, cfg] of Object.entries(LASTARC.allSkills)) {
+      if (cfg.attr === "str") continue;
+      assert.equal(rerollApplies(g, { skillKey: key }), false, `${key} was wrongly covered`);
+    }
+  });
+
+  /**
+   * A Strength check is as strength-based as a Strength skill, and it carries
+   * no skill key at all — so without this the reader who ticks "any Strength
+   * check" watches it not offer on the most obvious case of all.
+   */
+  test("…and the raw attribute check too", () => {
+    assert.equal(rerollApplies(grant({ attribute: "str" }), { attributeKey: "str" }), true);
+    assert.equal(rerollApplies(grant({ attribute: "str" }), { attributeKey: "int" }), false);
+  });
+
+  test("a skill scope is unchanged by any of this", () => {
+    const g = grant({ skill: "survival" });
+    assert.equal(rerollApplies(g, { skillKey: "survival" }), true);
+    assert.equal(rerollApplies(g, { skillKey: "athletics" }), false);
+    assert.equal(rerollApplies(g, { attributeKey: "str" }), false,
+      "a skill-scoped trait leaked onto a raw attribute check");
+  });
+
+  /** Both scopes ORed — a union is what "this trait rerolls these" means. */
+  test("naming both offers on either", () => {
+    const g = grant({ skill: "arcana", attribute: "str" });
+    assert.equal(rerollApplies(g, { skillKey: "arcana" }), true);
+    assert.equal(rerollApplies(g, { skillKey: "athletics" }), true);
+    assert.equal(rerollApplies(g, { skillKey: "perception" }), false);
+  });
+
+  test("an attack, which has neither key, gets no scoped offer", () => {
+    assert.equal(rerollApplies(grant({ attribute: "str" }), {}), false);
+    assert.equal(rerollApplies(grant({ skill: "survival" }), {}), false);
+  });
+
+  /**
+   * THE reason this is one function. The button's index is into the FILTERED
+   * list, and the offer and the spend both build it — if they disagree by one
+   * entry the player spends a different trait from the one they clicked.
+   */
+  test("the filtered list is stable, so an index means the same thing twice", () => {
+    const grants = [
+      grant({ source: "unscoped" }),
+      grant({ attribute: "str", source: "strength" }),
+      grant({ skill: "arcana", source: "arcana" })
+    ];
+    const onAthletics = offeredRerolls(grants, { skillKey: "athletics" });
+    assert.deepEqual(onAthletics.map((g) => g.source), ["unscoped", "strength"]);
+
+    const onArcana = offeredRerolls(grants, { skillKey: "arcana" });
+    assert.deepEqual(onArcana.map((g) => g.source), ["unscoped", "arcana"],
+      "index 1 means a different trait on a different roll, which is the point");
+
+    assert.deepEqual(offeredRerolls(grants, {}).map((g) => g.source), ["unscoped"]);
+  });
+
+  test("the aggregate carries the attribute scope across", () => {
+    const g = aggregateGrants([
+      { __source: "ZZ surge", reroll: { second: true, skill: "", attribute: "str" } }
+    ]);
+    assert.equal(g.rerolls[0].attribute, "str");
+    assert.equal(g.rerolls[0].skill, null);
+  });
+
+  /** An attribute check must say which attribute, or nothing can match on it. */
+  test("rollAttribute stamps the attribute onto the message", () => {
+    const rolls = read("module/dice/rolls.mjs");
+    const fn = rolls.slice(rolls.indexOf("export async function rollAttribute"));
+    assert.match(fn.slice(0, 900), /attributeKey: attrKey/,
+      "an attribute check carries no attribute, so no scoped trait can see it");
+    assert.match(rolls, /attributeKey: attributeKey \?\? null/,
+      "evaluateCheck drops it before it reaches the message flags");
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+describe("§79 a reroll can be scoped to a weapon group", () => {
+  const grant = (o) => ({
+    kind: "second", skill: null, attribute: null, weaponCategory: null,
+    perEncounter: false, source: "ZZ", sourceId: "i1", ...o
+  });
+
+  test("it offers on an attack with that group", () => {
+    const g = grant({ weaponCategory: "axes" });
+    assert.equal(rerollApplies(g, { weaponCategory: "axes" }), true);
+    assert.equal(rerollApplies(g, { weaponCategory: "swords" }), false);
+  });
+
+  /**
+   * The other two scopes are checks. A weapon-group trait is the first that
+   * reaches attacks at all, and it must not start offering on checks in the
+   * process — an attack card carries no skill key and a check carries no
+   * weapon group, so each stays on its own side.
+   */
+  test("…and not on a skill or attribute check", () => {
+    const g = grant({ weaponCategory: "axes" });
+    assert.equal(rerollApplies(g, { skillKey: "athletics" }), false);
+    assert.equal(rerollApplies(g, { attributeKey: "str" }), false);
+  });
+
+  test("a check-scoped trait still never offers on an attack", () => {
+    assert.equal(rerollApplies(grant({ attribute: "str" }), { weaponCategory: "axes" }), false);
+    assert.equal(rerollApplies(grant({ skill: "athletics" }), { weaponCategory: "axes" }), false);
+  });
+
+  test("an unscoped grant still offers on everything, attacks included", () => {
+    assert.equal(rerollApplies(grant({}), { weaponCategory: "axes" }), true);
+  });
+});
+
+describe("§79 once per encounter", () => {
+  const limited = {
+    kind: "second", skill: null, attribute: null, weaponCategory: "axes",
+    perEncounter: true, source: "ZZ spec", sourceId: "item-1"
+  };
+  const unlimited = { ...limited, perEncounter: false, sourceId: "item-2" };
+  const roll = { weaponCategory: "axes" };
+
+  test("it is offered while unspent", () => {
+    assert.equal(offeredRerolls([limited], roll, []).length, 1);
+  });
+
+  test("…and withdrawn once spent", () => {
+    assert.equal(offeredRerolls([limited], roll, ["item-1"]).length, 0);
+  });
+
+  test("an unlimited grant ignores the spent list entirely", () => {
+    assert.equal(offeredRerolls([unlimited], roll, ["item-2"]).length, 1,
+      "a trait with no per-encounter limit was withdrawn anyway");
+  });
+
+  /** Spending one trait must not retire another the character also holds. */
+  test("spending one leaves the others alone", () => {
+    const other = { ...limited, sourceId: "item-3", source: "ZZ other" };
+    const left = offeredRerolls([limited, other], roll, ["item-1"]);
+    assert.deepEqual(left.map((g) => g.sourceId), ["item-3"]);
+  });
+
+  /**
+   * The id is the item's, so two traits that happen to share a NAME are still
+   * two traits. Falling back to the name is deliberate — a grant that reached
+   * the actor without an id would otherwise lose its limit silently.
+   */
+  test("the spend key prefers the item id and falls back to the name", () => {
+    assert.equal(rerollGrantId({ sourceId: "i9", source: "ZZ" }), "i9");
+    assert.equal(rerollGrantId({ sourceId: null, source: "ZZ" }), "ZZ");
+    assert.equal(rerollGrantId({}), null);
+  });
+
+  test("the aggregate carries the limit and the item id across", () => {
+    const g = aggregateGrants([{
+      __source: "ZZ spec", __sourceId: "item-1",
+      reroll: { second: true, weaponCategory: "axes", perEncounter: true }
+    }]);
+    assert.equal(g.rerolls[0].perEncounter, true);
+    assert.equal(g.rerolls[0].weaponCategory, "axes");
+    assert.equal(g.rerolls[0].sourceId, "item-1");
+  });
+
+  /**
+   * The spent list lives on the COMBATANT, which Foundry deletes with the
+   * combat — so the reset is the encounter ending and there is no hook to
+   * forget. Asserted on the source because only a live Foundry can show the
+   * document lifecycle, and the mistake worth guarding is storing it on the
+   * actor, where it would persist for the rest of the campaign.
+   */
+  test("spent state is kept on the combatant, not the actor", () => {
+    const chat = read("module/chat.mjs");
+    /**
+     * THE FUNCTION BODY, not a fixed window after its name. A 400-character
+     * slice ran past the end of `spentRerolls` into `markRerollSpent`, which
+     * mentions the combatant too — so replacing the whole body with an ACTOR
+     * flag lookup left this green. Caught by mutation, not by reading it.
+     */
+    const at = chat.indexOf("export function spentRerolls");
+    const fn = chat.slice(at, chat.indexOf("\n}", at));
+    assert.match(fn, /getCombatantByActor/,
+      "the spent list is not being read off the combatant");
+    assert.ok(!/actor\.getFlag/.test(fn),
+      "a per-encounter spend read from the ACTOR never clears");
+    assert.ok(!/actor\.setFlag|actor\.update/.test(chat.slice(
+      chat.indexOf("async function markRerollSpent"),
+      chat.indexOf("async function onGrantedReroll"))),
+      "a per-encounter spend written to the ACTOR never clears");
   });
 });

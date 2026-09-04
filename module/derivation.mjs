@@ -820,7 +820,15 @@ export function aggregateGrants(grantsList = []) {
           // attack or on a different skill — the GM's traits reroll one named
           // skill each.
           skill: g.reroll.skill || null,
-          source: g.__source ?? null
+          attribute: g.reroll.attribute || null,
+          weaponCategory: g.reroll.weaponCategory || null,
+          perEncounter: !!g.reroll.perEncounter,
+          source: g.__source ?? null,
+          /**
+           * WHICH ITEM, so a once-per-encounter grant can be marked spent
+           * against something stabler than a name. Two traits may share one.
+           */
+          sourceId: g.__sourceId ?? null
         });
       }
     }
@@ -891,6 +899,65 @@ export function effectiveProficiencies(ticked = {}, granted = {}) {
     armour: [...new Set([...(ticked.armour ?? []), ...(granted.armour ?? [])])],
     shields: !!(ticked.shields || granted.shields)
   };
+}
+
+/**
+ * Does a granted reroll offer itself on this roll (#48, #79)?
+ *
+ * A grant with no scope offers on everything. A scoped one offers only on what
+ * it names, and the two kinds of scope are ORed: a trait may name a skill, an
+ * attribute, or both.
+ *
+ * An attribute scope covers BOTH the skills governed by that attribute and the
+ * raw attribute check. A Strength check is as strength-based as a Strength
+ * skill, and the reader who ticks "any Strength check" is not distinguishing
+ * between them.
+ *
+ * PURE, and the single implementation on purpose. The offer and the spend both
+ * filter the grant list and their index has to agree — they were two copies of
+ * the same expression with a comment on each warning that they must not drift,
+ * which is a comment doing a function's job.
+ *
+ * @param {{skill?:?string, attribute?:?string}} grant
+ * @param {{skillKey?:?string, attributeKey?:?string}} roll  what was rolled
+ */
+export function rerollApplies(grant = {}, {
+  skillKey = null, attributeKey = null, weaponCategory = null
+} = {}) {
+  if (!grant.skill && !grant.attribute && !grant.weaponCategory) return true;
+  if (grant.skill && grant.skill === skillKey) return true;
+  if (grant.weaponCategory && grant.weaponCategory === weaponCategory) return true;
+  if (grant.attribute) {
+    if (grant.attribute === attributeKey) return true;
+    if (skillKey && LASTARC.allSkills[skillKey]?.attr === grant.attribute) return true;
+  }
+  return false;
+}
+
+/**
+ * What a once-per-encounter grant is marked spent against.
+ *
+ * The item's id where there is one, its name otherwise. A name is a poor key —
+ * two items can share one — but it is better than dropping the limit for a
+ * grant that reached the actor without an id, which would silently make the
+ * trait unlimited.
+ */
+export function rerollGrantId(grant = {}) {
+  return grant.sourceId || grant.source || null;
+}
+
+/**
+ * Every granted reroll that offers itself on this roll, in stored order.
+ *
+ * `spent` is the ids already used this encounter. A grant with no
+ * `perEncounter` ignores it entirely, and outside combat the caller passes
+ * nothing — there is no encounter to be once per, and refusing the reroll
+ * because no tracker is running would punish play that never entered one.
+ */
+export function offeredRerolls(grants = [], roll = {}, spent = []) {
+  return (grants ?? []).filter((g) =>
+    rerollApplies(g, roll)
+    && !(g.perEncounter && (spent ?? []).includes(rerollGrantId(g))));
 }
 
 /**

@@ -105,7 +105,13 @@ const NOT_A_PAYLOAD = {
   "skills.key": "names which skill the row is about; carries no effect itself",
   // Which skill the reroll is limited to. Without a reroll kind ticked there
   // is no reroll to scope, so this alone is inert — asserted below.
-  "reroll.skill": "scopes a reroll; inert unless a reroll kind is also set"
+  "reroll.skill": "scopes a reroll; inert unless a reroll kind is also set",
+  // Same shape, scoping by attribute instead of by one named skill (#79).
+  "reroll.attribute": "scopes a reroll; inert unless a reroll kind is also set",
+  "reroll.weaponCategory": "scopes a reroll to a weapon group; inert without a kind",
+  // Narrows an existing reroll rather than granting one. A trait with this and
+  // no kind ticked grants nothing to limit.
+  "reroll.perEncounter": "limits a reroll; inert unless a reroll kind is also set"
 };
 
 describe("§ the drift guard covers the whole schema", () => {

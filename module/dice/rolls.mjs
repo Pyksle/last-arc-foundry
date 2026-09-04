@@ -103,6 +103,7 @@ export async function rollAttribute(actor, attrKey, options = {}) {
     isWeaponSkill: false,
     // An attribute check is not a skill check — see evaluateCheck.
     misfortuneApplies: false,
+    attributeKey: attrKey,
     flavourKey: "LASTARC.Roll.AttributeCheck"
   });
 }
@@ -114,7 +115,7 @@ export async function rollAttribute(actor, attrKey, options = {}) {
  */
 export async function evaluateCheck({
   actor, label, mod, dc, isWeaponSkill, flavourKey, misfortuneApplies = true,
-  skillKey = null
+  skillKey = null, attributeKey = null
 }) {
   /**
    * Misfortune rerolls "attacks and skill checks" keeping the lower — the
@@ -168,7 +169,13 @@ export async function evaluateCheck({
          * rolls from everyone else's (#48). The label is localised and the
          * flavour key is generic; neither can be matched against a config key.
          */
-        skillKey: skillKey ?? null
+        skillKey: skillKey ?? null,
+        /**
+         * And WHICH attribute, for a raw attribute check (#79). A trait
+         * rerolling "any Strength check" has nothing else to match on: an
+         * attribute check carries no skill key, and its label is localised.
+         */
+        attributeKey: attributeKey ?? null
       }
     }
   });

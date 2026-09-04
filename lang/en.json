@@ -1038,5 +1038,13 @@
   "LASTARC.Field.GrantsArmourProficiency": "Grants armour proficiency",
   "LASTARC.Field.GrantsShieldProficiency": "Grants shield proficiency",
   "LASTARC.Tooltip.GrantsProficiency": "Proficiencies a character gains from this trait. Record Weapon Proficiency here and the −5 for a weapon they are not proficient with stops applying, without anybody also having to tick the box on the character sheet.",
-  "LASTARC.Note.ProficiencyGranted": "Granted by a trait — untick it there, not here."
+  "LASTARC.Note.ProficiencyGranted": "Granted by a trait — untick it there, not here.",
+  "LASTARC.Field.RerollAttribute": "…or any check from",
+  "LASTARC.Field.RerollNoAttribute": "— no attribute —",
+  "LASTARC.Tooltip.RerollAttribute": "Offer the reroll on every check governed by this attribute — each skill under it, and the raw attribute check. Use this for a trait that rerolls a whole family rather than one named skill. Set alongside a skill and the reroll is offered on either.",
+  "LASTARC.Field.RerollWeapon": "…or attacks with",
+  "LASTARC.Field.RerollNoWeapon": "— no weapon group —",
+  "LASTARC.Tooltip.RerollWeapon": "Offer the reroll on any attack made with a weapon of this group. This is the only scope that applies to attacks — a skill or attribute scope never offers itself on one.",
+  "LASTARC.Field.RerollPerEncounter": "Once per encounter",
+  "LASTARC.Tooltip.RerollPerEncounter": "Limit this reroll to one use per encounter. Spent state is kept on the combatant, so it clears when the encounter ends. Outside combat there is no encounter to be once per, and the reroll is simply offered."
 }

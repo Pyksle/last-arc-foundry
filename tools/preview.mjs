@@ -592,6 +592,14 @@ export function itemContext(type) {
      * selected branch works. Labels stay as LASTARC keys, because that is what
      * the template localises.
      */
+    /**
+     * Attribute scopes for a granted reroll (#79), built from the config so the
+     * preview cannot offer a set the sheet does not.
+     */
+    rerollAttributeOptions: Object.entries(LASTARC.attributes)
+      .map(([value, cfg]) => ({ value, label: cfg.label })),
+    rerollWeaponOptions: LASTARC.weaponCategories
+      .map((value) => ({ value, label: `LASTARC.WeaponCategory.${value}` })),
     ...ROWS.grantProficiencyRows({
       weapons: [LASTARC.weaponCategories[0]],
       armour: [Object.keys(LASTARC.armourTypes)[0]],

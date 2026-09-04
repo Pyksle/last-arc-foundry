@@ -683,6 +683,47 @@
           </select>
           <label>{{localize "LASTARC.Field.RerollSkill"}}</label>
         </div>
+        {{!-- Or a whole family of checks (#79). A trait rerolling "any
+              strength-based check" covers nine skills plus the raw attribute
+              check, and the skill list above can name exactly one. --}}
+        <div class="la-field"
+             data-tooltip="{{localize 'LASTARC.Tooltip.RerollAttribute'}}">
+          <select name="system.grants.reroll.attribute">
+            <option value="" {{#unless system.grants.reroll.attribute}}selected{{/unless}}>
+              {{localize "LASTARC.Field.RerollNoAttribute"}}
+            </option>
+            {{#each rerollAttributeOptions}}
+              <option value="{{this.value}}"
+                {{#if (laeq this.value ../system.grants.reroll.attribute)}}selected{{/if}}>
+                {{localize this.label}}
+              </option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.RerollAttribute"}}</label>
+        </div>
+        {{!-- The only scope that reaches ATTACKS. The other two are checks, and
+              a check-scoped grant deliberately never offers on an attack. --}}
+        <div class="la-field"
+             data-tooltip="{{localize 'LASTARC.Tooltip.RerollWeapon'}}">
+          <select name="system.grants.reroll.weaponCategory">
+            <option value="" {{#unless system.grants.reroll.weaponCategory}}selected{{/unless}}>
+              {{localize "LASTARC.Field.RerollNoWeapon"}}
+            </option>
+            {{#each rerollWeaponOptions}}
+              <option value="{{this.value}}"
+                {{#if (laeq this.value ../system.grants.reroll.weaponCategory)}}selected{{/if}}>
+                {{localize this.label}}
+              </option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.RerollWeapon"}}</label>
+        </div>
+        <label class="la-check"
+               data-tooltip="{{localize 'LASTARC.Tooltip.RerollPerEncounter'}}">
+          <input type="checkbox" name="system.grants.reroll.perEncounter"
+                 {{#if system.grants.reroll.perEncounter}}checked{{/if}}>
+          {{localize "LASTARC.Field.RerollPerEncounter"}}
+        </label>
         <div class="la-field la-field--narrow"
              data-tooltip="{{localize 'LASTARC.Tooltip.GrantHp'}}">
           <input type="number" name="system.grants.hp" value="{{system.grants.hp}}">

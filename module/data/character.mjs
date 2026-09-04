@@ -836,7 +836,11 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
        * A shallow copy, because `grants` is live schema data and writing a
        * display field onto it would persist to the database.
        */
-      if (isInnate || item.system.equipped) contributing.push({ ...g, __source: item.name });
+      if (isInnate || item.system.equipped) {
+        // `__sourceId` alongside the name so a once-per-encounter grant has a
+        // stable key to be marked spent against (#79).
+        contributing.push({ ...g, __source: item.name, __sourceId: item.id });
+      }
     }
 
     return D.aggregateGrants(contributing);
