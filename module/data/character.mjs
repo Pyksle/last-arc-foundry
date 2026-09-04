@@ -338,6 +338,12 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     for (const key of Object.keys(LASTARC.attributes)) {
       const attr = this.attributes[key];
       attr.total = attr.value + attr.racialMod;
+      /**
+       * Over the species cap? REPORTED, never clamped — `value` is an input,
+       * and storing a clamped number would show the player the old one back.
+       * The cap had an input on this sheet and no reader at all until now.
+       */
+      attr.overCap = D.overAttributeCap(attr.total, attr.cap);
       attr.mod = D.attributeModifier(attr.total, settings.clampAttributeModifier);
     }
 
@@ -387,6 +393,12 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     // Neither may be bound to an input — see the class docstring.
     this.study = this.#studyLimits();
     this.trainedSkills = this.#trainedSkillLimits(grants, classes);
+    /**
+     * Extra technicks traits allow. A READOUT: the system does not police how
+     * many technicks are on the sheet, and inventing an enforcement nobody
+     * asked for would make a half-built character look broken.
+     */
+    this.bonusTechnicks = grants.bonusTechnicks;
 
     /**
      * Rerolls this character's traits offer (#48). Read-only, derived from the
@@ -821,8 +833,14 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       if (!g) continue;
       // Knowledge and innate features contribute unconditionally; worn things
       // only while worn. A racial feature is not something you take off.
+      /**
+       * A RACE is as innate as it gets, and was missing from this list — so a
+       * race item's grants reached nothing at all. It has no `equipped` field
+       * to fall through to either, which is how it managed to be silently
+       * absent rather than noisily wrong.
+       */
       const isInnate = item.type === "technick" || item.type === "talent"
-        || item.type === "feature";
+        || item.type === "feature" || item.type === "race";
       // A technick switched off contributes nothing — see `active` on the
       // technick schema. Features have no such switch, hence `!== false`
       // rather than a truthiness test.
@@ -929,14 +947,17 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     const known = Object.values(this.skills).filter((s) => s.trained).length
       + grantedKeys.length;
 
-    const halfElf = (this.parent?.items ?? []).some(
-      (i) => i.type === "race" && i.system?.slug === "half-elf"
-    );
-
+    /**
+     * ONE SPECIES USED TO BE NAMED HERE — a `half-elf` slug test feeding a
+     * hardcoded +1. So the human racial granting the same thing did nothing,
+     * and neither did the technick that grants it repeatably. Any trait may
+     * raise the allowance now, Half-Elf included, through `grants`.
+     */
     let max = null;
     try {
       max = D.trainedSkillCount(
-        this.classes?.[0]?.name, this.attributes.int.mod, halfElf, catalogue)
+        this.classes?.[0]?.name, this.attributes.int.mod,
+        grants.trainedSkills, catalogue)
         + grantedKeys.length;
     } catch {
       // No class chosen yet, or one whose table entry is unset. Showing nothing
@@ -945,7 +966,13 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
       max = null;
     }
 
-    return { known, max, halfElf, granted: grantedKeys.length,
+    /**
+     * `halfElf` was returned here and read by the template. It named one
+     * species in a readout, and the variable behind it is gone — any trait may
+     * raise this allowance now, so the note says how many were GRANTED rather
+     * than which species granted them.
+     */
+    return { known, max, granted: grantedKeys.length, allowance: grants.trainedSkills,
       over: max !== null && known > max };
   }
 

@@ -331,6 +331,20 @@ function grantsSchema() {
         new fields.StringField({ choices: Object.keys(LASTARC.armourTypes) }), { initial: [] }),
       shields: new fields.BooleanField({ initial: false })
     }),
+    /**
+     * Extra trained skills and extra technicks this trait allows.
+     *
+     * In `grants` rather than on the race item, because they are not
+     * race-shaped: a base technick grants an extra trained skill and says "may
+     * be taken more than once", and the errata adds more. One reader here
+     * serves races, technicks, talents and features alike.
+     *
+     * ALLOWANCES, not skills. `skills[].trained` names a skill the trait
+     * trains; this is the budget the player then spends themselves, which is
+     * what "one additional trained skill of your choice" actually means.
+     */
+    trainedSkills: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
+    bonusTechnicks: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
     breakThreshold: new fields.NumberField({ initial: 0, integer: true }),
     heroPoints: new fields.NumberField({ initial: 0, integer: true }),
     /** Improved Initiative: steps the die DOWN the ladder, since lowest acts first. */
@@ -770,30 +784,30 @@ export class LastArcRaceData extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
       ...commonFields(),
-      /** Applied AFTER attribute generation (§2). */
-      attributeMods: new fields.ObjectField({ initial: {} }),   // { str: 2, chr: -2 }
-      /** Per-attribute caps, 18–22 by species (§2). */
-      attributeCaps: new fields.ObjectField({ initial: {} }),
       size: new fields.StringField({ initial: "medium", choices: Object.keys(LASTARC.sizes) }),
-      speed: new fields.NumberField({ initial: 6, integer: true, min: 0 }),
       senses: new fields.ArrayField(new fields.StringField(), { initial: [] }),
-      languages: new fields.ArrayField(new fields.StringField(), { initial: [] }),
+
       /**
-       * `traits` USED TO BE HERE — an array of `{name, description}` rows.
+       * `traits` used to be here — an array of `{name, description}` rows, dead
+       * at all three ends. So did six more fields, and they were dead too:
+       * `attributeMods`, `attributeCaps`, `speed`, `languages`,
+       * `bonusTechnicks` and `bonusTrainedSkills`, every one with an input on
+       * this sheet and NO READER anywhere. A GM could fill the whole form in
+       * and change nothing.
        *
-       * Removed rather than given an editor. Nothing read it, nothing rendered
-       * it and nothing could enter it: dead at all three ends since the model
-       * was written. The race's own `description` already carries the prose,
-       * and the two traits that are MECHANICAL are the two fields below, which
-       * derivation actually consumes.
+       * The comment that stood here said the rule out loud — "a field with no
+       * reader does not need an input, it needs deleting" — and then claimed
+       * the last two were "what derivation actually consumes". Derivation had
+       * never heard of them. A guard is only worth what it is applied to.
        *
-       * The rule this follows: a field with no reader does not need an input,
-       * it needs deleting. Building the editor would have manufactured a place
-       * for a GM to type something that could never take effect.
+       * Four of the six were DUPLICATES of character fields that already work:
+       * `attributes.*.racialMod`, `attributes.*.cap`, `movement.base` and
+       * `details.languages` are where those numbers belong and are read from.
+       * The other two are allowances, and they live in `grants` now — a
+       * technick grants an extra trained skill too, and one reader should
+       * serve both.
        */
-      /** Humans get a bonus starting technick; half-elves get +1 trained skill (§4.5, §11). */
-      bonusTechnicks: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
-      bonusTrainedSkills: new fields.NumberField({ initial: 0, integer: true, min: 0 })
+      grants: grantsSchema()
     };
   }
 }

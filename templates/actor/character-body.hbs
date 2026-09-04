@@ -17,14 +17,20 @@
           {{!-- Racial modifier and cap. Both are stored inputs that derivation
                 READS (total = value + racialMod), and neither had a box, so a
                 species' attribute line could not be recorded on the character
-                it applied to. --}}
+                it applied to.
+
+                The CAP was the half of that claim which was not yet true: it
+                had a box and nothing read it, so a score above it was legal.
+                It is reported now — reported, not clamped, because `value` is
+                an input and storing a clamp shows the player the old number. --}}
           <div class="la-attribute__race">
             <input type="number" name="system.attributes.{{this.key}}.racialMod"
                    value="{{this.racialMod}}"
                    data-tooltip="{{localize 'LASTARC.Tooltip.RacialMod'}}">
             <input type="number" name="system.attributes.{{this.key}}.cap"
+                   class="{{#if this.overCap}}is-warning{{/if}}"
                    value="{{this.cap}}" min="1"
-                   data-tooltip="{{localize 'LASTARC.Tooltip.AttributeCap'}}">
+                   data-tooltip="{{#if this.overCap}}{{localize 'LASTARC.Note.OverCap'}}{{else}}{{localize 'LASTARC.Tooltip.AttributeCap'}}{{/if}}">
           </div>
           <label class="la-attribute__label">{{localize this.label}}</label>
         </div>
@@ -376,7 +382,7 @@
       <p class="la-note {{#if system.trainedSkills.over}}is-warning{{/if}}">
         {{localize "LASTARC.Note.TrainedSkills"}}
         {{system.trainedSkills.known}} / {{system.trainedSkills.max}}
-        {{#if system.trainedSkills.halfElf}}— {{localize "LASTARC.Note.HalfElfSkilled"}}{{/if}}
+        {{#if system.trainedSkills.allowance}}— {{localize "LASTARC.Note.GrantedSkillAllowance" n=system.trainedSkills.allowance}}{{/if}}
       </p>
     {{/if}}
 
