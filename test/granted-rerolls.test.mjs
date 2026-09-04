@@ -19,10 +19,26 @@ import { fileURLToPath } from "node:url";
 
 import { LASTARC } from "../module/config.mjs";
 import {
-  aggregateGrants, resolveReroll, rerollApplies, offeredRerolls, rerollGrantId
+  aggregateGrants, resolveReroll, rerollApplies, offeredRerolls, rerollGrantId,
+  rerollBonus
 } from "../module/derivation.mjs";
 
 const read = (p) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.url)), "utf8");
+
+/**
+ * One function's body, brace-free and window-free.
+ *
+ * Three guards in this file sliced a fixed number of characters after a
+ * function's name, and every one of them went stale as soon as the function
+ * grew — failing on runs where nothing was wrong, which is how a guard gets
+ * deleted rather than read.
+ */
+function fnBody(source, signature) {
+  const at = source.indexOf(signature);
+  if (at === -1) return "";
+  const end = source.indexOf("\n}", at);
+  return source.slice(at, end === -1 ? undefined : end);
+}
 const chat = read("module/chat.mjs");
 const heroPoints = read("module/dice/hero-points.mjs");
 const itemSheet = read("module/sheets/item-sheet.mjs");
@@ -58,7 +74,8 @@ describe("§48 a grant survives the trip from item to actor", () => {
     assert.equal(g.rerolls.length, 1, "an untouched trait must grant nothing");
     assert.deepEqual(g.rerolls[0], {
       kind: "second", skill: "survival", attribute: null, weaponCategory: null,
-      perEncounter: false, source: "ZZ trait", sourceId: null
+      perEncounter: false, bonusAttribute: null, bonusMultiplier: 1,
+      source: "ZZ trait", sourceId: null
     });
   });
 
@@ -121,8 +138,11 @@ describe("§48 every link of the chain is connected", () => {
   });
 
   test("the rebuilt card comes from the shared chain", () => {
-    const fn = chat.slice(chat.indexOf("async function onGrantedReroll"));
-    assert.match(fn.slice(0, 1600), /rebuildAfterReroll\(actor, flags, result\.keptRoll\)/,
+    // THE FUNCTION, not a fixed slice of it. A 1600-character window went stale
+    // the moment the function grew, failing with nothing wrong — the third
+    // guard in this suite to do that.
+    const fn = fnBody(chat, "async function onGrantedReroll");
+    assert.match(fn, /rebuildAfterReroll\(actor, flags, result\.keptRoll\)/,
       "a granted reroll must rebuild its card like a hero point does, or an " +
       "attack loses its damage button and a check loses its verdict");
   });
@@ -391,6 +411,85 @@ describe("§79 a reroll can be scoped to a weapon group", () => {
 
   test("an unscoped grant still offers on everything, attacks included", () => {
     assert.equal(rerollApplies(grant({}), { weaponCategory: "axes" }), true);
+  });
+});
+
+describe("§79 a trait can improve the reroll it grants", () => {
+  const mods = { str: 4, int: 1 };
+  const grant = (o) => ({ bonusAttribute: null, bonusMultiplier: 1, ...o });
+
+  /**
+   * A racial spends its once-per-encounter reroll to add TWICE its Strength to
+   * a reroll with a weapon it specialises in. The trait does not merely grant
+   * the reroll; it improves the one it grants, which is neither a scope nor a
+   * kind — it is a modifier that exists only on the second die.
+   */
+  test("twice an attribute is twice its modifier", () => {
+    assert.equal(rerollBonus(grant({ bonusAttribute: "str", bonusMultiplier: 2 }), mods), 8);
+  });
+
+  test("once is once, and the multiplier defaults to one", () => {
+    assert.equal(rerollBonus(grant({ bonusAttribute: "str" }), mods), 4);
+    assert.equal(rerollBonus(grant({ bonusAttribute: "int", bonusMultiplier: 3 }), mods), 3);
+  });
+
+  /** Every reroll that existed before this must be untouched. */
+  test("no attribute named is no bonus at all", () => {
+    assert.equal(rerollBonus(grant({}), mods), 0);
+    assert.equal(rerollBonus(grant({ bonusMultiplier: 5 }), mods), 0,
+      "a multiplier with nothing to multiply paid out anyway");
+    assert.equal(rerollBonus({}, mods), 0);
+    assert.equal(rerollBonus(), 0);
+  });
+
+  /**
+   * A half-built character must not turn its reroll into `1d20 + NaN`, which
+   * evaluates to nothing and reports nothing.
+   */
+  test("an attribute the character does not have is zero, not NaN", () => {
+    assert.equal(rerollBonus(grant({ bonusAttribute: "str" }), {}), 0);
+    assert.equal(rerollBonus(grant({ bonusAttribute: "str" }), { str: null }), 0);
+    assert.equal(rerollBonus(grant({ bonusAttribute: "str" }), { str: "big" }), 0);
+  });
+
+  test("a negative modifier is carried, not clamped away", () => {
+    assert.equal(rerollBonus(grant({ bonusAttribute: "str", bonusMultiplier: 2 }),
+      { str: -2 }), -4, "a penalty attribute stopped counting");
+  });
+
+  test("a nonsense multiplier falls back to counting it once", () => {
+    assert.equal(rerollBonus(grant({ bonusAttribute: "str", bonusMultiplier: 0 }), mods), 4);
+    assert.equal(rerollBonus(grant({ bonusAttribute: "str", bonusMultiplier: -3 }), mods), 4);
+  });
+
+  test("the aggregate carries it across", () => {
+    const g = aggregateGrants([{
+      __source: "ZZ surge",
+      reroll: { second: true, weaponCategory: "knuckles", perEncounter: true,
+                bonusAttribute: "str", bonusMultiplier: 2 }
+    }]);
+    assert.equal(g.rerolls[0].bonusAttribute, "str");
+    assert.equal(g.rerolls[0].bonusMultiplier, 2);
+  });
+
+  /**
+   * The SECOND die only. Added to the original roll's modifier it would change
+   * the card being replaced, and a player who declined the reroll would keep a
+   * bonus they never spent anything for.
+   */
+  test("it rides on the reroll, never on the original", () => {
+    const fn = fnBody(chat, "async function onGrantedReroll");
+    assert.match(fn, /mod: rollModifier\(flags\) \+ bonus/,
+      "the bonus is not reaching the rerolled die");
+    assert.ok(!/rollModifier\(flags\) \+ bonus[\s\S]*setFlag\("last-arc", "mods"/.test(fn),
+      "the bonus is being written back onto the original card");
+    /**
+     * The note must be REACHABLE, not merely present. Asserting the key alone
+     * survived the condition being replaced with `false` — the string stayed in
+     * the file and the line would never have rendered.
+     */
+    assert.match(fn, /\(bonus \?\s*`<p class="lastarc-note">\$\{game\.i18n\.format\("LASTARC\.Reroll\.Bonus"/,
+      "a reroll that came out higher than the die shows, with nothing saying why");
   });
 });
 

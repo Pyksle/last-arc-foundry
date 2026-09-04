@@ -4892,6 +4892,56 @@ function registerRerollScopeBatch(quench) {
         });
       });
 
+      describe("§ a trait that improves its own reroll", function () {
+        /**
+         * The bonus rides on the SECOND die. Only a live Foundry can show that
+         * the rebuilt roll actually carries it — the maths is pure, the wiring
+         * is not.
+         */
+        it("the rerolled die carries the bonus and the original does not",
+          async function () {
+            const surge = {
+              kind: "second", skill: null, attribute: "str", weaponCategory: null,
+              perEncounter: false, bonusAttribute: "str", bonusMultiplier: 2,
+              source: "ZZ surge", sourceId: "i1"
+            };
+            await withActor({ system: { attributes: { str: { value: 18 } } } },
+              async (actor) => {
+                const strMod = actor.system.attributes.str.mod;
+                assert.isAbove(strMod, 0, "the fixture has no Strength to double");
+                assert.equal(D.rerollBonus(surge, { str: strMod }), strMod * 2);
+
+                // And the grant reaches the actor with both halves intact.
+                await actor.createEmbeddedDocuments("Item", [{
+                  name: "ZZ surge", type: "talent",
+                  system: { active: true, grants: { reroll: {
+                    second: true, attribute: "str",
+                    bonusAttribute: "str", bonusMultiplier: 2
+                  } } }
+                }]);
+                const live = actor.system.rerollGrants[0];
+                assert.equal(live.bonusAttribute, "str");
+                assert.equal(live.bonusMultiplier, 2);
+                assert.equal(
+                  D.rerollBonus(live, { str: strMod }), strMod * 2,
+                  "the stored grant does not reproduce the bonus");
+              });
+          });
+
+        it("a trait with no bonus named adds nothing", async function () {
+          await withActor({ system: { attributes: { str: { value: 18 } } } },
+            async (actor) => {
+              await actor.createEmbeddedDocuments("Item", [{
+                name: "ZZ plain", type: "talent",
+                system: { active: true, grants: { reroll: { second: true } } }
+              }]);
+              const live = actor.system.rerollGrants[0];
+              assert.equal(D.rerollBonus(live, { str: 4 }), 0,
+                "every existing reroll just gained a bonus it never had");
+            });
+        });
+      });
+
       describe("§ the trait sheet can set it", function () {
         it("the attribute dropdown renders, offers every attribute, and saves",
           async function () {
@@ -4928,6 +4978,17 @@ function registerRerollScopeBatch(quench) {
               limit.dispatchEvent(new Event("change", { bubbles: true }));
               await settle();
               assert.isTrue(item.system.grants.reroll.perEncounter);
+
+              const bonus = item.sheet.element.querySelector(
+                'select[name="system.grants.reroll.bonusAttribute"]');
+              assert.isNotNull(bonus, "a trait cannot improve the reroll it grants");
+              bonus.value = "str";
+              bonus.dispatchEvent(new Event("change", { bubbles: true }));
+              await settle();
+              assert.equal(item.system.grants.reroll.bonusAttribute, "str");
+              assert.isNotNull(item.sheet.element.querySelector(
+                'input[name="system.grants.reroll.bonusMultiplier"]'),
+                "the bonus cannot be doubled");
             } finally {
               await item.sheet.close();
               await item.delete();

@@ -726,6 +726,29 @@
           </select>
           <label>{{localize "LASTARC.Field.RerollWeapon"}}</label>
         </div>
+        {{!-- Some traits improve the reroll they grant rather than merely
+              offering it: "add twice their Strength to the reroll". --}}
+        <div class="la-field"
+             data-tooltip="{{localize 'LASTARC.Tooltip.RerollBonus'}}">
+          <select name="system.grants.reroll.bonusAttribute">
+            <option value="" {{#unless system.grants.reroll.bonusAttribute}}selected{{/unless}}>
+              {{localize "LASTARC.Field.RerollNoBonus"}}
+            </option>
+            {{#each rerollAttributeOptions}}
+              <option value="{{this.value}}"
+                {{#if (laeq this.value ../system.grants.reroll.bonusAttribute)}}selected{{/if}}>
+                {{localize this.label}}
+              </option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.RerollBonus"}}</label>
+        </div>
+        <div class="la-field la-field--narrow"
+             data-tooltip="{{localize 'LASTARC.Tooltip.RerollBonusMultiplier'}}">
+          <input type="number" name="system.grants.reroll.bonusMultiplier"
+                 value="{{system.grants.reroll.bonusMultiplier}}" min="1">
+          <label>{{localize "LASTARC.Field.RerollBonusMultiplier"}}</label>
+        </div>
         <label class="la-check"
                data-tooltip="{{localize 'LASTARC.Tooltip.RerollPerEncounter'}}">
           <input type="checkbox" name="system.grants.reroll.perEncounter"
