@@ -199,6 +199,70 @@ async function until(check, { tries = 20, wait = 50 } = {}) {
   return check();
 }
 
+/**
+ * Wait for the turn lifecycle to FINISH, instead of guessing how long it takes.
+ *
+ * `settle()` is a fixed 300ms, and it was true when this suite was short. It
+ * stopped being true: the combat batch passes five runs out of five on its own
+ * and fails about one full run in three — a different test each time, which is
+ * what a timing race looks like and what a real defect does not. A loaded
+ * Foundry simply takes longer to finish the writes a turn change kicks off.
+ *
+ * `updateCombat` ENDS by writing fresh action slots onto the incoming
+ * combatant, so that flag arriving is the handler's own completion signal:
+ * every status it clears and every flag it sets happens before that line. The
+ * raw flag, not `getTurnState`, which falls back to a fresh state object and
+ * would therefore report "done" before anything had been written at all.
+ */
+function turnSettled(combat) {
+  /**
+   * ARMED BEFORE THE TRANSITION, and waiting for the WRITE — not for the state.
+   *
+   * The first version of this polled for the incoming combatant having fresh
+   * slots, which is worse than the guess it replaced: after a turn or two that
+   * combatant already had them from its last turn, so the condition was true
+   * the instant it was asked and the barrier waited for nothing at all. It
+   * turned one flaky test into a different flaky test.
+   *
+   * The flag UPDATE is the event, and it can only be observed by listening for
+   * it before the transition starts.
+   */
+  return new Promise((resolve) => {
+    const finish = () => { Hooks.off("updateCombatant", id); clearTimeout(timer); resolve(); };
+    const id = Hooks.on("updateCombatant", (doc, changed) => {
+      if (doc.parent?.id !== combat.id) return;
+      if (changed?.flags?.[SYSTEM_ID]?.actions) finish();
+    });
+    /**
+     * A ceiling, so a lifecycle that never runs fails the assertion below
+     * rather than hanging the suite. Generous: it is only ever reached when
+     * something is genuinely wrong.
+     */
+    const timer = setTimeout(finish, 5000);
+  });
+}
+
+/** Start the encounter and wait for the lifecycle, not for a stopwatch. */
+async function startEncounter(combat) {
+  const done = turnSettled(combat);
+  await combat.startCombat();
+  await done;
+}
+
+/** Advance one turn and wait for the lifecycle. */
+async function advanceTurn(combat) {
+  const done = turnSettled(combat);
+  await combat.nextTurn();
+  await done;
+}
+
+/** Advance one round and wait for the lifecycle. */
+async function advanceRound(combat) {
+  const done = turnSettled(combat);
+  await combat.nextRound();
+  await done;
+}
+
 async function withEncounter(fn) {
   const a = await Actor.create({ name: "Q First", type: "character",
     system: { classes: [{ name: "rogue", levels: 1 }] } });
@@ -1683,16 +1747,14 @@ function registerCombatBatch(quench) {
         it("gives fresh action slots to the INCOMING combatant", async function () {
           this.timeout(20_000);
           await withEncounter(async (combat) => {
-            await combat.startCombat();
-            await settle();
+            await startEncounter(combat);
             const first = combat.combatant;
 
             // Spend the first combatant's primary.
             await CB.spendAction(first, "attack");
             assert.isFalse(CB.getTurnState(first).primary, "primary should be spent");
 
-            await combat.nextTurn();
-            await settle();
+            await advanceTurn(combat);
             const second = combat.combatant;
             assert.notEqual(second.id, first.id, "the turn must actually advance");
 
@@ -1717,8 +1779,7 @@ function registerCombatBatch(quench) {
           await withEncounter(async (combat, a, b) => {
             assert.isFalse(a.statuses.has("flatFooted"), "not flat-footed before combat");
 
-            await combat.startCombat();
-            await settle();
+            await startEncounter(combat);
             const first = combat.combatant.actor;
             const other = first === a ? b : a;
 
@@ -1730,10 +1791,8 @@ function registerCombatBatch(quench) {
         it("clears flat-footed from the combatant whose turn it becomes", async function () {
           this.timeout(20_000);
           await withEncounter(async (combat) => {
-            await combat.startCombat();
-            await settle();
-            await combat.nextTurn();
-            await settle();
+            await startEncounter(combat);
+            await advanceTurn(combat);
             assert.isFalse(
               combat.combatant.actor.statuses.has("flatFooted"),
               "acting ends round-1 flat-footed for the ACTIVE combatant"
@@ -1749,12 +1808,9 @@ function registerCombatBatch(quench) {
         it("no one is flat-footed once round 2 begins", async function () {
           this.timeout(20_000);
           await withEncounter(async (combat) => {
-            await combat.startCombat();
-            await settle();
-            await combat.nextTurn();
-            await settle();
-            await combat.nextTurn();   // wraps into round 2
-            await settle();
+            await startEncounter(combat);
+            await advanceTurn(combat);
+            await advanceTurn(combat);   // wraps into round 2
 
             assert.equal(combat.round, 2);
             for (const c of combat.combatants) {
@@ -1780,30 +1836,25 @@ function registerCombatBatch(quench) {
         it("a hand-applied flat-footed survives the round boundary", async function () {
           this.timeout(20_000);
           await withEncounter(async (combat, a, b) => {
-            await combat.startCombat();
-            await settle();
-            await combat.nextTurn();     // b acts; its round-1 status clears
-            await settle();
+            await startEncounter(combat);
+            await advanceTurn(combat);     // b acts; its round-1 status clears
 
             // Wait for the lifecycle's own bookkeeping to land rather than
             // guessing at it — see `until`.
             const bc = combat.combatants.find((c) => c.actorId === b.id);
             await until(() => !bc.getFlag("last-arc", "flatFootedRound1"));
 
-            await combat.nextTurn();     // round 2, a acts
-            await settle();
+            await advanceTurn(combat);     // round 2, a acts
             assert.isFalse(b.statuses.has("flatFooted"), "clean slate to start from");
 
             await b.toggleStatusEffect("flatFooted", { active: true });
             await settle();
 
-            await combat.nextRound();    // round 3 opens on a; b has not acted
-            await settle();
+            await advanceRound(combat);    // round 3 opens on a; b has not acted
             assert.isTrue(b.statuses.has("flatFooted"),
               "the sweep cleared a status the lifecycle did not apply");
 
-            await combat.nextTurn();     // b's turn
-            await settle();
+            await advanceTurn(combat);     // b's turn
             assert.isFalse(b.statuses.has("flatFooted"),
               "and the start of its own turn is where it ends");
           });
@@ -1821,8 +1872,7 @@ function registerCombatBatch(quench) {
             const first = combat.combatants.find((c) => c.actorId === a.id);
             await first.setFlag("last-arc", "surprised", true);
 
-            await combat.startCombat();
-            await settle();
+            await startEncounter(combat);
 
             assert.equal(combat.combatant.actorId, a.id, "a rolled lowest and acts first");
             assert.isTrue(a.statuses.has("flatFooted"),
@@ -2202,8 +2252,7 @@ function registerCombatBatch(quench) {
              * run; `canDodge` itself was verified correct against a live actor.
              */
             await settle();
-            await combat.startCombat();
-            await settle();
+            await startEncounter(combat);
 
             assert.isTrue(DODGE.canDodge(a).allowed, "first dodge of the turn");
 
@@ -2221,16 +2270,14 @@ function registerCombatBatch(quench) {
           await withEncounter(async (combat, a) => {
             await withTechnick(a);
             await settle();
-            await combat.startCombat();
-            await settle();
+            await startEncounter(combat);
 
             await DODGE.rollDodge(a, { attackTotal: 999 });
             await settle();
             assert.isFalse(DODGE.canDodge(a).allowed);
 
-            await combat.nextTurn();
-            await settle();
-            await combat.nextTurn();   // back round to a
+            await advanceTurn(combat);
+            await advanceTurn(combat);   // back round to a
 
             /**
              * `beginTurn` clears the turn state through an async flag write, so
