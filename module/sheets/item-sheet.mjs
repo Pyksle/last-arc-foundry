@@ -198,6 +198,18 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
     if (sys.grants?.skills) {
       context.grantedSkills = sys.grants.skills.map((s, index) => ({ ...s, index }));
+      /**
+       * Attribute scopes for a granted reroll (#79) — "any Strength check".
+       * Built here rather than in the template because the label is the
+       * attribute's own config key, which Handlebars cannot look up.
+       */
+      context.rerollAttributeOptions = Object.entries(LASTARC.attributes)
+        .map(([value, cfg]) => ({ value, label: cfg.label }));
+
+      /** Weapon groups, for a trait that rerolls attacks with one (#79). */
+      context.rerollWeaponOptions = LASTARC.weaponCategories
+        .map((value) => ({ value, label: `LASTARC.WeaponCategory.${value}` }));
+
       context.skillOptions = [
         { value: "", label: game.i18n.localize("LASTARC.Field.NoSkill") },
         ...Object.entries(LASTARC.allSkills)

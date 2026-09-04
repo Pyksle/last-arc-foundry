@@ -132,15 +132,17 @@ function offerGrantedRerolls(message, element) {
   if (!message.rolls?.[0]?.dice?.some((d) => d.faces === 20)) return;
 
   /**
-   * A grant scoped to one skill only offers itself on THAT skill's checks
-   * (#48). The GM's examples are a class talent and a racial trait that each
-   * reroll a single named skill, so an unscoped grant is the exception.
+   * Scope is decided by `offeredRerolls`, which the SPEND below calls too.
    *
-   * An attack has no `skillKey`, so a scoped grant never appears on one —
-   * which is right: these traits reroll skill checks, not attacks.
+   * These were two copies of the same filter with a comment on each warning
+   * they must agree, because the button's index is into the filtered list and
+   * a disagreement spends the wrong grant. One function, called twice.
+   *
+   * An attack has no `skillKey` and no `attributeKey`, so a scoped grant never
+   * appears on one — which is right: these traits reroll checks, not attacks.
    */
-  const grants = (actor.system?.rerollGrants ?? [])
-    .filter((g) => !g.skill || g.skill === flags.skillKey);
+  const grants = D.offeredRerolls(
+    actor.system?.rerollGrants, flags, spentRerolls(actor));
   if (!grants.length) return;
 
   const blocked = !D.canRerollD20(actor.system?.statuses ?? {});
@@ -183,6 +185,37 @@ function offerGrantedRerolls(message, element) {
  * one reroll per attempted check, and that is already enforced by the shared
  * gate: any reroll, bought or granted, retires the buttons on that roll.
  */
+/**
+ * Which once-per-encounter grants this actor has already used.
+ *
+ * On the COMBATANT, which exists for exactly the span of the encounter: Foundry
+ * creates it when the actor joins the tracker and deletes it with the combat,
+ * so the reset is the encounter ending rather than a hook somebody has to
+ * remember to write. The same place `previousBlocks` and the action tracker
+ * keep their per-encounter state.
+ *
+ * Empty outside combat, which reads downstream as "nothing spent" — there is no
+ * encounter to be once per, and refusing the reroll for want of a tracker would
+ * punish tables that resolve a scene without starting one.
+ */
+export function spentRerolls(actor) {
+  const combatant = game.combat?.getCombatantByActor?.(actor.id);
+  return combatant?.getFlag("last-arc", "rerollsSpent") ?? [];
+}
+
+/** Mark one spent, if it is limited and there is an encounter to spend it in. */
+export async function markRerollSpent(actor, grant) {
+  if (!grant.perEncounter) return;
+  const combatant = game.combat?.getCombatantByActor?.(actor.id);
+  if (!combatant) return;
+
+  const id = D.rerollGrantId(grant);
+  if (!id) return;
+  const spent = combatant.getFlag("last-arc", "rerollsSpent") ?? [];
+  if (spent.includes(id)) return;
+  await combatant.setFlag("last-arc", "rerollsSpent", [...spent, id]);
+}
+
 async function onGrantedReroll(button, message) {
   const actor = resolveActor(button);
   const original = message.rolls?.[0];
@@ -194,8 +227,9 @@ async function onGrantedReroll(button, message) {
    * grant the moment a character has one scoped trait and one unscoped.
    */
   const flagsForScope = message.flags?.["last-arc"] ?? {};
-  const grant = (actor.system?.rerollGrants ?? [])
-    .filter((g) => !g.skill || g.skill === flagsForScope.skillKey)[Number(button.dataset.grantIndex)];
+  const grant = D.offeredRerolls(
+    actor.system?.rerollGrants, flagsForScope,
+    spentRerolls(actor))[Number(button.dataset.grantIndex)];
   if (!grant) return;
 
   if (!D.canRerollD20(actor.system?.statuses ?? {})) {
@@ -208,6 +242,7 @@ async function onGrantedReroll(button, message) {
     kind: grant.kind, mod: rollModifier(flags)
   });
 
+  await markRerollSpent(actor, grant);
   await message.setFlag("last-arc", "rerolled", true);
 
   await ChatMessage.create({

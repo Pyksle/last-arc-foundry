@@ -370,7 +370,54 @@ function grantsSchema() {
       ])),
       skill: new fields.StringField({
         initial: "", blank: true, choices: ["", ...Object.keys(LASTARC.allSkills)]
-      })
+      }),
+      /**
+       * Scope by ATTRIBUTE instead: any check governed by it (#79).
+       *
+       * The traits that produced this reroll a whole family — "any
+       * strength-based skill check" — and the skill list could only name one at
+       * a time. There is no multi-select, so a racial covering nine skills
+       * could not be recorded at all.
+       *
+       * Independent of `skill`, and ORed with it, so a trait may name a skill,
+       * an attribute, or both. Precedence between two scopes would be a rule
+       * nobody could see from the sheet; a union is what "this trait rerolls
+       * these things" already means.
+       *
+       * Matches the raw attribute check too, not only the skills under it — a
+       * Strength check is as strength-based as a Strength skill, and a reader
+       * who ticked "any Strength check" and watched it not offer on one would
+       * be right to call that broken.
+       */
+      attribute: new fields.StringField({
+        initial: "", blank: true, choices: ["", ...Object.keys(LASTARC.attributes)]
+      }),
+      /**
+       * Scope to a weapon group: any ATTACK made with a weapon of that type.
+       *
+       * The third scope, and the first that reaches attacks at all — the other
+       * two are checks, and a scoped grant deliberately never offered on an
+       * attack because no check-scoped trait should. A weapon-group trait is
+       * exactly the opposite case.
+       */
+      weaponCategory: new fields.StringField({
+        initial: "", blank: true, choices: ["", ...LASTARC.weaponCategories]
+      }),
+      /**
+       * Once per encounter, rather than once per attempted roll.
+       *
+       * The existing limit is the shared gate: any reroll retires the buttons
+       * on that roll, so a grant is usable once per check but on every check.
+       * Traits that say "once per encounter" could not be recorded as anything
+       * but the unlimited version.
+       *
+       * Spent state lives on the COMBATANT, not the actor — Foundry creates
+       * that document when the actor is added to the tracker and deletes it
+       * with the combat, so the reset is the encounter ending and there is no
+       * hook to write or forget. Outside combat there is no encounter to be
+       * once per, and the grant is simply offered; see `unspentRerolls`.
+       */
+      perEncounter: new fields.BooleanField({ initial: false })
     }),
     skills: new fields.ArrayField(
       new fields.SchemaField({

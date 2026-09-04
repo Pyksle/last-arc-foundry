@@ -1045,6 +1045,13 @@ async function postAttackCard({
         type: "attack",
         actorId: actor.id,
         weaponId: weapon?.id ?? null,
+        /**
+         * The weapon GROUP, not just the item id (#79). A trait rerolling "any
+         * attack with an axe" needs to match on the card alone: the weapon can
+         * be dropped, or belong to an unlinked token's own copy, and an id that
+         * no longer resolves is a trait that silently stops working.
+         */
+        weaponCategory: weapon?.system?.category ?? null,
         attackIndex,
         outcome,
         /**

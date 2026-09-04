@@ -22,6 +22,8 @@ import * as ATK from "./dice/attack.mjs";
 import * as CB from "./combat.mjs";
 import * as MAGIC from "./dice/magic.mjs";
 import * as D from "./derivation.mjs";
+import * as ROLLS from "./dice/rolls.mjs";
+import { spentRerolls, markRerollSpent } from "./chat.mjs";
 import * as BLOCK from "./dice/block.mjs";
 import * as DODGE from "./dice/dodge.mjs";
 import * as HEAL from "./dice/healing.mjs";
@@ -49,6 +51,7 @@ export function registerQuenchBatches() {
     registerBeastShapeBatch(quench);
     registerGrantedProficiencyBatch(quench);
     registerArmourGrantsBatch(quench);
+    registerRerollScopeBatch(quench);
   });
 }
 
@@ -3695,6 +3698,10 @@ function registerDefenceAttributeBatch(quench) {
          * so the control looks right and the choice evaporates on reopen.
          */
         it("choosing an attribute writes it to the document", async function () {
+          // A create, a render, two settles and a form submit — past Mocha's 2s
+          // default the moment the machine is busy, which it is by this point
+          // in the run.
+          this.timeout(30_000);
           await withItemSheet("technick", async (item) => {
             const el = item.sheet.element.querySelector(
               'select[name="system.grants.defenceAttribute.ref"]');
@@ -4656,5 +4663,228 @@ function registerArmourGrantsBatch(quench) {
       });
     },
     { displayName: "Last Arc — Armour grants" }
+  );
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*  A reroll scoped to an attribute (#79)                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The matcher is pure and unit tested. What only a live Foundry can show is the
+ * half it depends on: an attribute check has to STAMP which attribute it was
+ * onto the message, or a trait rerolling "any Strength check" has nothing to
+ * match against — the check carries no skill key and its label is localised.
+ */
+function registerRerollScopeBatch(quench) {
+  quench.registerBatch(
+    `${SYSTEM_ID}.rerollScope`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      const SURGE = {
+        name: "ZZ surge", type: "talent",
+        system: { active: true, grants: { reroll: { second: true, skill: "", attribute: "str" } } }
+      };
+
+      /** The last chat message this actor produced, and its system flags. */
+      const lastFlags = () => [...game.messages].at(-1)?.flags?.["last-arc"] ?? {};
+
+      describe("§ the message says what was rolled", function () {
+        it("an attribute check stamps its attribute", async function () {
+          this.timeout(30_000);
+          await withActor({}, async (actor) => {
+            await ROLLS.rollAttribute(actor, "str");
+            await settle();
+            const f = lastFlags();
+            assert.equal(f.type, "check");
+            assert.equal(f.attributeKey, "str",
+              "nothing on the card says which attribute, so no scoped trait can match it");
+            assert.isNull(f.skillKey ?? null, "an attribute check is not a skill check");
+          });
+        });
+
+        it("a skill check still stamps its skill and no attribute", async function () {
+          this.timeout(30_000);
+          await withActor({}, async (actor) => {
+            await ROLLS.rollSkill(actor, "athletics");
+            await settle();
+            const f = lastFlags();
+            assert.equal(f.skillKey, "athletics");
+            assert.isNull(f.attributeKey ?? null);
+          });
+        });
+      });
+
+      describe("§ the grant reaches the actor and matches", function () {
+        it("a trait scoped to an attribute covers its skills and its own check",
+          async function () {
+            this.timeout(30_000);
+            await withActor({}, async (actor) => {
+              await actor.createEmbeddedDocuments("Item", [SURGE]);
+              const grants = actor.system.rerollGrants;
+              assert.equal(grants.length, 1, "the grant did not reach the actor");
+              assert.equal(grants[0].attribute, "str");
+
+              const strSkill = Object.entries(LASTARC.allSkills)
+                .find(([, c]) => c.attr === "str")[0];
+              const otherSkill = Object.entries(LASTARC.allSkills)
+                .find(([, c]) => c.attr !== "str")[0];
+
+              assert.lengthOf(D.offeredRerolls(grants, { skillKey: strSkill }), 1);
+              assert.lengthOf(D.offeredRerolls(grants, { attributeKey: "str" }), 1);
+              assert.lengthOf(D.offeredRerolls(grants, { skillKey: otherSkill }), 0,
+                "the trait offered itself on a skill it does not govern");
+            });
+          });
+      });
+
+      describe("§ attacks and the encounter limit", function () {
+        /**
+         * The only scope that reaches attacks. The card has to carry the weapon
+         * GROUP, not just the item id — the weapon can be dropped, or belong to
+         * an unlinked token's own copy, and an id that no longer resolves is a
+         * trait that silently stops working.
+         */
+        it("an attack stamps the weapon group on its card", async function () {
+          this.timeout(30_000);
+          await withActor({}, async (actor) => {
+            const [weapon] = await actor.createEmbeddedDocuments("Item", [{
+              name: "ZZ axe", type: "weapon",
+              system: { category: "axes", size: "medium", equipped: true }
+            }]);
+            await ATK.rollAttack(actor, weapon);
+            await settle();
+            const f = [...game.messages].at(-1)?.flags?.["last-arc"] ?? {};
+            assert.equal(f.type, "attack");
+            assert.equal(f.weaponCategory, "axes",
+              "nothing on the card says which weapon group, so no trait can match it");
+          });
+        });
+
+        /**
+         * The spent list lives on the COMBATANT, which Foundry creates when the
+         * actor joins the tracker and deletes with the combat — so the reset is
+         * the encounter ending rather than a hook somebody has to write. This
+         * is the half only a live Foundry can show.
+         */
+        it("marking one spent takes it out of the offer, through the real helpers",
+          async function () {
+            this.timeout(60_000);
+            const limited = {
+              kind: "second", skill: null, attribute: null, weaponCategory: "axes",
+              perEncounter: true, source: "ZZ spec", sourceId: "item-1"
+            };
+            const roll = { weaponCategory: "axes" };
+
+            await withEncounter(async (combat, a) => {
+              assert.deepEqual(spentRerolls(a), [], "the fixture starts dirty");
+              assert.lengthOf(D.offeredRerolls([limited], roll, spentRerolls(a)), 1);
+
+              await markRerollSpent(a, limited);
+              await settle();
+
+              assert.deepEqual(spentRerolls(a), ["item-1"],
+                "the spend was not recorded where the offer reads it");
+              assert.lengthOf(D.offeredRerolls([limited], roll, spentRerolls(a)), 0,
+                "a spent once-per-encounter reroll is still being offered");
+
+              // An unlimited grant in the same encounter is untouched.
+              const unlimited = { ...limited, perEncounter: false, sourceId: "item-2" };
+              await markRerollSpent(a, unlimited);
+              assert.deepEqual(spentRerolls(a), ["item-1"],
+                "an unlimited grant recorded a spend it does not have");
+            });
+          });
+
+        /**
+         * The item's id has to survive the trip from document to grant, or the
+         * limit falls back to matching on NAME and two traits called the same
+         * thing share one use.
+         */
+        it("the grant carries the id of the item it came from", async function () {
+          this.timeout(30_000);
+          await withActor({}, async (actor) => {
+            const [t] = await actor.createEmbeddedDocuments("Item", [{
+              name: "ZZ spec", type: "talent",
+              system: { active: true,
+                grants: { reroll: { second: true, weaponCategory: "axes", perEncounter: true } } }
+            }]);
+            const grant = actor.system.rerollGrants[0];
+            assert.equal(grant.sourceId, t.id,
+              "the grant has no item id, so its limit keys off a name");
+            assert.equal(D.rerollGrantId(grant), t.id);
+          });
+        });
+
+        /**
+         * The combatant is the reset. Deleting the combat takes the flag with
+         * it, which is the whole reason the state lives there rather than on
+         * the actor — where it would survive for the rest of the campaign.
+         */
+        it("ending the encounter takes the spent list with it", async function () {
+          this.timeout(60_000);
+          const actor = await Actor.create({ name: "ZZ spender", type: "character" });
+          try {
+            const combat = await Combat.create({});
+            await combat.createEmbeddedDocuments("Combatant", [{ actorId: actor.id }]);
+            const combatant = combat.getCombatantByActor(actor.id);
+            await combatant.setFlag(SYSTEM_ID, "rerollsSpent", ["item-1"]);
+            await combat.delete();
+            await settle();
+
+            assert.isNotOk(game.combat?.getCombatantByActor?.(actor.id),
+              "the combatant outlived its combat, so the spend never clears");
+          } finally {
+            await actor.delete();
+          }
+        });
+      });
+
+      describe("§ the trait sheet can set it", function () {
+        it("the attribute dropdown renders, offers every attribute, and saves",
+          async function () {
+            this.timeout(30_000);
+            const item = await Item.create({ name: "ZZ scoped", type: "talent" });
+            try {
+              await item.sheet.render(true);
+              await settle();
+              const sel = item.sheet.element.querySelector(
+                'select[name="system.grants.reroll.attribute"]');
+              assert.isNotNull(sel,
+                "a trait can only ever name one skill, which is the whole complaint");
+              assert.equal(sel.options.length, Object.keys(LASTARC.attributes).length + 1,
+                "every attribute, plus the blank");
+
+              sel.value = "str";
+              sel.dispatchEvent(new Event("change", { bubbles: true }));
+              await settle();
+              assert.equal(item.system.grants.reroll.attribute, "str",
+                "the dropdown submitted but the choice never landed");
+
+              const weapons = item.sheet.element.querySelector(
+                'select[name="system.grants.reroll.weaponCategory"]');
+              assert.isNotNull(weapons, "a trait cannot reroll attacks with a weapon group");
+              weapons.value = "axes";
+              weapons.dispatchEvent(new Event("change", { bubbles: true }));
+              await settle();
+              assert.equal(item.system.grants.reroll.weaponCategory, "axes");
+
+              const limit = item.sheet.element.querySelector(
+                'input[name="system.grants.reroll.perEncounter"]');
+              assert.isNotNull(limit, "a reroll cannot be limited to once per encounter");
+              limit.checked = true;
+              limit.dispatchEvent(new Event("change", { bubbles: true }));
+              await settle();
+              assert.isTrue(item.system.grants.reroll.perEncounter);
+            } finally {
+              await item.sheet.close();
+              await item.delete();
+            }
+          });
+      });
+    },
+    { displayName: "Last Arc — Reroll scope" }
   );
 }
