@@ -252,12 +252,6 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     }
     if (item.type === "race") {
       context.sensesText = sys.senses.join(", ");
-      context.languagesText = sys.languages.join(", ");
-      // ObjectFields keyed by attribute. Rendered as one box per attribute in
-      // printed order, so they read like the book's racial line rather than
-      // like JSON.
-      context.attributeMods = attributeGrid(sys.attributeMods);
-      context.attributeCaps = attributeGrid(sys.attributeCaps);
     }
     if (PHYSICAL_TYPES.has(item.type)) context.featuresText = sys.features.join(", ");
 
@@ -432,8 +426,7 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
      */
     const DROP_ZERO = new Set(["system.prerequisites.attributes"]);
 
-    for (const base of ["system.attributeMods", "system.attributeCaps",
-                        "system.prerequisites.attributes"]) {
+    for (const base of ["system.prerequisites.attributes"]) {
       const keys = Object.keys(submit).filter((k) => k.startsWith(`${base}.`));
       if (!keys.length) continue;
 

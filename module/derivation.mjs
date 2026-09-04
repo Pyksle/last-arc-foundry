@@ -694,7 +694,15 @@ export function knownPerformanceLimit(bardicStudyTakings = 0, intMod = 0) {
  * true once the class tables were read in. The stale claim outlived the
  * limitation and read exactly like a live constraint (issue #34).
  */
-export function trainedSkillCount(className, intMod = 0, halfElf = false, catalogue) {
+/**
+ * `halfElf` USED TO BE A PARAMETER HERE, and a hardcoded `+1`.
+ *
+ * One species named in the maths, so the human racial that grants the same
+ * thing could not be expressed at all and neither could the technick that
+ * grants it repeatably. It is `granted` now — any trait may add to the
+ * allowance, and Half-Elf is a race item like every other.
+ */
+export function trainedSkillCount(className, intMod = 0, granted = 0, catalogue) {
   const cls = resolveClass(className, catalogue ?? buildClassCatalogue());
   if (!cls) throw new Error(`Unknown class: ${className}`);
   if (cls.trainedSkills === null) {
@@ -704,7 +712,7 @@ export function trainedSkillCount(className, intMod = 0, halfElf = false, catalo
       `report an allowance.`
     );
   }
-  return Math.max(0, cls.trainedSkills + intMod + (halfElf ? 1 : 0));
+  return Math.max(0, cls.trainedSkills + intMod + Math.max(0, granted));
 }
 
 /** Passive Perception (§7 rev2) — resolved against the printed sheet, p.263. */
@@ -766,6 +774,9 @@ export function aggregateGrants(grantsList = []) {
      * shape that survives both.
      */
     proficiencies: { weapons: [], armour: [], shields: false },
+    /** Allowances: extra skills to train and extra technicks to take (#79). */
+    trainedSkills: 0,
+    bonusTechnicks: 0,
     /**
      * Rerolls granted by technicks, talents and races (#48).
      *
@@ -808,6 +819,8 @@ export function aggregateGrants(grantsList = []) {
     out.initiativeSteps += g.initiativeSteps ?? 0;
     out.speed += g.speed ?? 0;
     out.secondWindUses += g.secondWindUses ?? 0;
+    out.trainedSkills += g.trainedSkills ?? 0;
+    out.bonusTechnicks += g.bonusTechnicks ?? 0;
     out.hp += g.hp ?? 0;
     out.mp += g.mp ?? 0;
     out.dr += g.dr ?? 0;
@@ -876,6 +889,21 @@ export function resolveDefenceSubstitutes(offers = {}, mods = {}) {
     if (available.length) out[slot] = Math.max(...available);
   }
   return out;
+}
+
+/**
+ * Is this attribute above the cap its species allows (§2)?
+ *
+ * REPORTED, never clamped. `attributes.*.value` is an input, and writing a
+ * clamped number back into it would store the clamp and show the player the old
+ * one — the trap this codebase has shipped twice. The sheet says the number is
+ * over; the number stays exactly what was typed.
+ *
+ * A cap of 0 or less is "no cap stated", not "cap of zero" — a half-filled
+ * sheet must not report every attribute as illegal.
+ */
+export function overAttributeCap(total = 0, cap = 0) {
+  return cap > 0 && total > cap;
 }
 
 /**
@@ -1031,6 +1059,9 @@ export function hasGrantPayload(grants) {
   if (prof.shields || (prof.weapons ?? []).length || (prof.armour ?? []).length) return true;
   if (grants.breakThreshold || grants.heroPoints || grants.initiativeSteps) return true;
   if (grants.speed || grants.secondWindUses) return true;
+  // Allowances add no stat, and are very much a payload — an extra trained
+  // skill is the whole content of more than one racial.
+  if (grants.trainedSkills || grants.bonusTechnicks) return true;
   if (grants.hp || grants.mp || grants.dr) return true;
   // null is "does not change the Recovery action"; any number is a change.
   if (grants.recoveryMinorActions != null) return true;

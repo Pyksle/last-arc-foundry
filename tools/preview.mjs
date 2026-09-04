@@ -659,8 +659,6 @@ export function itemContext(type) {
     prereqTalentsText: "",
     prereqTechnicksText: "",
     prereqTrainedSkillsText: "",
-    attributeCaps: [],
-    attributeMods: [],
     // From the sheet's own code, not stubbed — an empty stub renders an empty
     // dropdown, which is the lie this whole issue is about.
     ...ROWS.performanceScopeOptions(localize),

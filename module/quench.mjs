@@ -101,6 +101,7 @@ export function registerQuenchBatches() {
     registerArmourGrantsBatch(quench);
     registerRerollScopeBatch(quench);
     registerDeclaredTradeBatch(quench);
+    registerRaceAllowanceBatch(quench);
   });
 }
 
@@ -5120,5 +5121,127 @@ function registerDeclaredTradeBatch(quench) {
       });
     },
     { displayName: "Last Arc — Declared trade" }
+  );
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*  What a race grants (#79)                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The race item had eight fields and one reader. This is the half only a live
+ * Foundry can show: that a race sheet still OPENS with seven of them gone, that
+ * the allowances reach a real character through `grants`, and that the trained
+ * skill readout does not throw — the variable behind its old half-elf note was
+ * removed and nothing in the unit suite executes that method.
+ */
+function registerRaceAllowanceBatch(quench) {
+  quench.registerBatch(
+    `${SYSTEM_ID}.raceAllowances`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      const racial = (grants) => ({
+        name: "ZZ racial", type: "race", system: { grants }
+      });
+
+      describe("§ the trimmed race item", function () {
+        it("its sheet still opens, with a Grants panel", async function () {
+          const item = await Item.create({ name: "ZZ people", type: "race" });
+          try {
+            await item.sheet.render(true);
+            await settle();
+            assert.isNotNull(item.sheet.element, "the race sheet does not open");
+            assert.isNotNull(
+              item.sheet.element.querySelector('input[name="system.grants.trainedSkills"]'),
+              "a race cannot grant a trained-skill allowance");
+            assert.isNull(
+              item.sheet.element.querySelector('[name^="system.attributeMods"]'),
+              "a retired field still has an input");
+          } finally {
+            await item.sheet.close();
+            await item.delete();
+          }
+        });
+      });
+
+      describe("§ the allowances reach the character", function () {
+        /**
+         * The readout used to name one species and read a variable that no
+         * longer exists. Nothing in the unit suite runs this method — it needs
+         * a real actor — so a ReferenceError here would have shipped.
+         */
+        it("the trained-skill readout survives being asked", async function () {
+          await withActor({ system: { classes: [{ name: "rogue", levels: 3 }] } },
+            async (actor) => {
+              const before = actor.system.trainedSkills;
+              assert.isNumber(before.max, "the readout threw or gave up");
+              assert.equal(before.allowance, 0);
+
+              await actor.createEmbeddedDocuments("Item", [racial({ trainedSkills: 1 })]);
+              const after = actor.system.trainedSkills;
+              assert.equal(after.max, before.max + 1,
+                "a granted trained skill did not raise the allowance");
+              assert.equal(after.allowance, 1);
+            });
+        });
+
+        it("a granted technick allowance reaches the character too", async function () {
+          await withActor({}, async (actor) => {
+            assert.equal(actor.system.bonusTechnicks, 0);
+            await actor.createEmbeddedDocuments("Item", [racial({ bonusTechnicks: 2 })]);
+            assert.equal(actor.system.bonusTechnicks, 2,
+              "the allowance is aggregated and then dropped");
+          });
+        });
+
+        /** Any trait, not just a race — the point of moving it into `grants`. */
+        it("a technick can grant the same allowance", async function () {
+          await withActor({ system: { classes: [{ name: "rogue", levels: 3 }] } },
+            async (actor) => {
+              const before = actor.system.trainedSkills.max;
+              await actor.createEmbeddedDocuments("Item", [{
+                name: "ZZ training", type: "technick",
+                system: { active: true, grants: { trainedSkills: 1 } }
+              }]);
+              assert.equal(actor.system.trainedSkills.max, before + 1,
+                "only races can raise the allowance, which is the old hardcode " +
+                "wearing a new hat");
+            });
+        });
+      });
+
+      describe("§ the attribute cap", function () {
+        /**
+         * A box on the most-used sheet in the system that enforced nothing.
+         * Reported, never clamped: the score stays exactly what was typed.
+         */
+        it("a score over the cap is flagged and left alone", async function () {
+          await withActor({}, async (actor) => {
+            await actor.update({
+              "system.attributes.str.value": 25, "system.attributes.str.cap": 20 });
+
+            assert.isTrue(actor.system.attributes.str.overCap,
+              "a score above the racial cap is not reported at all");
+            assert.equal(actor._source.system.attributes.str.value, 25,
+              "the derivation clamped a stored input, so the box shows the old number");
+          });
+        });
+
+        it("at the cap is legal, and no cap is not a cap of zero", async function () {
+          await withActor({}, async (actor) => {
+            await actor.update({
+              "system.attributes.str.value": 20, "system.attributes.str.cap": 20 });
+            assert.isFalse(actor.system.attributes.str.overCap, "at the cap was flagged");
+
+            await actor.update({ "system.attributes.vit.cap": 0 });
+            assert.isFalse(actor.system.attributes.vit.overCap,
+              "an unstated cap reports every score as illegal");
+          });
+        });
+      });
+    },
+    { displayName: "Last Arc — Race allowances" }
   );
 }

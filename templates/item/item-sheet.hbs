@@ -732,6 +732,20 @@
                  {{#if system.grants.reroll.perEncounter}}checked{{/if}}>
           {{localize "LASTARC.Field.RerollPerEncounter"}}
         </label>
+        {{!-- Allowances: extra skills to train and extra technicks to take.
+              A budget the player then spends, not a named skill. --}}
+        <div class="la-field la-field--narrow"
+             data-tooltip="{{localize 'LASTARC.Tooltip.GrantTrainedSkills'}}">
+          <input type="number" name="system.grants.trainedSkills"
+                 value="{{system.grants.trainedSkills}}" min="0">
+          <label>{{localize "LASTARC.Field.BonusTrainedSkills"}}</label>
+        </div>
+        <div class="la-field la-field--narrow"
+             data-tooltip="{{localize 'LASTARC.Tooltip.GrantBonusTechnicks'}}">
+          <input type="number" name="system.grants.bonusTechnicks"
+                 value="{{system.grants.bonusTechnicks}}" min="0">
+          <label>{{localize "LASTARC.Field.BonusTechnicks"}}</label>
+        </div>
         <div class="la-field la-field--narrow"
              data-tooltip="{{localize 'LASTARC.Tooltip.GrantHp'}}">
           <input type="number" name="system.grants.hp" value="{{system.grants.hp}}">
@@ -1125,41 +1139,12 @@
           </select>
           <label>{{localize "LASTARC.Field.Size"}}</label>
         </div>
-        <div class="la-field la-field--narrow">
-          <input type="number" name="system.speed" value="{{system.speed}}" min="0">
-          <label>{{localize "LASTARC.Resource.Speed"}}</label>
-        </div>
-        <div class="la-field la-field--narrow">
-          <input type="number" name="system.bonusTechnicks" value="{{system.bonusTechnicks}}" min="0">
-          <label>{{localize "LASTARC.Field.BonusTechnicks"}}</label>
-        </div>
-        <div class="la-field la-field--narrow">
-          <input type="number" name="system.bonusTrainedSkills"
-                 value="{{system.bonusTrainedSkills}}" min="0">
-          <label>{{localize "LASTARC.Field.BonusTrainedSkills"}}</label>
-        </div>
       </div>
 
-      {{!-- Attribute mods and caps are ObjectFields keyed by attribute, so they
-            get one numeric box each rather than a raw JSON blob. --}}
-      <p class="la-note">{{localize "LASTARC.Note.RaceAttributes"}}</p>
-      <div class="la-field-row">
-        {{#each attributeMods}}
-          <div class="la-field la-field--narrow">
-            <input type="number" name="system.attributeMods.{{this.key}}" value="{{this.value}}">
-            <label>{{localize this.abbr}}</label>
-          </div>
-        {{/each}}
-      </div>
-      <div class="la-field-row">
-        {{#each attributeCaps}}
-          <div class="la-field la-field--narrow">
-            <input type="number" name="system.attributeCaps.{{this.key}}" value="{{this.value}}"
-                   placeholder="{{this.default}}">
-            <label>{{localize this.abbr}}</label>
-          </div>
-        {{/each}}
-      </div>
+      {{!-- Speed, languages, attribute modifiers and caps are recorded on the
+            CHARACTER, where they are actually read: `movement.base`,
+            `details.languages`, and each attribute's own racial modifier and
+            cap. They had inputs here and no reader anywhere. --}}
 
       <div class="la-field-row">
         <div class="la-field">

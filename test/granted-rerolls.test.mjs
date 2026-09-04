@@ -427,6 +427,36 @@ describe("§79 once per encounter", () => {
    * two traits. Falling back to the name is deliberate — a grant that reached
    * the actor without an id would otherwise lose its limit silently.
    */
+  /**
+   * A racial that rerolls one attribute's checks, and says that a character who
+   * ALSO has a weapon-specialisation talent may spend it on attacks with that
+   * weapon. One trait, two scopes, one use per encounter.
+   *
+   * This is why the scopes are a UNION and not a precedence order: under
+   * precedence the trait would have to be recorded twice, and the two copies
+   * would each carry their own once-per-encounter limit — handing the character
+   * two uses of an ability that has one.
+   */
+  test("one grant can carry an attribute scope and a weapon scope at once", () => {
+    const both = [{
+      kind: "second", skill: null, attribute: "str", weaponCategory: "knuckles",
+      perEncounter: true, source: "ZZ surge", sourceId: "i1"
+    }];
+    const offered = (ctx, spent = []) => offeredRerolls(both, ctx, spent).length;
+
+    assert.equal(offered({ skillKey: "athletics" }), 1, "the attribute half was lost");
+    assert.equal(offered({ attributeKey: "str" }), 1, "the raw attribute check was lost");
+    assert.equal(offered({ weaponCategory: "knuckles" }), 1, "the weapon half was lost");
+
+    assert.equal(offered({ weaponCategory: "swords" }), 0, "it reached another weapon group");
+    assert.equal(offered({ skillKey: "loreArcane" }), 0, "it reached another attribute's skills");
+
+    /** ONE use, spent from whichever side used it. */
+    assert.equal(offered({ weaponCategory: "knuckles" }, ["i1"]), 0);
+    assert.equal(offered({ skillKey: "athletics" }, ["i1"]), 0,
+      "spending it on an attack left the skill half still available");
+  });
+
   test("the spend key prefers the item id and falls back to the name", () => {
     assert.equal(rerollGrantId({ sourceId: "i9", source: "ZZ" }), "i9");
     assert.equal(rerollGrantId({ sourceId: null, source: "ZZ" }), "ZZ");

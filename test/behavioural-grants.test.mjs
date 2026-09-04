@@ -54,6 +54,11 @@ const SOLE_PAYLOADS = {
   "proficiencies.weapons": { proficiencies: { weapons: ["knives"] } },
   "proficiencies.armour": { proficiencies: { armour: ["heavy"] } },
   "proficiencies.shields": { proficiencies: { shields: true } },
+  // Allowances (#79): a budget the player spends, not a named skill. An extra
+  // trained skill is the whole content of more than one racial, so it is very
+  // much a payload.
+  trainedSkills: { trainedSkills: 1 },
+  bonusTechnicks: { bonusTechnicks: 1 },
   "skills.focus": { skills: [{ key: "athletics", focus: 1 }] },
   "skills.bonus": { skills: [{ key: "athletics", bonus: 2 }] },
   "skills.trained": { skills: [{ key: "athletics", trained: true }] },

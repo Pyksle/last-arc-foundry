@@ -69,7 +69,6 @@
   "LASTARC.Tooltip.AttackCount": "Multiattack: how many of this attack the creature makes per action. Stated on the card, not rolled automatically — each one resolves against its own defence and can be blocked separately.",
   "LASTARC.Card.Multiattack": "Multiattack",
   "LASTARC.Note.TrainedSkills": "Trained:",
-  "LASTARC.Note.HalfElfSkilled": "includes the Half-Elf Skilled bonus.",
   "LASTARC.Note.SpellsKnown": "Known:",
   "LASTARC.Note.PerformancesKnown": "Known:",
   "LASTARC.Note.NeedsArcaneStudy": "the Arcane Study technick is what lets you learn spells; tick it under Mechanical Effects on that technick.",
@@ -1052,5 +1051,9 @@
   "LASTARC.Field.TradeCountsAsTwoHanded": "Counts as two-handed for a trade",
   "LASTARC.Tooltip.TradeCountsAsTwoHanded": "Doubles a declared trade's damage bonus as though this were a two-handed weapon, whatever its actual grip. For gear that says so explicitly — an unarmed strike is not two-handed, and this is how one can still double.",
   "LASTARC.TechnickFlag.mightyStrikes": "Mighty Strikes",
-  "LASTARC.TechnickFlagHint.mightyStrikes": "Before a melee attack, this character may take up to a penalty for an equal bonus to melee damage, doubled when wielding two-handed. The limit rises with level. Alt-click the attack to declare it."
+  "LASTARC.TechnickFlagHint.mightyStrikes": "Before a melee attack, this character may take up to a penalty for an equal bonus to melee damage, doubled when wielding two-handed. The limit rises with level. Alt-click the attack to declare it.",
+  "LASTARC.Tooltip.GrantTrainedSkills": "Extra skills this character may train, on top of their class allowance. A budget they spend themselves — use the skill rows above to train a specific skill instead.",
+  "LASTARC.Tooltip.GrantBonusTechnicks": "Extra technicks this character may take. A readout only: the system does not police how many technicks are on a sheet.",
+  "LASTARC.Note.OverCap": "Above this character's racial cap.",
+  "LASTARC.Note.GrantedSkillAllowance": "including {n} from traits"
 }
