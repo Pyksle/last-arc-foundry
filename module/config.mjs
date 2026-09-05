@@ -529,6 +529,19 @@ LASTARC.technickFlags = [
    * that since it had to stamp it on the card for damage to resolve at all.
    */
   "mightyStrikes",
+  /**
+   * Plan of Attack: the ranged twin of Mighty Strikes, buying damage with
+   * accuracy. No two-handed doubling — a bow is drawn with two hands whatever
+   * the wield category says, and the book gives it none.
+   */
+  "planOfAttack",
+  /**
+   * Amplification: a spellcraft penalty bought back as spell damage at TWICE
+   * the rate, and capped at 5 flat rather than by level. The only trade whose
+   * ceiling does not scale, which is why the cap is a table entry rather than
+   * one formula everything shares.
+   */
+  "amplification",
   "beastShape",
   "arcaneStudy",          // +1+Int spells known per taking (minimum 1)
   "bardicStudy"           // +1+Int performances known per taking (minimum 1)
@@ -1246,6 +1259,29 @@ LASTARC.resilientSecondWindBase = 5;
  * of the same arithmetic.
  */
 LASTARC.declaredTradeMax = 5;
+
+/**
+ * The trades themselves, and how each differs.
+ *
+ * They share the wording, the duration and — mostly — the scaling, and they
+ * differ in four ways: which roll pays, what the payment buys, what the ceiling
+ * is, and how much the payment is worth. A table rather than a branch per
+ * talent, so the next one is a row.
+ *
+ * `cap` is "level" for the usual 1-rising-to-5, or a number for a flat ceiling.
+ * `multiplier` is what each point buys; `doubleTwoHanded` doubles it instead
+ * when the attack resolved two-handed.
+ *
+ * NOT HERE YET: two more buy a Reflex bonus that lasts until the start of your
+ * next turn. That is a lasting effect rather than a payout on the roll being
+ * made, and it needs duration handling this does not have — see `buys`, which
+ * exists so those can join as rows rather than as a second mechanism.
+ */
+LASTARC.declaredTrades = Object.freeze({
+  mightyStrikes: { on: "melee",  buys: "weaponDamage", cap: "level", doubleTwoHanded: true },
+  planOfAttack:  { on: "ranged", buys: "weaponDamage", cap: "level" },
+  amplification: { on: "spell",  buys: "spellDamage",  cap: 5, multiplier: 2 }
+});
 
 /** Character levels per step of that cap: 1 at 1st, +1 at 4th and every 4 after. */
 LASTARC.declaredTradeStep = 4;

@@ -21,7 +21,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { LASTARC } from "../module/config.mjs";
-import { declaredTradeCap, tradeDamageBonus } from "../module/derivation.mjs";
+import {
+  declaredTradeCap, tradeDamageBonus, declaredTradeFor
+} from "../module/derivation.mjs";
 import { attackModifiers, weaponAttackProfile } from "../module/dice/attack.mjs";
 
 const read = (p) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.url)), "utf8");
@@ -55,12 +57,14 @@ describe("§ the cap rises with level", () => {
 });
 
 describe("§ what the trade buys", () => {
+  const melee = LASTARC.declaredTrades.mightyStrikes;
+
   test("one for one in one hand", () => {
-    assert.equal(tradeDamageBonus(3, { twoHanded: false, level: 12 }), 3);
+    assert.equal(tradeDamageBonus(3, { spec: melee, twoHanded: false, level: 12 }), 3);
   });
 
   test("two for one in two", () => {
-    assert.equal(tradeDamageBonus(3, { twoHanded: true, level: 12 }), 6);
+    assert.equal(tradeDamageBonus(3, { spec: melee, twoHanded: true, level: 12 }), 6);
   });
 
   /**
@@ -69,19 +73,19 @@ describe("§ what the trade buys", () => {
    * rebuild must not pay out more than the character is entitled to.
    */
   test("more than the level allows is clamped, not honoured", () => {
-    assert.equal(tradeDamageBonus(5, { twoHanded: false, level: 1 }), 1);
-    assert.equal(tradeDamageBonus(5, { twoHanded: true, level: 1 }), 2,
+    assert.equal(tradeDamageBonus(5, { spec: melee, twoHanded: false, level: 1 }), 1);
+    assert.equal(tradeDamageBonus(5, { spec: melee, twoHanded: true, level: 1 }), 2,
       "the doubling applied to an unclamped number");
   });
 
   test("a negative or fractional declaration buys nothing", () => {
-    assert.equal(tradeDamageBonus(-3, { level: 20 }), 0);
-    assert.equal(tradeDamageBonus(0, { level: 20 }), 0);
-    assert.equal(tradeDamageBonus(2.9, { level: 20 }), 2);
+    assert.equal(tradeDamageBonus(-3, { spec: melee, level: 20 }), 0);
+    assert.equal(tradeDamageBonus(0, { spec: melee, level: 20 }), 0);
+    assert.equal(tradeDamageBonus(2.9, { spec: melee, level: 20 }), 2);
   });
 
   test("no trade is no bonus, in either grip", () => {
-    assert.equal(tradeDamageBonus(0, { twoHanded: true, level: 20 }), 0);
+    assert.equal(tradeDamageBonus(0, { spec: melee, twoHanded: true, level: 20 }), 0);
     assert.equal(tradeDamageBonus(), 0);
   });
 });
@@ -124,6 +128,96 @@ describe("§ the attack pays for it", () => {
   });
 });
 
+describe("§ the other two trades", () => {
+  const { planOfAttack, amplification } = LASTARC.declaredTrades;
+
+  /** Ranged buys damage one for one, and never doubles. */
+  test("a ranged trade pays one for one, whatever the grip", () => {
+    assert.equal(tradeDamageBonus(3, { spec: planOfAttack, level: 12 }), 3);
+    assert.equal(tradeDamageBonus(3, { spec: planOfAttack, level: 12, twoHanded: true }), 3,
+      "a bow doubled the trade because the wield category said two-handed");
+  });
+
+  test("…and still respects the level cap", () => {
+    assert.equal(tradeDamageBonus(5, { spec: planOfAttack, level: 1 }), 1);
+    assert.equal(declaredTradeCap(1, planOfAttack.cap), 1);
+    assert.equal(declaredTradeCap(16, planOfAttack.cap), 5);
+  });
+
+  /**
+   * The spell trade is the odd one: twice the rate, and a ceiling of 5 at every
+   * level. A first-level caster may spend all five.
+   */
+  test("the spell trade doubles and does not scale", () => {
+    assert.equal(tradeDamageBonus(5, { spec: amplification, level: 1 }), 10,
+      "a level-1 caster was capped as though the limit scaled");
+    assert.equal(tradeDamageBonus(3, { spec: amplification, level: 20 }), 6);
+    assert.equal(declaredTradeCap(1, amplification.cap), 5);
+    assert.equal(declaredTradeCap(20, amplification.cap), 5);
+  });
+
+  test("more than five is still five, at any level", () => {
+    assert.equal(tradeDamageBonus(9, { spec: amplification, level: 20 }), 10);
+  });
+
+  /** Two-handed doubling is a melee rule and must not leak. */
+  test("the spell trade ignores the grip entirely", () => {
+    assert.equal(tradeDamageBonus(2, { spec: amplification, twoHanded: true, level: 1 }), 4);
+    assert.equal(tradeDamageBonus(2, { spec: amplification, twoHanded: false, level: 1 }), 4);
+  });
+
+  /**
+   * This used to fall back to the melee trade "so existing callers keep their
+   * meaning", and that default was a bug as soon as a second trade existed: a
+   * character holding only the melee talent, shooting a bow, looked up the
+   * ranged trade, got nothing, and was paid at the melee rate anyway.
+   */
+  test("no trade means no bonus, never a default one", () => {
+    assert.equal(tradeDamageBonus(3, { level: 12 }), 0);
+    assert.equal(tradeDamageBonus(3, { spec: null, level: 12, twoHanded: true }), 0);
+  });
+});
+
+describe("§ the trade is chosen by the roll, not by the talent", () => {
+  const has = (...flags) => (f) => flags.includes(f);
+
+  test("a melee attack finds the melee trade and nothing else", () => {
+    assert.equal(declaredTradeFor("melee", has("mightyStrikes"))?.key, "mightyStrikes");
+    assert.equal(declaredTradeFor("ranged", has("mightyStrikes")), null,
+      "a melee trade was offered on a ranged attack");
+    assert.equal(declaredTradeFor("spell", has("mightyStrikes")), null);
+  });
+
+  test("a ranged attack finds the ranged one", () => {
+    assert.equal(declaredTradeFor("ranged", has("planOfAttack"))?.key, "planOfAttack");
+    assert.equal(declaredTradeFor("melee", has("planOfAttack")), null);
+  });
+
+  test("a spell finds the spell one", () => {
+    assert.equal(declaredTradeFor("spell", has("amplification"))?.key, "amplification");
+    assert.equal(declaredTradeFor("melee", has("amplification")), null);
+  });
+
+  test("a character with none of them is offered nothing", () => {
+    for (const kind of ["melee", "ranged", "spell"]) {
+      assert.equal(declaredTradeFor(kind, has()), null);
+      assert.equal(declaredTradeFor(kind), null, "a missing predicate offered a trade");
+    }
+  });
+
+  test("a character with all three gets the right one each time", () => {
+    const all = has("mightyStrikes", "planOfAttack", "amplification");
+    assert.equal(declaredTradeFor("melee", all).key, "mightyStrikes");
+    assert.equal(declaredTradeFor("ranged", all).key, "planOfAttack");
+    assert.equal(declaredTradeFor("spell", all).key, "amplification");
+  });
+
+  test("the spec carries its own rate and ceiling", () => {
+    const t = declaredTradeFor("spell", has("amplification"));
+    assert.equal(tradeDamageBonus(4, { spec: t, level: 1 }), 8);
+  });
+});
+
 describe("§ the two-handed doubling reads what the system already knew", () => {
   /**
    * No new field records whether a weapon is two-handed. `wieldCategory` has
@@ -149,8 +243,8 @@ describe("§ the two-handed doubling reads what the system already knew", () => 
   });
 
   test("the damage side doubles on the resolved wield, not the weapon's size", () => {
-    assert.equal(tradeDamageBonus(2, { twoHanded: true, level: 20 }), 4);
-    assert.equal(tradeDamageBonus(2, { twoHanded: false, level: 20 }), 2);
+    assert.equal(tradeDamageBonus(2, { spec: LASTARC.declaredTrades.mightyStrikes, twoHanded: true, level: 20 }), 4);
+    assert.equal(tradeDamageBonus(2, { spec: LASTARC.declaredTrades.mightyStrikes, twoHanded: false, level: 20 }), 2);
   });
 });
 
@@ -202,16 +296,39 @@ describe("§ the wiring the maths cannot hold", () => {
 
   /** Clamped again at the roll, against the character's own level. */
   test("rollAttack clamps the declared number against the level", () => {
-    const fn = attack.slice(attack.indexOf("export async function rollAttack"));
-    assert.match(fn.slice(0, 1600), /declaredTradeCap\(/,
+    const at = attack.indexOf("export async function rollAttack");
+    const fn = attack.slice(at, attack.indexOf("\n}", at));
+    assert.match(fn, /declaredTradeCap\(/,
       "a hand-edited dialog could declare any number it liked");
   });
 
-  test("the prompt only offers it to a character who has the talent", () => {
+  /**
+   * The lookup is by the KIND of roll now, not by naming one talent — so a
+   * melee trade is never offered on a bow and a new row in the table needs no
+   * branch here.
+   */
+  test("the prompt offers the trade that matches the roll, if any", () => {
     const actions = read("module/item-actions.mjs");
-    assert.match(actions, /hasTechnickFlag\(actor, "mightyStrikes"\)/,
+    assert.match(actions, /declaredTradeFor\(isRanged \? "ranged" : "melee"/,
+      "the attack prompt is not choosing a trade by the kind of attack");
+    assert.match(actions, /declaredTradeFor\("spell"/,
+      "a caster is never offered a trade");
+    assert.match(actions, /hasTechnickFlag\(actor, flag\)/,
       "every character is offered a trade, which is a rule they do not have");
-    assert.match(actions, /!isRanged && hasTechnickFlag/,
-      "a melee-damage trade is being offered on ranged attacks");
+  });
+
+  /** One row per talent, and the three differ in exactly four ways. */
+  test("the table says how each trade differs", () => {
+    const { mightyStrikes, planOfAttack, amplification } = LASTARC.declaredTrades;
+    assert.equal(mightyStrikes.on, "melee");
+    assert.equal(mightyStrikes.doubleTwoHanded, true);
+
+    assert.equal(planOfAttack.on, "ranged");
+    assert.ok(!planOfAttack.doubleTwoHanded,
+      "a bow is drawn with two hands and the book gives it no doubling");
+
+    assert.equal(amplification.on, "spell");
+    assert.equal(amplification.cap, 5, "its ceiling does not scale with level");
+    assert.equal(amplification.multiplier, 2, "it buys damage at twice the rate");
   });
 });

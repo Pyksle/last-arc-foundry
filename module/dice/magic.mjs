@@ -606,6 +606,19 @@ export async function castSpell(actor, spell, options = {}) {
   add("LASTARC.Mod.castDefensively", defensive);
   add(situationalLabel(options.situationalNote), options.situational ?? 0);
 
+  /**
+   * A declared trade, clamped against the character rather than trusted from
+   * the dialog, and itemised on its own line — the damage below has to tell it
+   * from a penalty for casting defensively, and a card recording only a total
+   * could not say which it was.
+   */
+  const tradeSpec = D.declaredTradeFor("spell", (flag) => hasFlag(actor, flag));
+  const trade = tradeSpec
+    ? Math.min(Math.max(0, Math.trunc(options.trade ?? 0)),
+      D.declaredTradeCap(sys.details?.level ?? 1, tradeSpec.cap))
+    : 0;
+  add("LASTARC.Mod.declaredTrade", -trade);
+
   const mod = parts.reduce((s, p) => s + p.value, 0);
   const { roll } = await rollCheckD20(actor, mod);
 
@@ -677,8 +690,16 @@ export async function castSpell(actor, spell, options = {}) {
      */
     const doubles = !!sp.doubledExplosions || hasFlag(actor, "doubledSpellExplosions");
 
+    /**
+     * The trade, paid out here having been charged on the spellcraft check.
+     * Twice the number spent — the only trade that doubles unconditionally,
+     * which is why the rate comes from the table rather than from this line.
+     */
     const rolled = await rollDamageDice({
-      diceFormula: dice, critMultiplier: 1, explosionMultiplier: doubles ? 2 : 1, flat: 0
+      diceFormula: dice, critMultiplier: 1, explosionMultiplier: doubles ? 2 : 1,
+      flat: D.tradeDamageBonus(trade, {
+        level: sys.details?.level ?? 1, spec: tradeSpec
+      })
     });
 
     const multiplier = opposed.opposed && !opposed.beat

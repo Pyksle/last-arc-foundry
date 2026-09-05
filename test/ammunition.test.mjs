@@ -539,8 +539,10 @@ describe("§102 a world that never opted in is untouched", () => {
   test("off is the first mode and the registered default", () => {
     assert.equal(AMMO.AMMO_MODES[0], "off");
     const entry = read("module/last-arc.mjs");
-    const block = entry.slice(entry.indexOf('game.settings.register(SYSTEM_ID, "ammoTracking"'));
-    assert.match(block.slice(0, 400), /default: "off"/,
+    // The registration CALL, not a fixed slice of the file after it.
+    const at = entry.indexOf('game.settings.register(SYSTEM_ID, "ammoTracking"');
+    const block = entry.slice(at, entry.indexOf("\n  });", at));
+    assert.match(block, /default: "off"/,
       "switching this on by default would change every existing bow and crossbow " +
       "in worlds whose players never asked for it");
   });
@@ -567,8 +569,9 @@ describe("§102 a world that never opted in is untouched", () => {
 
   /** The sheet must draw no ammunition control at all while tracking is off. */
   test("the sheet returns no ammo readout when tracking is off", () => {
-    const fn = sheet.slice(sheet.indexOf("#attackAmmo(weapon, mode)"));
-    assert.match(fn.slice(0, 300), /mode === "off"[^\n]*return null/,
+    const at = sheet.indexOf("#attackAmmo(weapon, mode)");
+    const fn = sheet.slice(at, sheet.indexOf("\n  }", at));
+    assert.match(fn, /mode === "off"[^\n]*return null/,
       "an off world must not be able to tell from the sheet that this exists");
   });
 

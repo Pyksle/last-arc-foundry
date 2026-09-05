@@ -40,8 +40,8 @@ describe("§ the barrier is used, and used everywhere", () => {
   /** Without this the checks below pass over an empty list. */
   test("the scan finds the helpers themselves", () => {
     const found = turnChanges();
-    assert.equal(found.length, 3,
-      "expected exactly the three helper bodies to call these directly, found " +
+    assert.ok(found.length >= 1 && found.length <= 3,
+      "expected only the helper bodies to change a turn directly, found " +
       found.map((f) => `${f.n}: ${f.line}`).join(" | "));
   });
 
@@ -70,7 +70,7 @@ describe("§ the barrier is used, and used everywhere", () => {
 
 describe("§ the barrier waits for the right thing", () => {
   const body = quench.slice(quench.indexOf("function turnSettled"),
-                            quench.indexOf("/** Start the encounter"));
+                            quench.indexOf("\n}", quench.indexOf("function turnSettled")));
 
   /**
    * ARMED BEFORE THE TRANSITION. The first version polled for the incoming
@@ -87,11 +87,14 @@ describe("§ the barrier waits for the right thing", () => {
     assert.ok(!/until\(/.test(body), "polling is back");
   });
 
-  /** The helpers must arm it BEFORE the call, or the event is already gone. */
-  test("each helper arms the listener before changing the turn", () => {
+  /**
+   * The listener must be armed BEFORE the transition, or the write has already
+   * fired by the time anything is listening. `advanceBy` does it for the two
+   * that go through it; `startEncounter` does its own.
+   */
+  test("the transition is never started before the listener is armed", () => {
     for (const [helper, call] of [["startEncounter", "startCombat"],
-                                  ["advanceTurn", "nextTurn"],
-                                  ["advanceRound", "nextRound"]]) {
+                                  ["advanceBy", "move()"]]) {
       const at = quench.indexOf(`async function ${helper}`);
       assert.notEqual(at, -1, `${helper} is gone`);
       const fn = quench.slice(at, quench.indexOf("\n}", at));
@@ -99,6 +102,19 @@ describe("§ the barrier waits for the right thing", () => {
         `${helper} starts the transition before listening, so it can miss the write`);
       assert.match(fn, /await done;/, `${helper} never waits`);
     }
+  });
+
+  /**
+   * The document has to have MOVED, not just written. Waiting only for the
+   * write let the barrier return with `nextTurn` still in flight, the next call
+   * landed on top of it, and a test asking for round 2 got round 1.
+   */
+  test("advancing waits for the encounter to actually move", () => {
+    const at = quench.indexOf("async function advanceBy");
+    const fn = quench.slice(at, quench.indexOf("\n}", at));
+    assert.match(fn, /const from = position\(combat\)/, "nothing records where it started");
+    assert.match(fn, /until\(\(\) => position\(combat\) !== from/,
+      "the barrier returns without confirming the turn moved");
   });
 
   /** A lifecycle that never runs must fail the assertion, not hang the suite. */

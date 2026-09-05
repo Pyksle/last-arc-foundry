@@ -234,33 +234,84 @@ function turnSettled(combat) {
       if (changed?.flags?.[SYSTEM_ID]?.actions) finish();
     });
     /**
-     * A ceiling, so a lifecycle that never runs fails the assertion below
-     * rather than hanging the suite. Generous: it is only ever reached when
-     * something is genuinely wrong.
+     * A SHORT ceiling, because the write is not guaranteed to happen at all.
+     *
+     * `setTurnState` writes `beginTurn(getTurnState(combatant))`, and a
+     * combatant that has spent nothing already holds exactly that — Foundry
+     * diffs the update, finds nothing changed, and emits no hook. The barrier
+     * then waits out its whole ceiling for an event that was never coming,
+     * which at five seconds a time overran the budget of any test doing three
+     * turn changes. It cost the suite more than the bug did.
+     *
+     * So: resolve the instant the write lands, and give up quickly when there
+     * is nothing to wait for. Where a test needs a DERIVED value to catch up —
+     * an actor's status set is rebuilt separately from the effect that changed
+     * it — `statusSettled` waits for that condition by name.
      */
-    const timer = setTimeout(finish, 5000);
+    const timer = setTimeout(finish, 600);
   });
+}
+
+/**
+ * Wait for an actor's derived status set to reach a state, then hand back.
+ *
+ * `turnSettled` proves the HANDLER finished — its last write has landed. It
+ * does not prove the actor has re-derived `statuses` from the effects that
+ * handler deleted, which happens separately and a tick or two later. That gap
+ * is small enough to hide behind a 300ms sleep and wide enough to show up once
+ * in a while under load, which is exactly the shape of the bug this whole
+ * exercise was about.
+ *
+ * `until` GIVES UP rather than waiting forever, so an assertion after this
+ * still fails when the status genuinely never changes. This waits out a race;
+ * it does not paper over a rule.
+ */
+async function statusSettled(actor, id, present) {
+  await until(() => actor.statuses.has(id) === present, { tries: 60, wait: 50 });
+}
+
+/**
+ * Where the encounter is, as one comparable value.
+ *
+ * Both halves matter: `nextTurn` usually moves the turn and sometimes wraps the
+ * round instead, and a test that reads either one needs the document to have
+ * actually moved before it looks.
+ */
+const position = (combat) => `${combat.round}:${combat.turn}`;
+
+/**
+ * Advance, then wait for BOTH the document and the lifecycle.
+ *
+ * Waiting only for the lifecycle's write was not enough: the barrier could
+ * return while `nextTurn` was still in flight, the next call would be issued on
+ * top of it, and the round quietly failed to advance — a test asking for round
+ * 2 got round 1, once in six runs. The document moving is the first condition;
+ * the handler finishing is the second.
+ */
+async function advanceBy(combat, move) {
+  const from = position(combat);
+  const done = turnSettled(combat);
+  await move();
+  await until(() => position(combat) !== from, { tries: 60, wait: 50 });
+  await done;
 }
 
 /** Start the encounter and wait for the lifecycle, not for a stopwatch. */
 async function startEncounter(combat) {
   const done = turnSettled(combat);
   await combat.startCombat();
+  await until(() => combat.started, { tries: 60, wait: 50 });
   await done;
 }
 
 /** Advance one turn and wait for the lifecycle. */
 async function advanceTurn(combat) {
-  const done = turnSettled(combat);
-  await combat.nextTurn();
-  await done;
+  await advanceBy(combat, () => combat.nextTurn());
 }
 
 /** Advance one round and wait for the lifecycle. */
 async function advanceRound(combat) {
-  const done = turnSettled(combat);
-  await combat.nextRound();
-  await done;
+  await advanceBy(combat, () => combat.nextRound());
 }
 
 async function withEncounter(fn) {
@@ -1783,6 +1834,7 @@ function registerCombatBatch(quench) {
             const first = combat.combatant.actor;
             const other = first === a ? b : a;
 
+            await statusSettled(first, "flatFooted", false);
             assert.isFalse(first.statuses.has("flatFooted"), "the one acting is not flat-footed");
             assert.isTrue(other.statuses.has("flatFooted"), "everyone else is");
           });
@@ -1793,6 +1845,7 @@ function registerCombatBatch(quench) {
           await withEncounter(async (combat) => {
             await startEncounter(combat);
             await advanceTurn(combat);
+            await statusSettled(combat.combatant.actor, "flatFooted", false);
             assert.isFalse(
               combat.combatant.actor.statuses.has("flatFooted"),
               "acting ends round-1 flat-footed for the ACTIVE combatant"
@@ -1845,16 +1898,19 @@ function registerCombatBatch(quench) {
             await until(() => !bc.getFlag("last-arc", "flatFootedRound1"));
 
             await advanceTurn(combat);     // round 2, a acts
+            await statusSettled(b, "flatFooted", false);
             assert.isFalse(b.statuses.has("flatFooted"), "clean slate to start from");
 
             await b.toggleStatusEffect("flatFooted", { active: true });
             await settle();
 
             await advanceRound(combat);    // round 3 opens on a; b has not acted
+            await statusSettled(b, "flatFooted", true);
             assert.isTrue(b.statuses.has("flatFooted"),
               "the sweep cleared a status the lifecycle did not apply");
 
             await advanceTurn(combat);     // b's turn
+            await statusSettled(b, "flatFooted", false);
             assert.isFalse(b.statuses.has("flatFooted"),
               "and the start of its own turn is where it ends");
           });
@@ -1875,6 +1931,7 @@ function registerCombatBatch(quench) {
             await startEncounter(combat);
 
             assert.equal(combat.combatant.actorId, a.id, "a rolled lowest and acts first");
+            await statusSettled(a, "flatFooted", true);
             assert.isTrue(a.statuses.has("flatFooted"),
               "acting exempts you from the round-1 trigger, not from surprise");
           });
@@ -2257,7 +2314,13 @@ function registerCombatBatch(quench) {
             assert.isTrue(DODGE.canDodge(a).allowed, "first dodge of the turn");
 
             await DODGE.rollDodge(a, { attackTotal: 999 });   // cannot succeed
-            await settle();
+            /**
+             * The spend is a combatant flag write, and 300ms was a guess that
+             * held until the suite got long enough to load the machine. Wait
+             * for the condition; `until` gives up, so a dodge that genuinely
+             * never spends still fails the assertion below.
+             */
+            await until(() => !DODGE.canDodge(a).allowed, { tries: 60, wait: 50 });
 
             const check = DODGE.canDodge(a);
             assert.isFalse(check.allowed, "a failed dodge still spends the turn's dodge");
@@ -5197,6 +5260,99 @@ function registerDeclaredTradeBatch(quench) {
               r.terms.parts.reduce((n, p) => n + p.value, 0), r.terms.flat,
               "the parts do not add up to the flat total the card prints");
           });
+        });
+      });
+
+      describe("§ the ranged and spell trades", function () {
+        const ARCHER = {
+          system: { classes: [{ name: "ranger", levels: 12 }] }
+        };
+        const bow = {
+          name: "ZZ bow", type: "weapon",
+          system: { category: "bows", size: "medium", equipped: true, damage: "1d8" }
+        };
+
+        /** Ranged buys damage one for one, and must not double. */
+        it("a ranged trade pays one for one and never doubles", async function () {
+          await withActor(ARCHER, async (actor) => {
+            await actor.createEmbeddedDocuments("Item", [{
+              name: "ZZ plan", type: "talent",
+              system: { active: true, flags: ["planOfAttack"] }
+            }]);
+            const [w] = await actor.createEmbeddedDocuments("Item", [bow]);
+
+            const none = await ATK.rollDamage(actor, w,
+              { outcome: {}, wield: "ranged", isMelee: false, prompt: false, trade: 0 });
+            const three = await ATK.rollDamage(actor, w,
+              { outcome: {}, wield: "ranged", isMelee: false, prompt: false, trade: 3 });
+            assert.equal(three.terms.flat - none.terms.flat, 3,
+              "the ranged trade bought no damage, or bought twice as much");
+          });
+        });
+
+        /**
+         * A melee talent must not pay out on a bow. The lookup is by the kind
+         * of roll, so holding the wrong one buys nothing.
+         */
+        it("a melee talent buys nothing on a ranged attack", async function () {
+          await withActor(ARCHER, async (actor) => {
+            await actor.createEmbeddedDocuments("Item", [{
+              name: "ZZ mighty", type: "talent",
+              system: { active: true, flags: ["mightyStrikes"] }
+            }]);
+            const [w] = await actor.createEmbeddedDocuments("Item", [bow]);
+
+            const none = await ATK.rollDamage(actor, w,
+              { outcome: {}, wield: "ranged", isMelee: false, prompt: false, trade: 0 });
+            const three = await ATK.rollDamage(actor, w,
+              { outcome: {}, wield: "ranged", isMelee: false, prompt: false, trade: 3 });
+            assert.equal(three.terms.flat, none.terms.flat,
+              "a melee trade paid out on a bow");
+          });
+        });
+
+        /**
+         * The spell trade charges the Spellcraft check and pays TWICE. Its
+         * ceiling is 5 at every level, so a low-level caster may spend it all.
+         */
+        it("a spell trade charges the check and pays double", async function () {
+          await withActor({ system: { classes: [{ name: "mage", levels: 1 }] } },
+            async (actor) => {
+              await actor.createEmbeddedDocuments("Item", [{
+                name: "ZZ amp", type: "talent",
+                system: { active: true, flags: ["amplification"] }
+              }]);
+              const [spell] = await actor.createEmbeddedDocuments("Item", [{
+                name: "ZZ bolt", type: "spell",
+                system: { mpCost: 0, damageType: "fire",
+                  outcomes: [{ min: 0, damage: "1d6" }] }
+              }]);
+
+              const plain = await MAGIC.castSpell(actor, spell, { trade: 0 });
+              await settle();
+              const traded = await MAGIC.castSpell(actor, spell, { trade: 5 });
+              await settle();
+
+              const total = (r) => (r.parts ?? []).reduce((n, p) => n + p.value, 0);
+              assert.equal(total(plain) - total(traded), 5,
+                "the spellcraft check was not charged for the trade");
+              assert.include(
+                (traded.parts ?? []).map((p) => p.label),
+                "LASTARC.Mod.declaredTrade",
+                "the trade has no line of its own on the spell card");
+
+              /**
+               * AND THE PAYOUT. Charging the check without paying the damage
+               * is the worst of both, and asserting only the charge left that
+               * mutation alive — the flat is reported on the roll, so it can be
+               * checked without depending on what the dice did.
+               */
+              assert.equal(plain.damage?.flat ?? 0, 0,
+                "an undeclared spell gained bonus damage");
+              assert.equal(traded.damage?.flat, 10,
+                "five points of Spellcraft bought no damage, or bought it once " +
+                "over rather than twice");
+            });
         });
       });
 
