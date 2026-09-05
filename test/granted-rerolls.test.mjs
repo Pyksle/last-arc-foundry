@@ -161,10 +161,10 @@ describe("§48 the reroll maths is shared, not reimplemented", () => {
     // the new roll regardless prints a total the dice never produced — every
     // time the reroll fails to improve, which is most of them.
     assert.match(heroPoints, /export async function rerollWithoutCost\(/);
-    const fn = heroPoints.slice(heroPoints.indexOf("export async function rerollWithoutCost"));
-    assert.match(fn.slice(0, 900), /kept === rerolled \? reroll : originalRoll/,
+    const fn = fnBody(heroPoints, "export async function rerollWithoutCost");
+    assert.match(fn, /kept === rerolled \? reroll : originalRoll/,
       "the kept roll does not follow resolveReroll's choice");
-    assert.match(fn.slice(0, 900), /new Roll\("1d20 \+ @mod", \{ mod \}\)/,
+    assert.match(fn, /new Roll\("1d20 \+ @mod", \{ mod \}\)/,
       "the free reroll is a naked d20, so its total is a bare die face");
   });
 
@@ -254,11 +254,11 @@ describe("§48 a scoped grant only offers itself on its own skill", () => {
    * trait and one unscoped — the two lists differ in length and order.
    */
   test("the handler re-filters the same way before indexing", () => {
-    const fn = chat.slice(chat.indexOf("async function onGrantedReroll"));
-    assert.match(fn.slice(0, 1200), /D\.offeredRerolls\(/,
+    const fn = fnBody(chat, "async function onGrantedReroll");
+    assert.match(fn, /D\.offeredRerolls\(/,
       "the handler indexes the unfiltered list, so it can spend the wrong grant");
     // The SAME function, not a second filter that happens to agree today.
-    assert.ok(!/\.filter\(\(g\) =>/.test(fn.slice(0, 1200)),
+    assert.ok(!/\.filter\(\(g\) =>/.test(fn),
       "the handler has its own filter again — it will drift from the offer");
   });
 

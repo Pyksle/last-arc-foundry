@@ -335,10 +335,12 @@ describe("no decoy technick flags", () => {
                    // what a druid ticks to be offered forms at all, so it is
                    // read where the sheet decides whether to draw them.
                    "module/sheets/character-sheet.mjs",
-                   // Mighty Strikes decides whether the attack prompt offers a
-                   // trade at all, so it is read in the dispatcher that builds
-                   // that prompt rather than in a roll pipeline.
-                   "module/item-actions.mjs"].map(read).join("\n");
+                   // The declared trades decide whether a prompt offers one at
+                   // all, so they are read in the dispatcher that builds that
+                   // prompt rather than in a roll pipeline. The lookup is by
+                   // the KIND of roll, so the flag names appear in the config
+                   // table those files consult.
+                   "module/item-actions.mjs", "module/config.mjs"].map(read).join("\n");
 
   test("every flag in the picker is read by the rules engine", () => {
     const decoys = LASTARC.technickFlags.filter((f) => !readers.includes(`"${f}"`));

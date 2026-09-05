@@ -449,9 +449,12 @@ export async function rollAttack(actor, weapon, options = {}) {
    * trusted from the dialog. The form's `max` is a courtesy to the player; the
    * rule is enforced where the number is spent.
    */
+  const tradeSpec = D.declaredTradeFor(
+    LASTARC.rangedWeaponCategories.has(weapon.system.category) ? "ranged" : "melee",
+    (flag) => hasTechnickFlag(actor, flag));
   const trade = Math.min(
     Math.max(0, Math.trunc(options.trade ?? 0)),
-    D.declaredTradeCap(sys.details?.level ?? 1)
+    D.declaredTradeCap(sys.details?.level ?? 1, tradeSpec?.cap)
   );
   const profile = weaponProfileFor(actor, weapon, {
     isThrown: !!options.isThrown, trade
@@ -602,7 +605,11 @@ export async function rollDamage(
    */
   const tradeBonus = D.tradeDamageBonus(trade, {
     twoHanded: wield === "twoHanded" || !!weapon?.system?.tradeCountsAsTwoHanded,
-    level: sys.details?.level ?? 1
+    level: sys.details?.level ?? 1,
+    // Which trade paid for this — a ranged one buys damage one for one, and
+    // has no two-handed doubling however the bow is held.
+    spec: D.declaredTradeFor(isMelee ? "melee" : "ranged",
+      (flag) => hasTechnickFlag(actor, flag))
   });
 
   /**

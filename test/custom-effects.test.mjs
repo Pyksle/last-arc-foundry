@@ -340,8 +340,9 @@ describe("§20 things this panel surfaced", () => {
     const src = read("module/dice/hero-points.mjs")
       .replace(/\/\*[\s\S]*?\*\//g, " ")
       .replace(/(^|[^:])\/\/.*$/gm, "$1 ");
-    const fn = src.slice(src.indexOf("export async function heroPointDefenceBoost"));
-    assert.ok(!/assets\/status\//.test(fn.slice(0, 1200)),
+    const at = src.indexOf("export async function heroPointDefenceBoost");
+    const fn = src.slice(at, src.indexOf("\n}", at));
+    assert.ok(!/assets\/status\//.test(fn),
       "a hero point BOOST is drawing a condition's glyph on the token");
   });
 

@@ -128,9 +128,10 @@ describe("§48 the rebuilt card is a real attack card", () => {
    * checks were left behind for an hour.
    */
   test("every rebuilder is in the chain", () => {
-    const fn = chat.slice(chat.indexOf("async function rebuildAfterReroll"));
+    const at = chat.indexOf("async function rebuildAfterReroll");
+    const fn = chat.slice(at, chat.indexOf("\n}", at));
     for (const rebuilder of ["repostAttackAfterReroll", "repostCheckAfterReroll"]) {
-      assert.match(fn.slice(0, 500), new RegExp(rebuilder),
+      assert.match(fn, new RegExp(rebuilder),
         `${rebuilder} is not in the rebuild chain, so its cards are never rebuilt`);
     }
   });
@@ -210,8 +211,9 @@ describe("§48 a rebuilt card cannot itself be rerolled", () => {
 
   test("both offers read the marker", () => {
     for (const fn of ["offerHeroReroll", "offerGrantedRerolls"]) {
-      const body = chat.slice(chat.indexOf(`function ${fn}(`));
-      assert.match(body.slice(0, 900), /flags\.(heroRerolled \|\| flags\.rerolled|rerolled \|\| flags\.heroRerolled)/,
+      const at = chat.indexOf(`function ${fn}(`);
+      const body = chat.slice(at, chat.indexOf("\n}", at));
+      assert.match(body, /flags\.(heroRerolled \|\| flags\.rerolled|rerolled \|\| flags\.heroRerolled)/,
         `${fn} does not check both markers, so one kind of reroll can follow the other`);
     }
   });

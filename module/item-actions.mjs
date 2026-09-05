@@ -81,9 +81,16 @@ export async function rollItemAction(actor, item, event = {}) {
        * on melee attacks only, and only to a character who has the talent — a
        * box everyone sees is a rule everyone thinks they have.
        */
-      tradeCap: !isRanged && hasTechnickFlag(actor, "mightyStrikes")
-        ? D.declaredTradeCap(actor.system.details?.level ?? 1)
-        : 0
+      /**
+       * Which trade, if any, this character may declare on THIS kind of attack.
+       * Looked up by the roll rather than by asking each talent, so a melee
+       * trade is never offered on a bow.
+       */
+      tradeCap: (() => {
+        const t = D.declaredTradeFor(isRanged ? "ranged" : "melee",
+          (flag) => hasTechnickFlag(actor, flag));
+        return t ? D.declaredTradeCap(actor.system.details?.level ?? 1, t.cap) : 0;
+      })()
     });
     if (extra === null) return false;
 
@@ -104,7 +111,14 @@ export async function rollItemAction(actor, item, event = {}) {
   }
 
   if (action === "cast") {
-    const extra = await situationalOptions(event);
+    /** The spell trade buys damage with spellcraft, at twice the rate. */
+    const spellTrade = D.declaredTradeFor("spell",
+      (flag) => hasTechnickFlag(actor, flag));
+    const extra = await situationalOptions(event, {
+      tradeCap: spellTrade
+        ? D.declaredTradeCap(actor.system.details?.level ?? 1, spellTrade.cap)
+        : 0
+    });
     if (extra === null) return false;
     await castSpell(actor, item, {
       ...extra,

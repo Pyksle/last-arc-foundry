@@ -470,9 +470,10 @@ describe("§50 a rerolled reaction rebuilds its verdict", () => {
   });
 
   test("both are in the rebuild chain", () => {
-    const fn = chat.slice(chat.indexOf("async function rebuildAfterReroll"));
-    assert.match(fn.slice(0, 600), /repostBlockAfterReroll/);
-    assert.match(fn.slice(0, 600), /repostDodgeAfterReroll/);
+    const at = chat.indexOf("async function rebuildAfterReroll");
+    const fn = chat.slice(at, chat.indexOf("\n}", at));
+    assert.match(fn, /repostBlockAfterReroll/);
+    assert.match(fn, /repostDodgeAfterReroll/);
   });
 
   test("each rebuilder declines a card that is not its own", () => {

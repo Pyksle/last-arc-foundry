@@ -915,11 +915,27 @@ export function overAttributeCap(total = 0, cap = 0) {
  * 5. Floored at 1 rather than 0: the talent's whole content is the option, and
  * a level at which it offers nothing is not a level the book has.
  */
-export function declaredTradeCap(level = 1) {
+export function declaredTradeCap(level = 1, cap = "level") {
+  // A flat ceiling, for the trade whose limit does not scale.
+  if (Number.isFinite(cap)) return Math.max(0, Math.trunc(cap));
   return Math.min(
     LASTARC.declaredTradeMax,
     1 + Math.floor(Math.max(1, level) / LASTARC.declaredTradeStep)
   );
+}
+
+/**
+ * The trade this character may declare on a roll of this kind, or null.
+ *
+ * Looked up by what the roll IS rather than by asking each talent in turn, so
+ * a melee trade is never offered on a bow and the next row in the table needs
+ * no branch anywhere.
+ */
+export function declaredTradeFor(kind, hasFlag = () => false) {
+  for (const [key, spec] of Object.entries(LASTARC.declaredTrades)) {
+    if (spec.on === kind && hasFlag(key)) return { key, ...spec };
+  }
+  return null;
 }
 
 /**
@@ -936,10 +952,22 @@ export function declaredTradeCap(level = 1) {
  * so a stale card, an edited flag or a level lost to a rebuild cannot pay out
  * more than the character is entitled to.
  */
-export function tradeDamageBonus(trade = 0, { twoHanded = false, level = 1 } = {}) {
+export function tradeDamageBonus(trade = 0, {
+  twoHanded = false, level = 1, spec = null
+} = {}) {
+  /**
+   * NO SPEC MEANS NO TRADE. This defaulted to Mighty Strikes so existing
+   * callers kept their meaning, and that default was a bug the moment a second
+   * trade existed: a character holding only the MELEE talent, shooting a bow,
+   * looked up the ranged trade, got null, and was paid out at the melee rate
+   * anyway. Caught in a live Foundry, not by the maths.
+   */
+  if (!spec) return 0;
+  const s = spec;
   const spent = Math.min(
-    Math.max(0, Math.trunc(trade)), declaredTradeCap(level));
-  return twoHanded ? spent * 2 : spent;
+    Math.max(0, Math.trunc(trade)), declaredTradeCap(level, s.cap));
+  const multiplier = (s.doubleTwoHanded && twoHanded) ? 2 : (s.multiplier ?? 1);
+  return spent * multiplier;
 }
 
 /**
