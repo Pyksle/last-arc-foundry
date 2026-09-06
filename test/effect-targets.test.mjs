@@ -91,16 +91,33 @@ describe("§ issue #20: an effect target must survive prepareDerivedData", () =>
     assert.deepEqual(clashes, [], clashes.join("\n  "));
   });
 
+  /**
+   * PER ACTOR TYPE, because one path can be derived on one model and authored
+   * on the other. `system.damageMods.dr` is assigned on every prepare for a
+   * character — armour plus grants plus the `drMisc` slot — and is a printed
+   * statblock number nobody derives for an NPC. Checking the union of both
+   * would either forbid a legitimate statblock target or permit a character one
+   * that gets overwritten; only the per-type question has an answer.
+   */
   test("the obvious wrong targets are NOT offered", () => {
-    const ok = supportedTargetPaths();
-    for (const path of [
-      "system.resources.hp.max", "system.resources.mp.max",
-      "system.defences.ref.value", "system.defences.fort.value",
-      "system.damageMods.dr", "system.movement.value",
-      "system.breakGauge.threshold", "system.details.level"
-    ]) {
-      assert.ok(!ok.has(path),
-        `${path} is offered as an effect target and derivation overwrites it`);
+    const wrong = {
+      character: [
+        "system.resources.hp.max", "system.resources.mp.max",
+        "system.defences.ref.value", "system.defences.fort.value",
+        "system.damageMods.dr", "system.movement.value",
+        "system.breakGauge.threshold", "system.details.level"
+      ],
+      npc: [
+        "system.resources.hp.max", "system.defences.ref.value",
+        "system.breakGauge.threshold"
+      ]
+    };
+    for (const [type, paths] of Object.entries(wrong)) {
+      const ok = supportedTargetPaths(type);
+      for (const path of paths) {
+        assert.ok(!ok.has(path),
+          `${path} is offered to a ${type} and derivation overwrites it`);
+      }
     }
   });
 
@@ -109,12 +126,16 @@ describe("§ issue #20: an effect target must survive prepareDerivedData", () =>
     assert.ok(ok.has("system.skills.athletics.misc"));
     assert.ok(ok.has("system.defences.will.misc"));
     assert.ok(ok.has("system.attributes.str.value"));
-    // One row per skill, defence and attribute, so nothing is quietly dropped.
+    assert.ok(ok.has("system.damageMods.drMisc"),
+      "a character has nowhere for a temporary damage reduction to land");
+    // One row per skill, defence and attribute, plus the one for damage
+    // reduction — so nothing is quietly dropped.
     assert.equal(
       effectTargets().length,
       Object.keys(LASTARC.allSkills).length
         + LASTARC.opposableDefences.length
         + Object.keys(LASTARC.attributes).length
+        + 1
     );
   });
 

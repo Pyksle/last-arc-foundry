@@ -1850,6 +1850,44 @@
 
 .la-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--la-gap); }
 
+/* Fight Defensively (#86). Two elections side by side, styled like the action
+   slots above them because that is what they sit among — and the one in force
+   is bronzed, matching every other "this is on" state on the sheet. */
+.la-fightdef {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  margin: 0.4rem 0;
+}
+.la-fightdef__mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.35rem 0.3rem;
+  background: color-mix(in srgb, var(--la-paper-3) 45%, transparent);
+  border: 1px solid var(--la-rule);
+  border-radius: var(--la-radius);
+  cursor: pointer;
+  color: var(--la-ink-2);
+  font-family: var(--la-font-head);
+  font-size: 0.7rem;
+  line-height: 1.15;
+  text-align: center;
+}
+.la-fightdef__mode:hover { border-color: var(--la-bronze); }
+.la-fightdef__mode.is-on {
+  color: var(--la-ink);
+  border-color: var(--la-bronze);
+  background: color-mix(in srgb, var(--la-bronze) 10%, transparent);
+}
+.la-fightdef__value {
+  font-family: var(--la-font-num, var(--la-font-head));
+  font-size: 0.8rem;
+  color: var(--la-ink);
+}
+.la-fightdef__mode.is-on .la-fightdef__value { color: var(--la-bronze); }
+
 .la-slot {
   display: flex;
   flex-direction: column;

@@ -33,6 +33,8 @@ import * as AMMO from "./ammunition.mjs";
 import * as AMMOSTORE from "./dice/ammunition.mjs";
 import * as LAYOUT from "./sheets/sheet-layout-controls.mjs";
 import * as GUARD from "./status-guard.mjs";
+import * as FD from "./fight-defensively.mjs";
+import * as D_EFFECTS from "./effects.mjs";
 import * as BS from "./beast-shape.mjs";
 import { learnForm, forgetForm, transformInto, revertForm } from "./beast-shape-actions.mjs";
 
@@ -103,6 +105,7 @@ export function registerQuenchBatches() {
     registerDeclaredTradeBatch(quench);
     registerRaceAllowanceBatch(quench);
     registerFormListBatch(quench);
+    registerTemporaryEffectBatch(quench);
   });
 }
 
@@ -5656,5 +5659,219 @@ function registerFormListBatch(quench) {
       });
     },
     { displayName: "Last Arc — Form lists" }
+  );
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*  Effects that run out (#86, #88)                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Foundry counts a duration down and then keeps applying the effect. Only a
+ * live combat can show that, and only a live combat can show it stopping.
+ */
+function registerTemporaryEffectBatch(quench) {
+  quench.registerBatch(
+    `${SYSTEM_ID}.temporaryEffects`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      const oneRound = (key, value) => ({
+        name: "ZZ temporary",
+        changes: [{ key, mode: CONST.ACTIVE_EFFECT_MODES.ADD,
+                    value: String(value), priority: 20 }],
+        duration: { rounds: 1, startRound: game.combat?.round, startTurn: game.combat?.turn }
+      });
+
+      describe("§ a duration that actually ends", function () {
+        it("the bonus is there, then it is not", async function () {
+          await withEncounter(async (combat, a) => {
+            await startEncounter(combat);
+            const before = a.system.defences.ref.value;
+
+            await a.createEmbeddedDocuments(
+              "ActiveEffect", [oneRound("system.defences.ref.misc", 5)]);
+            await settle();
+            assert.equal(a.system.defences.ref.value, before + 5,
+              "the effect did not apply at all");
+
+            await advanceRound(combat);
+            await until(() => a.system.defences.ref.value === before, { tries: 60, wait: 50 });
+
+            assert.equal(a.system.defences.ref.value, before,
+              "a one-round buff is still applying after the round ended — which " +
+              "is every temporary effect in every world using this system");
+          });
+        });
+
+        /**
+         * DISABLED, not deleted. A GM should be able to see what ran out and
+         * overrule it; deleting takes the wording with it.
+         */
+        it("it is switched off, not thrown away", async function () {
+          await withEncounter(async (combat, a) => {
+            await startEncounter(combat);
+            const [effect] = await a.createEmbeddedDocuments(
+              "ActiveEffect", [oneRound("system.defences.ref.misc", 5)]);
+            await advanceRound(combat);
+            await until(() => a.effects.get(effect.id)?.disabled, { tries: 60, wait: 50 });
+
+            const live = a.effects.get(effect.id);
+            assert.isNotNull(live ?? null, "the effect was deleted rather than disabled");
+            assert.isTrue(live.disabled);
+            assert.isTrue(!!live.getFlag(SYSTEM_ID, "autoExpired"),
+              "nothing marks it, so a GM who turns it back on loses it again");
+          });
+        });
+
+        /** An effect with no duration is not a temporary effect. */
+        it("a permanent effect is untouched", async function () {
+          await withEncounter(async (combat, a) => {
+            await startEncounter(combat);
+            const [effect] = await a.createEmbeddedDocuments("ActiveEffect", [{
+              name: "ZZ permanent",
+              changes: [{ key: "system.defences.ref.misc",
+                          mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "3", priority: 20 }]
+            }]);
+            const buffed = a.system.defences.ref.value;
+
+            await advanceRound(combat);
+            await advanceRound(combat);
+
+            assert.isFalse(a.effects.get(effect.id).disabled,
+              "an effect with no duration was expired anyway");
+            assert.equal(a.system.defences.ref.value, buffed);
+          });
+        });
+      });
+
+      describe("§ temporary damage reduction (#88)", function () {
+        it("an effect can grant DR on a character", async function () {
+          await withEncounter(async (combat, a) => {
+            await startEncounter(combat);
+            const before = a.system.damageMods.dr;
+
+            await a.createEmbeddedDocuments(
+              "ActiveEffect", [oneRound(D_EFFECTS.drTarget("character"), 5)]);
+            await settle();
+            assert.equal(a.system.damageMods.dr, before + 5,
+              "a spell granting damage reduction has nowhere to land");
+
+            await advanceRound(combat);
+            await until(() => a.system.damageMods.dr === before, { tries: 60, wait: 50 });
+            assert.equal(a.system.damageMods.dr, before, "and it never wears off");
+          });
+        });
+
+        /** The derived total is the trap: an effect there is erased. */
+        it("writing the derived total does nothing, which is why the slot exists",
+          async function () {
+            await withActor({}, async (actor) => {
+              const before = actor.system.damageMods.dr;
+              await actor.createEmbeddedDocuments("ActiveEffect", [{
+                name: "ZZ wrong target",
+                changes: [{ key: "system.damageMods.dr",
+                            mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "5", priority: 20 }]
+              }]);
+              await settle();
+              assert.equal(actor.system.damageMods.dr, before,
+                "if this ever starts working, the whitelist is wrong about it");
+            });
+          });
+      });
+
+      describe("§ fighting defensively (#86)", function () {
+        it("the election raises Reflex and costs the attack", async function () {
+          await withEncounter(async (combat, a) => {
+            await startEncounter(combat);
+            const before = a.system.defences.ref.value;
+
+            await FD.setElection(a, { noAttacks: false });
+            await settle();
+            assert.equal(a.system.defences.ref.value, before + 2,
+              "an untrained character should get +2");
+            assert.equal(FD.attackPenalty(a), -5, "the attack is not being charged");
+            assert.equal(FD.attackPenalty(a, { opposed: true }), 0,
+              "a block or parry is being charged a penalty the book exempts");
+          });
+        });
+
+        it("electing no attacks is worth more and costs nothing", async function () {
+          await withEncounter(async (combat, a) => {
+            await startEncounter(combat);
+            const before = a.system.defences.ref.value;
+
+            await FD.setElection(a, { noAttacks: true });
+            await settle();
+            assert.equal(a.system.defences.ref.value, before + 5);
+            assert.equal(FD.attackPenalty(a), 0);
+          });
+        });
+
+        it("training in Acrobatics improves both", async function () {
+          await withEncounter(async (combat, a) => {
+            await startEncounter(combat);
+            await a.update({ "system.skills.acrobatics.trained": true });
+            const before = a.system.defences.ref.value;
+
+            await FD.setElection(a, { noAttacks: false });
+            await settle();
+            assert.equal(a.system.defences.ref.value, before + 5,
+              "trained in Acrobatics the attacking election is +5, not +2");
+          });
+        });
+
+        it("pressing it again turns it off", async function () {
+          await withEncounter(async (combat, a) => {
+            await startEncounter(combat);
+            const before = a.system.defences.ref.value;
+
+            await FD.setElection(a, { noAttacks: false });
+            await settle();
+            await FD.setElection(a, { noAttacks: false });
+            await settle();
+
+            assert.isNull(FD.currentElection(a), "the election could not be cleared");
+            assert.equal(a.system.defences.ref.value, before);
+          });
+        });
+
+        it("switching elections replaces rather than stacks", async function () {
+          await withEncounter(async (combat, a) => {
+            await startEncounter(combat);
+            const before = a.system.defences.ref.value;
+
+            await FD.setElection(a, { noAttacks: false });
+            await settle();
+            await FD.setElection(a, { noAttacks: true });
+            await settle();
+
+            assert.equal(a.system.defences.ref.value, before + 5,
+              "both elections are applying at once");
+            assert.isTrue(FD.currentElection(a)?.noAttacks);
+          });
+        });
+
+        /** It lasts until the start of your next turn, and no longer. */
+        it("it wears off with the round", async function () {
+          await withEncounter(async (combat, a) => {
+            await startEncounter(combat);
+            const before = a.system.defences.ref.value;
+
+            await FD.setElection(a, { noAttacks: false });
+            await settle();
+            await advanceRound(combat);
+            await until(() => a.system.defences.ref.value === before, { tries: 60, wait: 50 });
+
+            assert.equal(a.system.defences.ref.value, before,
+              "the election never ends, so the bonus is permanent");
+            assert.isNull(FD.currentElection(a),
+              "a disabled election is still reading as in force");
+          });
+        });
+      });
+    },
+    { displayName: "Last Arc — Temporary effects" }
   );
 }

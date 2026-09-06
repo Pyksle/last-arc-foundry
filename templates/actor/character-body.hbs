@@ -476,6 +476,29 @@
         {{/each}}
       </div>
 
+      {{!-- Fight Defensively (#86). In the Actions panel because it is a
+            combat election, and shown with THIS character's numbers — training
+            in Acrobatics changes both of them, and printing the book's
+            untrained defaults would be wrong for anyone who has it. --}}
+      <div class="la-fightdef {{#if fightDefensively.active}}is-active{{/if}}">
+        <button type="button"
+                class="la-fightdef__mode {{#if fightDefensively.active}}{{#unless fightDefensively.noAttacks}}is-on{{/unless}}{{/if}}"
+                data-action="fightDefensively" data-mode="attacking"
+                aria-pressed="{{#if fightDefensively.active}}{{#unless fightDefensively.noAttacks}}true{{else}}false{{/unless}}{{else}}false{{/if}}"
+                data-tooltip="{{localize 'LASTARC.FightDefensively.Tooltip'}}">
+          {{localize "LASTARC.FightDefensively.Label"}}
+          <span class="la-fightdef__value">{{lasignal fightDefensively.penalty}} / +{{fightDefensively.attacking}}</span>
+        </button>
+        <button type="button"
+                class="la-fightdef__mode {{#if fightDefensively.noAttacks}}is-on{{/if}}"
+                data-action="fightDefensively" data-mode="noAttacks"
+                aria-pressed="{{#if fightDefensively.noAttacks}}true{{else}}false{{/if}}"
+                data-tooltip="{{localize 'LASTARC.FightDefensively.NoAttacksTooltip'}}">
+          {{localize "LASTARC.FightDefensively.NoAttacks"}}
+          <span class="la-fightdef__value">+{{fightDefensively.total}}</span>
+        </button>
+      </div>
+
       <p class="la-slots__note">
         {{localize "LASTARC.Action.MinorsAvailable"}}
         <strong>{{actionEconomy.availableMinors}}</strong>

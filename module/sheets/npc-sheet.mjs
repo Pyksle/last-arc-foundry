@@ -338,7 +338,7 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   _prepareSubmitData(event, form, formData, updateData) {
     const submit = super._prepareSubmitData(event, form, formData, updateData);
 
-    repackDamageMods(submit);
+    repackDamageMods(formData, submit);
 
     return submit;
   }

@@ -8,6 +8,7 @@
 
 import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
+import * as FD from "../fight-defensively.mjs";
 import { rollDamageDice, rollExplodingDice } from "./explode.mjs";
 import { describeCheck } from "./breakdown.mjs";
 import { situationalLabel } from "./situational.mjs";
@@ -88,6 +89,8 @@ export function attackModifiers({
   proficient = true,
   /** Points declared on a trade; costs this now and pays out on damage. */
   trade = 0,
+  /** The Fight Defensively penalty, already resolved and already signed. */
+  fightDefensively = 0,
   twoWeapon = false,
   dualWieldRank = 0,
   ...situation
@@ -105,6 +108,9 @@ export function attackModifiers({
    * card that recorded only a total could not say which it was.
    */
   if (trade > 0) add("LASTARC.Mod.declaredTrade", -trade);
+  // Fighting defensively costs every attack roll, but not an opposed roll made
+  // to block or parry — the book exempts those explicitly (#86).
+  if (fightDefensively) add("LASTARC.Mod.fightDefensively", fightDefensively);
 
   if (twoWeapon) {
     const rank = Math.min(dualWieldRank, DUAL_WIELD_PENALTY.length - 1);
@@ -350,7 +356,9 @@ export function weaponAttackProfile({
   /** The wielder's light-weapon skill preference, "" for automatic (#63). */
   wieldSkill = "",
   /** Points declared on a trade (Mighty Strikes), paid on the attack roll. */
-  trade = 0
+  trade = 0,
+  /** The Fight Defensively penalty, already resolved and already signed. */
+  fightDefensively = 0
 } = {}) {
   const wield = D.wieldCategory(actorSize, weaponSize, category);
   const unusable = wield === "unusable";
@@ -374,7 +382,9 @@ export function weaponAttackProfile({
     skillKey,
     skillMod,
     proficient,
-    attack: attackModifiers({ skillMod, weaponAtkBonus: atkBonus, proficient, trade }),
+    attack: attackModifiers({
+      skillMod, weaponAtkBonus: atkBonus, proficient, trade, fightDefensively
+    }),
     damage: buildDamageTerms({
       level,
       strMod,
@@ -421,6 +431,7 @@ export function weaponProfileFor(actor, weapon, { isThrown = false, trade = 0 } 
     weaponFinesse: hasTechnickFlag(actor, "weaponFinesse"),
     wieldSkill: weapon.system.wieldSkill ?? "",
     trade,
+    fightDefensively: FD.attackPenalty(actor),
     isThrown
   });
 }

@@ -28,5 +28,18 @@
       <input type="text" name="system.damageMods.immunity" value="{{immunityText}}"
              placeholder="{{localize 'LASTARC.Field.DamageTypeList'}}">
     </label>
+    {{!-- A character's DR is DERIVED from armour and grants, so it has no box
+          of its own. This is the input slot beside it — the one an Active
+          Effect writes, and the one a GM types a temporary reduction into
+          (#88). A statblock's DR is printed and takes the effect directly, so
+          it has no need of this. --}}
+    {{#if hasDrMisc}}
+      <label class="la-damagemod"
+             data-tooltip="{{localize 'LASTARC.Tooltip.DrMisc'}}">
+        <span>{{localize "LASTARC.Field.DrMisc"}}</span>
+        <input type="number" name="system.damageMods.drMisc"
+               value="{{system.damageMods.drMisc}}">
+      </label>
+    {{/if}}
   </div>
 </section>

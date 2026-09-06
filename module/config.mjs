@@ -1258,6 +1258,23 @@ LASTARC.resilientSecondWindBase = 5;
  * cap belongs here so the other three do not each arrive with their own copy
  * of the same arithmetic.
  */
+/**
+ * Fight Defensively (§ combat actions, #86).
+ *
+ * Two elections, each better if you are trained in Acrobatics: fight on at a
+ * penalty, or make no attacks at all until your next turn. The attack penalty
+ * is the price of the first and is moot in the second, because there are no
+ * attacks left to penalise.
+ *
+ * A table rather than four constants, because the four numbers are one rule and
+ * reading them apart is how a +5 ends up where a +2 belongs.
+ */
+LASTARC.fightDefensively = Object.freeze({
+  attackPenalty: -5,
+  ref: { untrained: 2, trained: 5 },
+  refNoAttacks: { untrained: 5, trained: 10 }
+});
+
 LASTARC.declaredTradeMax = 5;
 
 /**

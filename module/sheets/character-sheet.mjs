@@ -36,6 +36,8 @@ import {
 import { situationalOptions } from "../dice/situational.mjs";
 import * as ROWS from "../sheet-rows.mjs";
 import * as CLASSES from "../class-source.mjs";
+import { setElection, currentElection, acrobaticsTrained }
+  from "../fight-defensively.mjs";
 import * as LISTS from "./form-lists.mjs";
 import * as BS from "../beast-shape.mjs";
 import { hasTechnickFlag } from "../dice/attack.mjs";
@@ -91,6 +93,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       heroBoost: LastArcCharacterSheet.#onHeroBoost,
       toggleSlot: LastArcCharacterSheet.#onToggleSlot,
       bankAim: LastArcCharacterSheet.#onBankAim,
+      fightDefensively: LastArcCharacterSheet.#onFightDefensively,
       holdTurn: LastArcCharacterSheet.#onHoldTurn,
       resetActions: LastArcCharacterSheet.#onResetActions,
       toggleStatus: LastArcCharacterSheet.#onToggleStatus,
@@ -241,6 +244,25 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     context.misfortuneBlocksReroll = !!sys.statuses?.blocksD20Reroll;
 
     context.defenceRows = ROWS.defenceRows(sys, src);
+
+    /**
+     * Fight Defensively (#86). Both elections and which one is in force, so the
+     * panel can show the numbers this character would actually get rather than
+     * the book's untrained defaults.
+     */
+    /** Only a character derives its DR, so only a character has the slot. */
+    context.hasDrMisc = true;
+
+    const election = currentElection(this.document);
+    const acrobatics = acrobaticsTrained(this.document);
+    context.fightDefensively = {
+      active: !!election,
+      noAttacks: !!election?.noAttacks,
+      acrobatics,
+      attacking: D.fightDefensivelyBonus({ noAttacks: false, acrobatics }).ref,
+      total: D.fightDefensivelyBonus({ noAttacks: true, acrobatics }).ref,
+      penalty: LASTARC.fightDefensively.attackPenalty
+    };
 
     /**
      * Beast Shape (Druid).
@@ -455,7 +477,7 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
     // The three damage-mod comma boxes, through the same parser the statblock
     // uses so an unknown type is warned about identically on both (#53).
-    repackDamageMods(submit);
+    repackDamageMods(formData, submit);
 
     return submit;
   }
@@ -968,6 +990,18 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
     const state = getTurnState(combatant);
     await setTurnState(combatant, { ...state, [slot]: !state[slot] });
     this.render();
+  }
+
+  /**
+   * Elect to fight defensively, or stop.
+   *
+   * Two buttons rather than one with a modifier key: they are different
+   * elections with different prices, and hiding the second behind a gesture
+   * would make the better one invisible to everybody who does not read
+   * tooltips. Pressing the one already in force clears it.
+   */
+  static async #onFightDefensively(event, target) {
+    await setElection(this.document, { noAttacks: target.dataset.mode === "noAttacks" });
   }
 
   static async #onBankAim(event, target) {
