@@ -170,5 +170,12 @@ describe("§ #91 blank still means everything", () => {
   test("the sheet says so rather than leaving three empty boxes", () => {
     const sheet = code(read("module/sheets/item-sheet.mjs"));
     assert.match(sheet, /context\.ammoFitsAll = \(sys\.fits \?\? \[\]\)\.length === 0/);
+    /**
+     * DERIVED from the rows, not a literal. `_prepareContext` needs Foundry, so
+     * the behaviour itself is covered in Quench — this only stops the flag
+     * being hardcoded, which is what a mutation of it looked like.
+     */
+    assert.match(sheet, /context\.ammoFitsStray = context\.ammoFitsOptions\.some\(/,
+      "the stray warning is not derived from the rows, so it can go stale");
   });
 });

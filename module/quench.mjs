@@ -2827,6 +2827,94 @@ function registerAmmunitionBatch(quench) {
         });
       }
 
+      describe("§ #91 which weapons a stack fits", function () {
+        this.timeout(20000);
+
+        async function withStack(fits, fn) {
+          return withActor({}, async (pc) => {
+            const [ammo] = await pc.createEmbeddedDocuments("Item", [
+              { name: "ZZ stack", type: "ammunition", system: { fits, quantity: 20 } }
+            ]);
+            const sheet = ammo.sheet;
+            await sheet.render(true);
+            await settle();
+            try {
+              return await fn(ammo, sheet, pc);
+            } finally {
+              await sheet.close();
+            }
+          });
+        }
+
+        it("ticks the categories the stack actually names", async function () {
+          await withStack(["crossbows"], async (ammo, sheet) => {
+            const ctx = await sheet._prepareContext({});
+            const ticked = ctx.ammoFitsOptions.filter((o) => o.selected).map((o) => o.value);
+            assert.deepEqual(ticked, ["crossbows"]);
+            assert.isFalse(ctx.ammoFitsStray);
+            assert.isFalse(ctx.ammoFitsAll);
+          });
+        });
+
+        it("a tick writes through, and survives the round trip", async function () {
+          /**
+           * The whole point of replacing the comma box: a tick goes straight to
+           * the document and never passes `_prepareSubmitData`, which is what
+           * ate the typing before 0.62.1.
+           */
+          await withStack([], async (ammo, sheet) => {
+            const button = sheet.element.querySelector(
+              '[data-action="toggleAmmoFits"][data-key="crossbows"]');
+            assert.exists(button, "there is no tick for crossbows to click");
+            button.click();
+            await settle();
+
+            assert.deepEqual(ammo.system.fits, ["crossbows"],
+              "the tick did not reach the document");
+          });
+        });
+
+        it("and clicking it again clears it", async function () {
+          await withStack(["crossbows"], async (ammo, sheet) => {
+            sheet.element.querySelector(
+              '[data-action="toggleAmmoFits"][data-key="crossbows"]').click();
+            await settle();
+            assert.deepEqual(ammo.system.fits, []);
+          });
+        });
+
+        it("a value that matches no weapon is shown, marked, and removable",
+          async function () {
+            // The reported state: "arrows" typed into the old box, matching
+            // nothing, with no way to see why the quiver never appears.
+            await withStack(["arrows"], async (ammo, sheet) => {
+              const ctx = await sheet._prepareContext({});
+              assert.isTrue(ctx.ammoFitsStray, "nothing warns that this fits nothing");
+
+              const odd = sheet.element.querySelector(
+                '[data-action="toggleAmmoFits"][data-key="arrows"]');
+              assert.exists(odd, "the offending value is invisible on the sheet");
+              odd.click();
+              await settle();
+              assert.deepEqual(ammo.system.fits, [],
+                "the bad value could be seen and not removed");
+            });
+          });
+
+        it("a stack that fits nothing in particular still reloads a crossbow",
+          async function () {
+            // Blank means everything, and that rule outlived the comma box.
+            await withStack([], async (ammo, sheet, pc) => {
+              const [xbow] = await pc.createEmbeddedDocuments("Item", [
+                { name: "ZZ xbow", type: "weapon",
+                  system: { category: "crossbows", capacity: 5, equipped: true } }
+              ]);
+              const offered = AMMOSTORE.ammunitionFor(pc, xbow).map((i) => i.name);
+              assert.include(offered, "ZZ stack");
+            });
+          });
+      });
+
       describe("the setting", function () {
         it("is registered and defaults to off", function () {
           const setting = game.settings.settings.get(`${SYSTEM_ID}.ammoTracking`);
