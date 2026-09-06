@@ -36,6 +36,7 @@ import {
 import { situationalOptions } from "../dice/situational.mjs";
 import * as ROWS from "../sheet-rows.mjs";
 import * as CLASSES from "../class-source.mjs";
+import * as LISTS from "./form-lists.mjs";
 import * as BS from "../beast-shape.mjs";
 import { hasTechnickFlag } from "../dice/attack.mjs";
 import { learnForm, forgetForm, transformInto, revertForm } from "../beast-shape-actions.mjs";
@@ -435,12 +436,16 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
   _prepareSubmitData(event, form, formData, updateData) {
     const submit = super._prepareSubmitData(event, form, formData, updateData);
 
-    const raw = submit["system.details.languagesText"];
-    if (typeof raw === "string") {
-      submit["system.details.languages"] =
-        raw.split(",").map((s) => s.trim()).filter(Boolean);
-      delete submit["system.details.languagesText"];
-    }
+    /**
+     * FROM THE RAW FORM DATA. This read `submit`, after super had already run
+     * `document.validate({clean: true})` and deleted `languagesText` for not
+     * being a schema field — so the box accepted typing and dropped it every
+     * time. Reported as "languages don't save between sessions"; they never
+     * saved at all. See `form-lists.mjs`.
+     */
+    LISTS.repackTextLists(formData, submit, {
+      "system.details.languagesText": "system.details.languages"
+    });
 
     /**
      * Proficiencies used to be repacked here from a grid of checkboxes named

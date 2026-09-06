@@ -102,6 +102,7 @@ export function registerQuenchBatches() {
     registerRerollScopeBatch(quench);
     registerDeclaredTradeBatch(quench);
     registerRaceAllowanceBatch(quench);
+    registerFormListBatch(quench);
   });
 }
 
@@ -5507,5 +5508,153 @@ function registerRaceAllowanceBatch(quench) {
       });
     },
     { displayName: "Last Arc — Race allowances" }
+  );
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*  The boxes that stand in for arrays (#87)                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Reported as "languages don't save between sessions". They never saved at all,
+ * and neither did eight other fields — every `*Text` comma box on both sheets.
+ *
+ * This is the batch that could have caught it. The repacking runs inside
+ * `_prepareSubmitData`, which only Foundry calls, so the unit suite could not
+ * see the branch never firing. Table-driven, so a new comma box is a row rather
+ * than another silently broken field.
+ */
+function registerFormListBatch(quench) {
+  quench.registerBatch(
+    `${SYSTEM_ID}.formLists`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      /** Type the text into the box and give the submit a moment to land. */
+      async function typeInto(doc, name, text) {
+        await doc.sheet.render(true);
+        await settle();
+        const el = doc.sheet.element.querySelector(`input[name="${name}"]`);
+        if (!el) return null;
+        el.value = text;
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        await settle(500);
+        return el;
+      }
+
+      const ITEM_BOXES = [
+        { type: "race", box: "system.sensesText", path: "senses",
+          text: "Darkvision, Scent", want: ["Darkvision", "Scent"] },
+        { type: "weapon", box: "system.featuresText", path: "features",
+          text: "Reach, Finesse", want: ["Reach", "Finesse"] },
+        { type: "ammunition", box: "system.fitsText", path: "fits",
+          text: "bows, crossbows", want: ["bows", "crossbows"] },
+        { type: "technick", box: "system.prerequisites.trainedSkillsText",
+          path: "prerequisites.trainedSkills",
+          text: "athletics, survival", want: ["athletics", "survival"] },
+        { type: "technick", box: "system.prerequisites.technicksText",
+          path: "prerequisites.technicks",
+          text: "brawler-i, brawler-ii", want: ["brawler-i", "brawler-ii"] },
+        { type: "technick", box: "system.prerequisites.talentsText",
+          path: "prerequisites.talents", text: "cleave", want: ["cleave"] }
+      ];
+
+      describe("§ every comma box on the item sheet", function () {
+        it("saves what was typed into it", async function () {
+          this.timeout(90_000);
+          const broken = [];
+          for (const c of ITEM_BOXES) {
+            const item = await Item.create({ name: `ZZ ${c.type}`, type: c.type });
+            try {
+              const el = await typeInto(item, c.box, c.text);
+              if (!el) { broken.push(`${c.type}: ${c.box} has no input`); continue; }
+              const got = foundry.utils.getProperty(item.system, c.path);
+              if (JSON.stringify(got) !== JSON.stringify(c.want)) {
+                broken.push(`${c.type}: ${c.path} kept ${JSON.stringify(got)}`);
+              }
+            } finally {
+              await item.sheet.close();
+              await item.delete();
+            }
+          }
+          assert.equal(broken.join(" | "), "",
+            "these boxes accept typing and drop it — the cleaned submit object " +
+            "no longer holds them by the time the sheet looks");
+        });
+
+        /** Clearing the box must clear the field, not leave the old list. */
+        it("emptying a box empties the list", async function () {
+          this.timeout(30_000);
+          const item = await Item.create({ name: "ZZ race", type: "race" });
+          try {
+            await typeInto(item, "system.sensesText", "Darkvision");
+            assert.deepEqual(item.system.senses, ["Darkvision"]);
+            await typeInto(item, "system.sensesText", "");
+            assert.deepEqual(item.system.senses, [],
+              "a cleared box left the old value behind");
+          } finally {
+            await item.sheet.close();
+            await item.delete();
+          }
+        });
+      });
+
+      describe("§ the character's languages", function () {
+        /**
+         * The reported bug, end to end — typed, then read back from what the
+         * database actually holds rather than from the live document.
+         */
+        it("survive being written to the document", async function () {
+          this.timeout(30_000);
+          await withActor({}, async (actor) => {
+            await typeInto(actor, "system.details.languagesText", "Common, Elven");
+            try {
+              assert.deepEqual(actor.system.details.languages, ["Common", "Elven"]);
+              assert.deepEqual(actor.toObject().system.details.languages,
+                ["Common", "Elven"],
+                "the value is on the live document but not in what gets stored");
+            } finally {
+              await actor.sheet.close();
+            }
+          });
+        });
+      });
+
+      describe("§ a prerequisite of zero is not a requirement", function () {
+        /**
+         * Issue #15: keeping the zeros put six phantom lines on every technick
+         * shared to chat. The fix read the cleaned submit object, so it had
+         * been inert ever since.
+         */
+        it("a zero is dropped, a real number is kept", async function () {
+          this.timeout(30_000);
+          const item = await Item.create({ name: "ZZ tech", type: "technick" });
+          try {
+            await item.sheet.render(true);
+            await settle();
+            const str = item.sheet.element.querySelector(
+              'input[name="system.prerequisites.attributes.str"]');
+            const vit = item.sheet.element.querySelector(
+              'input[name="system.prerequisites.attributes.vit"]');
+            assert.isNotNull(str, "the prerequisite boxes are gone");
+
+            str.value = "13"; vit.value = "0";
+            str.dispatchEvent(new Event("change", { bubbles: true }));
+            await settle(500);
+
+            const attrs = item.system.prerequisites.attributes;
+            assert.equal(attrs.str, 13, "a real prerequisite did not save");
+            assert.isUndefined(attrs.vit,
+              "a prerequisite of 0 was stored, which is six phantom lines on " +
+              "every technick shared to chat");
+          } finally {
+            await item.sheet.close();
+            await item.delete();
+          }
+        });
+      });
+    },
+    { displayName: "Last Arc — Form lists" }
   );
 }
