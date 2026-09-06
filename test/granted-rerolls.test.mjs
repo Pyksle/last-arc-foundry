@@ -266,8 +266,14 @@ describe("§48 a scoped grant only offers itself on its own skill", () => {
     const rolls = read("module/dice/rolls.mjs");
     assert.match(rolls, /skillKey: skillKey \?\? null/,
       "a check does not say which skill it was, so no scoped grant can match it");
-    assert.match(rolls, /flavourKey: "LASTARC\.Roll\.SkillCheck",\s*\n\s*skillKey/,
-      "rollSkill does not pass the key through to the card");
+    /**
+     * The skill ACTUALLY ROLLED, which since skill substitution shipped is not
+     * always the one asked for. A grant scoped to Spellcraft has to offer
+     * itself on a check Spellcraft answered, and one scoped to Medicine must
+     * not offer itself on a die Medicine never touched.
+     */
+    assert.match(rolls, /flavourKey: "LASTARC\.Roll\.SkillCheck",[\s\S]{0,400}?skillKey: chosen\.key/,
+      "rollSkill does not pass the rolled key through to the card");
   });
 
   test("there is no per-rest counter", () => {

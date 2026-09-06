@@ -158,6 +158,29 @@ export function skillRow(key, cfg, sys, src, localize = identityLocalize) {
     attrMod: sys.attributes[cfg.attr].mod,
     adjustment,
     hasAdjustment: adjustment !== 0,
+    /**
+     * The skill that would actually answer this check, when a trait lets
+     * another one stand in and that one is better.
+     *
+     * Shown on the row rather than left as a surprise on the card. A player
+     * whose Medicine reads +3 and rolls +9 has to be able to see why before
+     * they roll, or the number on the sheet is simply wrong to them.
+     *
+     * Null when the skill answers for itself, which is every row for every
+     * character who has no such trait.
+     */
+    substitutedBy: (() => {
+      const chosen = D.resolveSkillCheck(
+        key, sys.skills, sys.skillSubstitutions ?? [],
+        { blocked: sys.statuses?.blocksSkills });
+      if (!chosen.via) return null;
+      return {
+        key: chosen.key,
+        label: LASTARC.allSkills[chosen.key]?.label ?? chosen.key,
+        total: chosen.total,
+        source: chosen.via.source ?? null
+      };
+    })(),
     adjustmentTooltip: parts.length
       ? parts.map((p) => `${localize(p.label)} ${D.signed(p.value)}`).join(" · ")
       : localize("LASTARC.Tooltip.NoAdjustments")

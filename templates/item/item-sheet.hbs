@@ -683,6 +683,44 @@
             <span>{{localize this.label}}</span>
           </label>
         {{/each}}
+        {{!-- "You may use your X check in place of a Y check."
+
+              Seven talents in the demo and errata say some version of this and
+              none of them could be recorded, so a character with one had a
+              skill row that was simply wrong. Both selects or neither: a row
+              with one end filled in is a trait half-authored, and the
+              aggregator drops it rather than guessing the other end. --}}
+        <div class="la-field"
+             data-tooltip="{{localize 'LASTARC.Tooltip.SkillSubstitution'}}">
+          <select name="system.grants.skillSubstitution.use">
+            <option value="" {{#unless system.grants.skillSubstitution.use}}selected{{/unless}}>
+              {{localize "LASTARC.Field.NoSubstitution"}}
+            </option>
+            {{#each skillOptions}}
+              <option value="{{this.value}}"
+                {{#if (laeq this.value ../system.grants.skillSubstitution.use)}}selected{{/if}}>
+                {{localize this.label}}
+              </option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.SubstituteUse"}}</label>
+        </div>
+        <div class="la-field">
+          <select name="system.grants.skillSubstitution.insteadOf">
+            <option value=""
+              {{#unless system.grants.skillSubstitution.insteadOf}}selected{{/unless}}>
+              {{localize "LASTARC.Field.NoSubstitution"}}
+            </option>
+            {{#each skillOptions}}
+              <option value="{{this.value}}"
+                {{#if (laeq this.value ../system.grants.skillSubstitution.insteadOf)}}selected{{/if}}>
+                {{localize this.label}}
+              </option>
+            {{/each}}
+          </select>
+          <label>{{localize "LASTARC.Field.SubstituteInsteadOf"}}</label>
+        </div>
+
         {{!-- Which skill the reroll applies to. The GM's examples each reroll
               one named skill, so blank ("any roll") is the exception. --}}
         <div class="la-field"
