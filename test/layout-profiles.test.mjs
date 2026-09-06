@@ -184,6 +184,12 @@ describe("§ #93 a profile saved before a panel existed", () => {
 
 describe("§ #93 the wiring", () => {
   const controls = read("module/sheets/sheet-layout-controls.mjs");
+  /**
+   * The same source with comments removed. Every assertion that looks for a
+   * line of CODE reads this, because a comment explaining a fix contains the
+   * fix verbatim and will vouch for its own absence.
+   */
+  const code = controls.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
   const template = uncomment(read("templates/actor/layout-controls.hbs"));
   const css = read("styles/last-arc.css");
   const lang = JSON.parse(read("lang/en.json"));
@@ -191,14 +197,20 @@ describe("§ #93 the wiring", () => {
   test("applying a profile goes through the reconciliation", () => {
     // Writing the stored order and NOT re-rendering the layout would skip
     // `normaliseOrder` entirely — see the section above for what that costs.
-    const fn = controls.slice(controls.indexOf("export async function switchLayoutProfile"));
+    const fn = code.slice(code.indexOf("export async function switchLayoutProfile"));
     assert.match(fn.slice(0, fn.indexOf("\n}")), /applyLayout\(sheet, type\)/);
   });
 
   test("moving or folding a panel stops claiming a profile is showing", () => {
+    /**
+     * COMMENTS STRIPPED. The comment above `toggleSection`'s write explains
+     * itself by quoting `active: null`, so the first version of this passed
+     * with the argument deleted from the call — a guard vouched for by the note
+     * describing what it was meant to check.
+     */
     for (const gesture of ["toggleSection", "moveSection"]) {
-      const fn = controls.slice(controls.indexOf(`export async function ${gesture}`));
-      assert.match(fn.slice(0, fn.indexOf("\n}")), /active: null/,
+      const fn = code.slice(code.indexOf(`export async function ${gesture}`));
+      assert.match(fn.slice(0, fn.indexOf("\n}")), /store\([^)]*active: null/,
         `${gesture} leaves the picker naming an arrangement that is no longer on screen`);
     }
   });
@@ -206,7 +218,7 @@ describe("§ #93 the wiring", () => {
   test("the store states every key, profiles included", () => {
     // `setFlag` merges: a key left out is retained, which is how #53 ate a
     // week. Every write here states all five.
-    const fn = controls.slice(controls.indexOf("async function store("));
+    const fn = code.slice(code.indexOf("async function store("));
     const body = fn.slice(0, fn.indexOf("\n}"));
     for (const key of ["order:", "collapsed:", "locked:", "profiles:", "active:"]) {
       assert.ok(body.includes(key), `store() omits ${key}`);
@@ -215,20 +227,27 @@ describe("§ #93 the wiring", () => {
 
   test("a deliberate `null` active is not read as 'keep the old one'", () => {
     // `active: patch.active ?? now.active` would make clearing it impossible.
-    const fn = controls.slice(controls.indexOf("async function store("));
+    const fn = code.slice(code.indexOf("async function store("));
     assert.match(fn.slice(0, fn.indexOf("\n}")), /patch\.active === undefined/);
   });
 
   test("Reset keeps the arrangements you named", () => {
     // There is no undo, and "put this back" must not mean "throw away my work".
-    const fn = controls.slice(controls.indexOf("export async function resetLayout"));
-    assert.match(fn.slice(0, fn.indexOf("\n}\n")), /profiles: kept/);
+    //
+    // Asserting `profiles: kept` alone was not enough: `kept` could be built
+    // from nothing and the write would still read correctly. The guard has to
+    // pin where `kept` COMES FROM.
+    const fn = code.slice(code.indexOf("export async function resetLayout"));
+    const body = fn.slice(0, fn.indexOf("\n}\n"));
+    assert.match(body, /const kept = .*\.profiles \?\? \[\]/,
+      "Reset is not reading the saved arrangements it claims to keep");
+    assert.match(body, /profiles: kept/);
   });
 
   test("dismissing the name prompt saves nothing", () => {
     // An empty name and a dismissed dialog are different answers, and reading
     // the second as the first would store a row the picker cannot show.
-    const fn = controls.slice(controls.indexOf("export async function saveLayoutProfile"));
+    const fn = code.slice(code.indexOf("export async function saveLayoutProfile"));
     assert.match(fn.slice(0, fn.indexOf("\n}")), /if \(name === null\) return;/);
   });
 
