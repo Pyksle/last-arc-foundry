@@ -20,6 +20,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import * as D from "../module/derivation.mjs";
+import * as ROWS from "../module/sheet-rows.mjs";
+import { LASTARC } from "../module/config.mjs";
 
 const read = (p) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.url)), "utf8");
 const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
@@ -227,7 +229,38 @@ describe("§ the wiring", () => {
   });
 
   test("the skill row says so before the roll", () => {
-    assert.match(rows, /substitutedBy:/);
+    /**
+     * BUILT, not grepped for. Asserting that `substitutedBy:` appears in the
+     * source passed with the function returning null unconditionally — a guard
+     * that read the shape of the row and never its value.
+     *
+     * `skillRow` is Foundry-free, so it can just be called.
+     */
+    const sys = {
+      skills: {
+        medicine: { total: 3, trained: false, focus: 0, misc: 0 },
+        spellcraft: { total: 9, trained: true, focus: 0, misc: 0 }
+      },
+      skillSubstitutions: [{ use: "spellcraft", insteadOf: "medicine", source: "ZZ trait" }],
+      attributes: { int: { mod: 2 }, mnd: { mod: 1 }, vit: { mod: 0 } },
+      details: { level: 4 },
+      breakGauge: { penalty: 0 }
+    };
+    const cfg = LASTARC.allSkills.medicine;
+    const row = ROWS.skillRow("medicine", cfg, sys, null);
+
+    assert.ok(row.substitutedBy, "the row does not mention the substitution at all");
+    assert.equal(row.substitutedBy.key, "spellcraft");
+    assert.equal(row.substitutedBy.total, 9);
+    assert.equal(row.substitutedBy.source, "ZZ trait");
+    assert.equal(row.total, 3, "the row's own total must still be the skill's own");
+
+    // And a skill with no substitution says nothing.
+    const plain = ROWS.skillRow("spellcraft", LASTARC.allSkills.spellcraft, sys, null);
+    assert.equal(plain.substitutedBy, null);
+  });
+
+  test("the row's marker is rendered and styled", () => {
     assert.match(body, /\{\{#if this\.substitutedBy\}\}/);
     assert.match(css, /\.la-skill__via \{/);
     assert.ok(lang["LASTARC.Tooltip.SkillVia"]);
