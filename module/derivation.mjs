@@ -935,7 +935,9 @@ export function reflexTradeStance(trade = 0, { level = 1, spec = null } = {}) {
   if (!spec || spec.buys !== "reflex") return { ref: 0, attackPenalty: 0 };
   const spent = Math.min(
     Math.max(0, Math.trunc(trade)), declaredTradeCap(level, spec.cap));
-  return { ref: spent, attackPenalty: -spent };
+  // `-spent` on zero is −0, which prints as "-0" and fails a strict comparison
+  // against 0. Nothing downstream should ever have to know that.
+  return { ref: spent, attackPenalty: spent ? -spent : 0 };
 }
 
 export function fightDefensivelyBonus({ noAttacks = false, acrobatics = false } = {}) {
