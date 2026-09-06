@@ -9,6 +9,7 @@
 
 import { LASTARC } from "../config.mjs";
 import * as ROWS from "../sheet-rows.mjs";
+import * as LISTS from "./form-lists.mjs";
 import * as D from "../derivation.mjs";
 import * as AMMO from "../ammunition.mjs";
 
@@ -386,10 +387,18 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   _prepareSubmitData(event, form, formData, updateData) {
     const submit = super._prepareSubmitData(event, form, formData, updateData);
 
-    const commaList = (raw) =>
-      String(raw).split(",").map((s) => s.trim()).filter(Boolean);
-
-    for (const [uiKey, path] of Object.entries({
+    /**
+     * EVERY ONE OF THESE READS THE RAW FORM DATA.
+     *
+     * They used to read `submit`, after super had already run
+     * `document.validate({clean: true})` — which deletes every key the schema
+     * does not declare, and a `*Text` box is exactly such a key. So all seven
+     * lists, the decay fractions and the prerequisite attributes accepted
+     * typing and dropped it, silently, since they were written. Verified in a
+     * live world: senses, features and prerequisite technicks all came back
+     * empty. See `form-lists.mjs`.
+     */
+    LISTS.repackTextLists(formData, submit, {
       "system.fitsText": "system.fits",
       "system.sensesText": "system.senses",
       "system.languagesText": "system.languages",
@@ -397,51 +406,23 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       "system.prerequisites.trainedSkillsText": "system.prerequisites.trainedSkills",
       "system.prerequisites.technicksText": "system.prerequisites.technicks",
       "system.prerequisites.talentsText": "system.prerequisites.talents"
-    })) {
-      if (typeof submit[uiKey] !== "string") continue;
-      submit[path] = commaList(submit[uiKey]);
-      delete submit[uiKey];
-    }
+    });
 
-    if (typeof submit["system.decayText"] === "string") {
-      const parts = commaList(submit["system.decayText"]).map(Number);
-      const bad = parts.filter((n) => !Number.isFinite(n) || n < 0);
-      if (bad.length) {
-        ui.notifications?.warn(game.i18n.localize("LASTARC.Warning.BadDecayFractions"));
-      }
-      submit["system.damageOverTime"] = parts.filter((n) => Number.isFinite(n) && n >= 0);
-      delete submit["system.decayText"];
+    const decay = LISTS.repackNumberList(
+      formData, submit, "system.decayText", "system.damageOverTime");
+    if (decay?.rejected) {
+      ui.notifications?.warn(game.i18n.localize("LASTARC.Warning.BadDecayFractions"));
     }
 
     /**
-     * Attribute maps. Rebuilt wholesale rather than patched key by key,
-     * because a dotted path cannot express "remove this key".
-     *
-     * ZERO MEANS DIFFERENT THINGS IN THE TWO CASES, which is why they are not
-     * one list. A racial modifier of 0 and no racial modifier are different
-     * things to read on a sheet, so attributeMods and attributeCaps keep their
-     * zeros. A PREREQUISITE of 0 is not a requirement at all — keeping those
-     * put six phantom lines ("Str 0, Vit 0, Agi 0…") on every technick shared
-     * to chat, which is issue #15.
+     * A PREREQUISITE OF 0 IS NOT A REQUIREMENT. Dropping the zeros is why this
+     * is rebuilt wholesale — a dotted path cannot express "remove this key" —
+     * and it is what stopped six phantom lines ("Str 0, Vit 0, Agi 0…") from
+     * appearing on every technick shared to chat (issue #15). That fix had been
+     * inert for the same reason as the lists above.
      */
-    const DROP_ZERO = new Set(["system.prerequisites.attributes"]);
-
-    for (const base of ["system.prerequisites.attributes"]) {
-      const keys = Object.keys(submit).filter((k) => k.startsWith(`${base}.`));
-      if (!keys.length) continue;
-
-      const dropZero = DROP_ZERO.has(base);
-      const rebuilt = {};
-      for (const k of keys) {
-        const value = submit[k];
-        delete submit[k];
-        if (value === null || value === "" || Number.isNaN(value)) continue;
-        const n = Number(value);
-        if (dropZero && n === 0) continue;
-        rebuilt[k.slice(base.length + 1)] = n;
-      }
-      submit[base] = rebuilt;
-    }
+    LISTS.repackAttributeMap(
+      formData, submit, "system.prerequisites.attributes", { dropZero: true });
 
     return submit;
   }
