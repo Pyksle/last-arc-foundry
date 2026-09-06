@@ -6108,11 +6108,22 @@ function registerTemporaryEffectBatch(quench) {
               assert.exists(result, "the check did not roll at all");
               assert.equal(game.messages.size, before + 1);
 
+              /**
+               * The LABEL, not the content. `content` is the rendered die
+               * total; the check's name rides in the flavour line and, for the
+               * reroll rebuild, in the card's own flag.
+               */
               const card = game.messages.contents.at(-1);
-              assert.include(card.content, "Medicine",
+              const label = card.flags["last-arc"].label;
+              assert.include(label, "Medicine",
                 "the card does not say which check this was");
-              assert.include(card.content, "Spellcraft",
+              assert.include(label, "Spellcraft",
                 "the card does not say which skill answered it");
+              assert.include(card.flavor, "Medicine",
+                "the flavour line, which is what the table actually reads");
+
+              assert.equal(card.flags["last-arc"].skillKey, "spellcraft",
+                "a reroll scoped to Spellcraft could not match the die it rolled");
             });
           });
 
@@ -6121,8 +6132,9 @@ function registerTemporaryEffectBatch(quench) {
             const result = await ROLLS.rollSkill(pc, "acrobatics");
             assert.exists(result);
             const card = game.messages.contents.at(-1);
-            assert.notInclude(card.content, "via",
+            assert.equal(card.flags["last-arc"].label, "Acrobatics",
               "an ordinary check is being labelled as a substitution");
+            assert.equal(card.flags["last-arc"].skillKey, "acrobatics");
           });
         });
 
