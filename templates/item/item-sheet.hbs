@@ -942,11 +942,31 @@
           </select>
           <label>{{localize "LASTARC.Field.DamageType"}}</label>
         </div>
-        <div class="la-field">
-          <input type="text" name="system.fitsText" value="{{fitsText}}"
-                 data-tooltip="{{localize 'LASTARC.Tooltip.AmmoFits'}}">
-          <label>{{localize "LASTARC.Field.Fits"}}</label>
-        </div>
+      </div>
+
+      {{!-- Which weapons this fits (#91). Ticks, not typing: the reporter had
+            no way to know the field wanted `bows` and `crossbows`, and
+            "arrows" is the obvious thing to write on an arrow. These write
+            straight to the document, so they also cannot be eaten by the
+            submit pipeline the way the comma box was. --}}
+      <h3 class="la-prof__title">{{localize "LASTARC.Field.Fits"}}</h3>
+      <div class="la-prof" data-tooltip="{{localize 'LASTARC.Tooltip.AmmoFits'}}">
+        {{#each ammoFitsOptions}}
+          <button type="button" class="la-prof__box {{#if this.selected}}is-active{{/if}}
+                  {{#if this.unknown}}is-unknown{{/if}}"
+                  role="checkbox" aria-checked="{{#if this.selected}}true{{else}}false{{/if}}"
+                  data-action="toggleAmmoFits" data-key="{{this.value}}">
+            <span class="la-prof__tick">{{#if this.selected}}✓{{else}}·{{/if}}</span>
+            {{#if this.unknown}}{{this.label}}{{else}}{{localize this.label}}{{/if}}
+          </button>
+        {{/each}}
+      </div>
+      {{#if ammoFitsStray}}
+        <p class="la-note la-note--behavioural">{{localize "LASTARC.Note.AmmoFitsStray"}}</p>
+      {{else if ammoFitsAll}}
+        <p class="la-note">{{localize "LASTARC.Note.AmmoFitsAll"}}</p>
+      {{/if}}
+      <div class="la-field-row">
         <div class="la-field">
           <select name="system.ammoDie" data-tooltip="{{localize 'LASTARC.Tooltip.AmmoDie'}}">
             {{#each ammoDieOptions}}

@@ -633,7 +633,7 @@
   "LASTARC.Derived.BashDamage": "Bash damage",
   "LASTARC.Tooltip.BlockBonus": "Bonus on the opposed roll made to Block. Block is a reaction, not a flat defence bonus.",
   "LASTARC.Field.Fits": "Fits",
-  "LASTARC.Tooltip.AmmoFits": "Weapon categories this ammunition fits, comma separated.",
+  "LASTARC.Tooltip.AmmoFits": "Which weapons draw on this stack. Tick none and it fits every ranged weapon that needs ammunition.",
   "LASTARC.Field.ConsumableType": "Kind",
   "LASTARC.Field.UsesLeft": "Uses",
   "LASTARC.Field.UsesMax": "Max",
@@ -1103,5 +1103,7 @@
   "LASTARC.FightDefensively.NoAttacksTooltip": "Make no attacks at all until your next turn, counterattacks included, for the larger Reflex bonus.",
   "LASTARC.Field.DrMisc": "Misc DR",
   "LASTARC.Tooltip.DrMisc": "Damage reduction on top of armour and traits. This is the slot temporary effects write to — the total beside it is derived and cannot be typed into.",
-  "LASTARC.Tooltip.SkillVia": "A trait lets this check be made with another skill, and that one is higher — so this is what will be rolled."
+  "LASTARC.Tooltip.SkillVia": "A trait lets this check be made with another skill, and that one is higher — so this is what will be rolled.",
+  "LASTARC.Note.AmmoFitsAll": "Nothing ticked: this stack fits any weapon that needs ammunition.",
+  "LASTARC.Note.AmmoFitsStray": "One of these was typed into the old text box and matches no weapon category, so it fits nothing. Untick it."
 }
