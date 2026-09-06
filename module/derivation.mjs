@@ -923,6 +923,21 @@ export function overAttributeCap(total = 0, cap = 0) {
  * made to block or parry, which is why this returns the penalty rather than
  * applying it — only the attack pipeline knows which kind of roll it is.
  */
+/**
+ * What a `reflex` trade buys: an equal and opposite pair.
+ *
+ * The penalty and the bonus are the same number by rule — "take up to a −1
+ * penalty, gaining an equal bonus toward your Reflex defence" — so they are
+ * returned together rather than computed twice. Signed as they are applied, so
+ * no caller has to remember which way round they go.
+ */
+export function reflexTradeStance(trade = 0, { level = 1, spec = null } = {}) {
+  if (!spec || spec.buys !== "reflex") return { ref: 0, attackPenalty: 0 };
+  const spent = Math.min(
+    Math.max(0, Math.trunc(trade)), declaredTradeCap(level, spec.cap));
+  return { ref: spent, attackPenalty: -spent };
+}
+
 export function fightDefensivelyBonus({ noAttacks = false, acrobatics = false } = {}) {
   const cfg = LASTARC.fightDefensively;
   const tier = acrobatics ? "trained" : "untrained";
@@ -955,11 +970,31 @@ export function declaredTradeCap(level = 1, cap = "level") {
  * a melee trade is never offered on a bow and the next row in the table needs
  * no branch anywhere.
  */
-export function declaredTradeFor(kind, hasFlag = () => false) {
-  for (const [key, spec] of Object.entries(LASTARC.declaredTrades)) {
-    if (spec.on === kind && hasFlag(key)) return { key, ...spec };
+export function declaredTradesFor(kind, hasFlag = () => false) {
+  return Object.entries(LASTARC.declaredTrades)
+    .filter(([key, spec]) => spec.on === kind && hasFlag(key))
+    .map(([key, spec]) => ({ key, ...spec }));
+}
+
+/**
+ * The ONE trade a roll is declaring, out of however many the character holds.
+ *
+ * A melee fighter may hold Mighty Strikes and Tactical Guard at once, and they
+ * buy different things with the same penalty, so the roll has to say which.
+ * `wanted` is that answer, carried on the attack card so the damage step pays
+ * out the trade that was actually declared rather than re-guessing by kind.
+ *
+ * Falls back to the first available rather than to nothing. Cards written
+ * before this existed carry no key, and their trade was necessarily the only
+ * one their holder could declare.
+ */
+export function declaredTradeFor(kind, hasFlag = () => false, wanted = null) {
+  const available = declaredTradesFor(kind, hasFlag);
+  if (wanted) {
+    const match = available.find((t) => t.key === wanted);
+    if (match) return match;
   }
-  return null;
+  return available[0] ?? null;
 }
 
 /**
@@ -987,6 +1022,13 @@ export function tradeDamageBonus(trade = 0, {
    * anyway. Caught in a live Foundry, not by the maths.
    */
   if (!spec) return 0;
+  /**
+   * And a trade that does not buy DAMAGE pays nothing here. Tactical Guard and
+   * Careful Shot charge the same attack penalty and spend it on Reflex; paying
+   * them out on the damage roll as well would hand a character both halves of
+   * a choice the book asks them to make.
+   */
+  if (spec.buys !== "weaponDamage" && spec.buys !== "spellDamage") return 0;
   const s = spec;
   const spent = Math.min(
     Math.max(0, Math.trunc(trade)), declaredTradeCap(level, s.cap));

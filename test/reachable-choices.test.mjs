@@ -340,10 +340,27 @@ describe("no decoy technick flags", () => {
                    // prompt rather than in a roll pipeline. The lookup is by
                    // the KIND of roll, so the flag names appear in the config
                    // table those files consult.
-                   "module/item-actions.mjs", "module/config.mjs"].map(read).join("\n");
+                   "module/item-actions.mjs", "module/config.mjs"]
+    .map(read).join("\n")
+    /**
+     * MINUS the declaration itself.
+     *
+     * `config.mjs` joined this list so the declared trades could be read out of
+     * a table rather than by naming each talent — and it brought `technickFlags`
+     * with it, which names every flag there is. From that moment the check
+     * below could not fail: every flag vouched for itself. Proved by adding a
+     * flag called `zzNobodyReadsThis` and watching the suite stay green.
+     */
+    .replace(/LASTARC\.technickFlags\s*=\s*\[[\s\S]*?\n\];/, "");
 
   test("every flag in the picker is read by the rules engine", () => {
-    const decoys = LASTARC.technickFlags.filter((f) => !readers.includes(`"${f}"`));
+    /**
+     * Quoted — `hasTechnickFlag(actor, "dodge")` — or as a KEY in one of the
+     * config tables the engine walks, which is how the declared trades are
+     * read. Both are a real use somewhere other than the picker's own list.
+     */
+    const decoys = LASTARC.technickFlags.filter(
+      (f) => !readers.includes(`"${f}"`) && !readers.includes(`${f}:`));
 
     assert.deepEqual(decoys, [],
       "these flags are offered on the technick sheet and no code reads them, so " +

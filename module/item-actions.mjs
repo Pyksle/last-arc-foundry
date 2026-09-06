@@ -26,6 +26,7 @@ import { castSpell, performItem } from "./dice/magic.mjs";
 import { useConsumable } from "./dice/consume.mjs";
 import { situationalOptions } from "./dice/situational.mjs";
 import { ammoTrackingOn } from "./dice/ammunition.mjs";
+import * as STANCE from "./declared-stance.mjs";
 
 /**
  * Which action an item subtype answers to, or null when it is not rollable.
@@ -68,6 +69,16 @@ export async function rollItemAction(actor, item, event = {}) {
      * never asked which increment they are swinging at.
      */
     const isRanged = LASTARC.rangedWeaponCategories.has(item.system.category);
+
+    /**
+     * Which trades this character may declare on THIS kind of attack. Looked up
+     * by the roll rather than by asking each talent, so a melee trade is never
+     * offered on a bow — and a list rather than one answer, because Mighty
+     * Strikes and Tactical Guard are both melee and buy different things.
+     */
+    const kind = isRanged ? "ranged" : "melee";
+    const available = D.declaredTradesFor(kind, (flag) => hasTechnickFlag(actor, flag));
+
     const extra = await situationalOptions(event, {
       rangeBands: isRanged
         ? D.rangeBandsFor(item.system.size, { isThrown: false })
@@ -77,20 +88,17 @@ export async function rollItemAction(actor, item, event = {}) {
       // switched off.
       ammoRounds: ammoTrackingOn() && AMMO.requiresAmmunition(item.system.category),
       /**
-       * Mighty Strikes buys melee damage with a melee penalty, so it is offered
-       * on melee attacks only, and only to a character who has the talent — a
-       * box everyone sees is a rule everyone thinks they have.
-       */
-      /**
-       * Which trade, if any, this character may declare on THIS kind of attack.
-       * Looked up by the roll rather than by asking each talent, so a melee
-       * trade is never offered on a bow.
+       * A trade box is shown only to a character who actually has one of these
+       * talents — a box everyone sees is a rule everyone thinks they have.
        */
       tradeCap: (() => {
-        const t = D.declaredTradeFor(isRanged ? "ranged" : "melee",
-          (flag) => hasTechnickFlag(actor, flag));
-        return t ? D.declaredTradeCap(actor.system.details?.level ?? 1, t.cap) : 0;
-      })()
+        const level = actor.system.details?.level ?? 1;
+        // The most any of them allows. Each is clamped again against its own
+        // cap where it is spent, so a generous `max` cannot buy anything.
+        return Math.max(0, ...available.map((t) => D.declaredTradeCap(level, t.cap)));
+      })(),
+      // Named, so the dialog can ask WHICH when there is more than one.
+      trades: STANCE.tradeChoices(kind, (flag) => hasTechnickFlag(actor, flag))
     });
     if (extra === null) return false;
 

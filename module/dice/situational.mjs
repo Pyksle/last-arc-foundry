@@ -30,7 +30,7 @@
  *   not mean to do that", and rolling anyway spends the moment.
  */
 export async function promptSituational({
-  title, rangeBands = null, ammoRounds = false, tradeCap = 0
+  title, rangeBands = null, ammoRounds = false, tradeCap = 0, trades = []
 } = {}) {
   /**
    * The range band rides in this dialog rather than getting one of its own
@@ -80,9 +80,37 @@ export async function promptSituational({
    * `max` is the level cap, enforced again where the number is spent — a form
    * attribute is a courtesy to the player, not a rule.
    */
-  const tradeRow = tradeCap > 0 ? `
+  /**
+   * WHICH trade, when the character holds more than one for this kind of
+   * attack. A melee fighter with Mighty Strikes and Tactical Guard spends the
+   * same penalty on damage or on Reflex, and only they know which they want —
+   * so the picker appears exactly when the choice is real, and the single-trade
+   * case stays the one box it has always been.
+   */
+  const tradeKindRow = trades.length > 1 ? `
       <label>
-        <span>${game.i18n.format("LASTARC.Situational.Trade", { max: tradeCap })}</span>
+        <span>${game.i18n.localize("LASTARC.Situational.TradeKind")}</span>
+        <select name="tradeKey">
+          ${trades.map((t) => `<option value="${t.key}">`
+            + `${game.i18n.localize(t.label)}</option>`).join("")}
+        </select>
+      </label>` : "";
+
+  /**
+   * The amount. Its label names what the points buy, because "Trade for
+   * damage" over a Tactical Guard box would be describing the wrong bargain —
+   * and with two trades offered above, neither name fits and the label says
+   * only how many.
+   */
+  const tradeLabel = trades.length > 1
+    ? game.i18n.format("LASTARC.Situational.TradeAmount", { max: tradeCap })
+    : game.i18n.format(
+      trades[0]?.buys === "reflex" ? "LASTARC.Situational.TradeReflex" : "LASTARC.Situational.Trade",
+      { max: tradeCap });
+
+  const tradeRow = tradeCap > 0 ? `${tradeKindRow}
+      <label>
+        <span>${tradeLabel}</span>
         <input type="number" name="trade" value="0" min="0" max="${tradeCap}" step="1">
       </label>` : "";
 
@@ -113,7 +141,10 @@ export async function promptSituational({
           : null,
         trade: button.form.elements.trade
           ? Math.max(0, Math.trunc(Number(button.form.elements.trade.value) || 0))
-          : 0
+          : 0,
+        // Null when the picker was not shown — `rollAttack` then falls back to
+        // the only trade this character could have been declaring.
+        tradeKey: button.form.elements.tradeKey?.value || null
       })
     },
     rejectClose: false
@@ -138,11 +169,11 @@ export async function promptSituational({
  * "do not roll".
  */
 export async function situationalOptions(event, {
-  title, rangeBands = null, ammoRounds = false, tradeCap = 0
+  title, rangeBands = null, ammoRounds = false, tradeCap = 0, trades = []
 } = {}) {
   if (!event?.altKey) return {};
 
-  const picked = await promptSituational({ title, rangeBands, ammoRounds, tradeCap });
+  const picked = await promptSituational({ title, rangeBands, ammoRounds, tradeCap, trades });
   if (!picked) return null;
 
   return {
@@ -154,6 +185,11 @@ export async function situationalOptions(event, {
      * the dark is the bug this separation exists to prevent.
      */
     trade: picked.trade ?? 0,
+    /**
+     * And which one. Carried through to the card so the damage step pays out
+     * the trade that was declared rather than the first one the config lists.
+     */
+    tradeKey: picked.tradeKey ?? null,
     // Shown in place of the generic "Situational" label when given, so the card
     // records WHY the number was there and the table can check it later.
     situationalNote: picked.note || null,
