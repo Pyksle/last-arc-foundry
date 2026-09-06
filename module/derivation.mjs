@@ -1462,7 +1462,9 @@ export function speedAfterPenalties(base, reductionFractions = []) {
  *
  * @returns {"light"|"oneHanded"|"twoHanded"|"ranged"|"unusable"}
  */
-export function wieldCategory(actorSize, weaponSize, weaponCategory = null) {
+export function wieldCategory(
+  actorSize, weaponSize, weaponCategory = null, { versatile = false, grip = "" } = {}
+) {
   const a = LASTARC.sizeOrder.indexOf(actorSize);
   const w = LASTARC.sizeOrder.indexOf(weaponSize);
   if (a < 0) throw new Error(`Unknown actor size: ${actorSize}`);
@@ -1475,7 +1477,15 @@ export function wieldCategory(actorSize, weaponSize, weaponCategory = null) {
   // Knuckles are worn, not wielded, and roll Unarmed at any size (#62).
   if (weaponCategory && LASTARC.unarmedWeaponCategories.has(weaponCategory)) return "unarmed";
   if (delta === 1) return "twoHanded";
-  if (delta === 0) return "oneHanded";
+  if (delta === 0) {
+    // A versatile weapon held in both hands. The grip is STATED, never inferred:
+    // unlike the light-weapon choice next door it carries riders in both
+    // directions — two hands double Strength on damage and occupy the hand a
+    // shield wants — so there is something to weigh and the wielder weighs it.
+    return versatileAllowsChoice(actorSize, weaponSize, versatile) && grip === "twoHanded"
+      ? "twoHanded"
+      : "oneHanded";
+  }
   if (delta === -1) return "light";      // may use 1-Handed OR Light Weapon
   return "light";                         // two+ smaller: MUST use Light Weapon
 }
@@ -1503,6 +1513,28 @@ export function weaponSkillFor(wieldCat) {
 
   if (!key) throw new Error(`No weapon skill maps to wield category "${wieldCat}".`);
   return key;
+}
+
+/**
+ * True when a versatile weapon may be held in one hand OR two.
+ *
+ * The errata prints this on a dozen weapons as "Medium creatures may treat this
+ * as either a 1-handed or 2-handed weapon" — a battle axe, a warhammer, most of
+ * the gun hybrids. Size alone cannot express it: the table gives one answer per
+ * size pairing, so the only way to make a battle axe two-handed was to declare
+ * it a size larger, which also makes it unusable by anyone smaller and a
+ * two-hander for everyone. That is what was reported (#92).
+ *
+ * The choice exists only at the wielder's OWN size, which is where the book
+ * puts it. One size larger is already two-handed and one smaller is already a
+ * light-weapon choice; neither needs a second opinion.
+ */
+export function versatileAllowsChoice(actorSize, weaponSize, versatile = false) {
+  if (!versatile) return false;
+  const a = LASTARC.sizeOrder.indexOf(actorSize);
+  const w = LASTARC.sizeOrder.indexOf(weaponSize);
+  if (a < 0 || w < 0) return false;
+  return w - a === 0;
 }
 
 /** True when the wielder may choose between 1-Handed and Light Weapon (§5.4). */

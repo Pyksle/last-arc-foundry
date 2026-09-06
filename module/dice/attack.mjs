@@ -353,14 +353,30 @@ export function weaponAttackProfile({
   breakPenalty = 0,
   weaponFinesse = false,
   isThrown = false,
-  /** The wielder's light-weapon skill preference, "" for automatic (#63). */
+  /**
+   * The wielder's stated skill/grip: "" for automatic (#63). `twoHanded` on a
+   * versatile weapon is a grip and changes the wield category itself.
+   */
   wieldSkill = "",
+  /** The weapon may be held in one hand or two — the wielder picks (#92). */
+  versatile = false,
   /** Points declared on a trade (Mighty Strikes), paid on the attack roll. */
   trade = 0,
   /** The Fight Defensively penalty, already resolved and already signed. */
   fightDefensively = 0
 } = {}) {
-  const wield = D.wieldCategory(actorSize, weaponSize, category);
+  /**
+   * The grip goes in HERE rather than being applied to the skill afterwards.
+   *
+   * Two-handed is not merely a different skill: `buildDamageTerms` reads the
+   * wield category for the Strength multiplier and the declared trade reads it
+   * for the Mighty Strikes doubling. Resolving it at the skill would have paid
+   * the axe its two-handed attack bonus and its one-handed damage, which is the
+   * half-fix that looks right on the sheet and is wrong on the table.
+   */
+  const wield = D.wieldCategory(actorSize, weaponSize, category, {
+    versatile, grip: wieldSkill
+  });
   const unusable = wield === "unusable";
   const isMelee = !LASTARC.rangedWeaponCategories.has(category);
 
@@ -430,6 +446,7 @@ export function weaponProfileFor(actor, weapon, { isThrown = false, trade = 0 } 
     breakPenalty: weapon.system.breakGauge?.penalty ?? 0,
     weaponFinesse: hasTechnickFlag(actor, "weaponFinesse"),
     wieldSkill: weapon.system.wieldSkill ?? "",
+    versatile: !!weapon.system.versatile,
     trade,
     fightDefensively: FD.attackPenalty(actor),
     isThrown

@@ -104,8 +104,22 @@ export class LastArcWeaponData extends PhysicalItemData {
       ),
 
       /**
-       * Which skill a LIGHT weapon rolls with, when the wielder has the choice
-       * (§5.4, p.85 — issue #63).
+       * The weapon may be held in one hand or two (#92).
+       *
+       * A dozen weapons in the errata say so outright, and until now the only
+       * way to express it was to declare the weapon a size larger — which makes
+       * it two-handed for EVERYONE, and unusable by anyone smaller. A GM did
+       * exactly that to a battle axe and reported it, which is fair: the box
+       * next to this one is about a declared trade and says so, and there was
+       * nothing else to reach for.
+       *
+       * Which hand it is actually in is `wieldSkill`, below. This field only
+       * says the choice exists.
+       */
+      versatile: new fields.BooleanField({ initial: false }),
+      /**
+       * Which skill this weapon rolls with, where the wielder has a choice
+       * (§5.4, p.85 — issue #63; two-handed added for #92).
        *
        * "" means decide automatically, which is what the system did
        * unconditionally before: take whichever of Light Weapon and 1-Handed is
@@ -115,14 +129,21 @@ export class LastArcWeaponData extends PhysicalItemData {
        * granted reroll or a talent can be scoped to one of the two, and the
        * better raw number is then the worse attack.
        *
+       * `twoHanded` is the other half of `versatile` and is a GRIP, not just a
+       * skill: it doubles Strength on damage and doubles a Mighty Strikes
+       * trade, because the weapon really is in both hands. That is why the
+       * versatile choice is stated rather than resolved to whichever skill is
+       * higher the way the light one is — there is a rider to weigh here.
+       *
        * Inert unless the choice actually exists. A weapon two or more sizes
-       * smaller MUST use Light Weapon, and one the wielder's own size is not
-       * light at all; in both cases this is ignored rather than obeyed, so a
-       * preference set on one character cannot mis-fire on another of a
-       * different size.
+       * smaller MUST use Light Weapon; one the wielder's own size is not light
+       * at all, and is two-handed only if `versatile`. In every other case this
+       * is ignored rather than obeyed, so a preference set on one character
+       * cannot mis-fire on another of a different size.
        */
       wieldSkill: new fields.StringField({
-        initial: "", blank: true, choices: ["", "lightWeapon", "oneHanded"]
+        initial: "", blank: true,
+        choices: ["", "lightWeapon", "oneHanded", "twoHanded"]
       }),
       /**
        * Counts as two-handed for a declared trade, whatever its grip.

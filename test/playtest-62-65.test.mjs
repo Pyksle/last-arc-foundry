@@ -283,7 +283,8 @@ describe("§ nothing here shipped as game content", () => {
    */
   test("no new lang string quotes the rulebook", () => {
     for (const key of ["LASTARC.TechnickFlagHint.resilient",
-      "LASTARC.Note.WieldSkillOnlyLight", "LASTARC.Note.RaceSenses",
+      "LASTARC.Note.WieldSkillWhenChoice", "LASTARC.Note.RaceSenses",
+      "LASTARC.Tooltip.Versatile",
       "LASTARC.WeaponCategory.guns", "LASTARC.WeaponCategory.knuckles"]) {
       assert.ok(lang[key].length < 160, `${key} is long enough to be a quotation`);
     }

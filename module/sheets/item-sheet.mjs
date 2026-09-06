@@ -328,8 +328,14 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       // when the weapon is actually on an actor (§5.4).
       const actorSize = item.parent?.system?.details?.size;
       if (actorSize) {
-        context.wieldCategory = D.wieldCategory(actorSize, sys.size, sys.category);
+        // With the grip applied, so the readout and the Str multiplier under it
+        // describe the attack the weapon will actually make (#92).
+        context.wieldCategory = D.wieldCategory(actorSize, sys.size, sys.category, {
+          versatile: sys.versatile, grip: sys.wieldSkill
+        });
         context.wieldChoice = D.lightWeaponAllowsChoice(actorSize, sys.size);
+        context.versatileChoice =
+          D.versatileAllowsChoice(actorSize, sys.size, sys.versatile);
         context.strMultiplier = D.strDamageMultiplier(context.wieldCategory);
       }
 
@@ -346,7 +352,8 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       context.wieldSkillOptions = [
         { value: "", label: "LASTARC.WieldSkill.auto" },
         { value: "lightWeapon", label: "LASTARC.Skill.lightWeapon" },
-        { value: "oneHanded", label: "LASTARC.Skill.oneHanded" }
+        { value: "oneHanded", label: "LASTARC.Skill.oneHanded" },
+        { value: "twoHanded", label: "LASTARC.Skill.twoHanded" }
       ];
 
       /**
