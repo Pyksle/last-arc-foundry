@@ -9,6 +9,7 @@
 import { LASTARC } from "../config.mjs";
 import * as D from "../derivation.mjs";
 import * as FD from "../fight-defensively.mjs";
+import * as STANCE from "../declared-stance.mjs";
 import { rollDamageDice, rollExplodingDice } from "./explode.mjs";
 import { describeCheck } from "./breakdown.mjs";
 import { situationalLabel } from "./situational.mjs";
@@ -91,6 +92,8 @@ export function attackModifiers({
   trade = 0,
   /** The Fight Defensively penalty, already resolved and already signed. */
   fightDefensively = 0,
+  /** A standing Tactical Guard / Careful Shot penalty, likewise signed. */
+  stance = 0,
   twoWeapon = false,
   dualWieldRank = 0,
   ...situation
@@ -111,6 +114,16 @@ export function attackModifiers({
   // Fighting defensively costs every attack roll, but not an opposed roll made
   // to block or parry — the book exempts those explicitly (#86).
   if (fightDefensively) add("LASTARC.Mod.fightDefensively", fightDefensively);
+  /**
+   * The price of a stance declared on an EARLIER attack, still standing.
+   *
+   * Its own part rather than folded into `trade`, because they are charged at
+   * different moments and a player who sees one number cannot tell which of
+   * their choices is costing them. The attack that declares a stance charges
+   * `trade` and not this; `rollAttack` clears the old stance before profiling
+   * so the two can never both bill the same roll.
+   */
+  if (stance) add("LASTARC.Mod.declaredStance", stance);
 
   if (twoWeapon) {
     const rank = Math.min(dualWieldRank, DUAL_WIELD_PENALTY.length - 1);
@@ -353,14 +366,32 @@ export function weaponAttackProfile({
   breakPenalty = 0,
   weaponFinesse = false,
   isThrown = false,
-  /** The wielder's light-weapon skill preference, "" for automatic (#63). */
+  /**
+   * The wielder's stated skill/grip: "" for automatic (#63). `twoHanded` on a
+   * versatile weapon is a grip and changes the wield category itself.
+   */
   wieldSkill = "",
+  /** The weapon may be held in one hand or two — the wielder picks (#92). */
+  versatile = false,
   /** Points declared on a trade (Mighty Strikes), paid on the attack roll. */
   trade = 0,
   /** The Fight Defensively penalty, already resolved and already signed. */
-  fightDefensively = 0
+  fightDefensively = 0,
+  /** A standing reflex-trade penalty, already resolved and already signed. */
+  stance = 0
 } = {}) {
-  const wield = D.wieldCategory(actorSize, weaponSize, category);
+  /**
+   * The grip goes in HERE rather than being applied to the skill afterwards.
+   *
+   * Two-handed is not merely a different skill: `buildDamageTerms` reads the
+   * wield category for the Strength multiplier and the declared trade reads it
+   * for the Mighty Strikes doubling. Resolving it at the skill would have paid
+   * the axe its two-handed attack bonus and its one-handed damage, which is the
+   * half-fix that looks right on the sheet and is wrong on the table.
+   */
+  const wield = D.wieldCategory(actorSize, weaponSize, category, {
+    versatile, grip: wieldSkill
+  });
   const unusable = wield === "unusable";
   const isMelee = !LASTARC.rangedWeaponCategories.has(category);
 
@@ -383,7 +414,7 @@ export function weaponAttackProfile({
     skillMod,
     proficient,
     attack: attackModifiers({
-      skillMod, weaponAtkBonus: atkBonus, proficient, trade, fightDefensively
+      skillMod, weaponAtkBonus: atkBonus, proficient, trade, fightDefensively, stance
     }),
     damage: buildDamageTerms({
       level,
@@ -430,8 +461,10 @@ export function weaponProfileFor(actor, weapon, { isThrown = false, trade = 0 } 
     breakPenalty: weapon.system.breakGauge?.penalty ?? 0,
     weaponFinesse: hasTechnickFlag(actor, "weaponFinesse"),
     wieldSkill: weapon.system.wieldSkill ?? "",
+    versatile: !!weapon.system.versatile,
     trade,
     fightDefensively: FD.attackPenalty(actor),
+    stance: STANCE.stancePenalty(actor),
     isThrown
   });
 }
@@ -462,11 +495,25 @@ export async function rollAttack(actor, weapon, options = {}) {
    */
   const tradeSpec = D.declaredTradeFor(
     LASTARC.rangedWeaponCategories.has(weapon.system.category) ? "ranged" : "melee",
-    (flag) => hasTechnickFlag(actor, flag));
+    (flag) => hasTechnickFlag(actor, flag),
+    options.tradeKey ?? null);
   const trade = Math.min(
     Math.max(0, Math.trunc(options.trade ?? 0)),
     D.declaredTradeCap(sys.details?.level ?? 1, tradeSpec?.cap)
   );
+
+  /**
+   * Declaring a stance clears the standing one BEFORE the profile is built.
+   *
+   * Otherwise this roll is billed twice for the same choice: once as `trade`,
+   * the price of the declaration being made, and again as `stance`, the price
+   * of the declaration it replaces. Order matters and there is no way to see it
+   * from either half on its own, which is why it happens here rather than after
+   * the roll — by then the profile has already read the old stance.
+   */
+  const declaringStance = tradeSpec?.buys === "reflex" && trade > 0;
+  if (declaringStance) await STANCE.declareStance(actor, { spec: null });
+
   const profile = weaponProfileFor(actor, weapon, {
     isThrown: !!options.isThrown, trade
   });
@@ -545,11 +592,24 @@ export async function rollAttack(actor, weapon, options = {}) {
    */
   const ammoSpent = await spendAmmo(actor, weapon, { units: rounds });
 
+  /**
+   * The stance goes up AFTER the roll, so it never charges the attack that
+   * declared it — that attack already paid, as `trade`. From here it costs
+   * every further attack roll until the start of this character's next turn,
+   * which is the half of the bargain the book states and the half a player
+   * forgets they agreed to.
+   */
+  const stance = declaringStance
+    ? await STANCE.declareStance(actor, {
+      spec: tradeSpec, points: trade, level: sys.details?.level ?? 1
+    })
+    : null;
+
   await postAttackCard({
     actor, weapon, roll, mods, outcome, options, wield, isMelee, discardedNatural,
-    ammo: ammoSpent, trade
+    ammo: ammoSpent, trade, tradeKey: tradeSpec?.key ?? null
   });
-  return { roll, mods, outcome, wield, skillKey, isMelee, ammo: ammoSpent };
+  return { roll, mods, outcome, wield, skillKey, isMelee, ammo: ammoSpent, stance };
 }
 
 /**
@@ -564,7 +624,9 @@ export async function rollDamage(
   {
     outcome, wield, isMelee, isThrown = false, damageType = null, prompt = true,
     /** Points declared on the attack this damage answers (Mighty Strikes). */
-    trade = 0
+    trade = 0,
+    /** And which trade they were declared on — see the card flag. */
+    tradeKey = null
   } = {}
 ) {
   const sys = actor.system;
@@ -620,7 +682,7 @@ export async function rollDamage(
     // Which trade paid for this — a ranged one buys damage one for one, and
     // has no two-handed doubling however the bow is held.
     spec: D.declaredTradeFor(isMelee ? "melee" : "ranged",
-      (flag) => hasTechnickFlag(actor, flag))
+      (flag) => hasTechnickFlag(actor, flag), tradeKey)
   });
 
   /**
@@ -1036,7 +1098,7 @@ export async function repostAttackAfterReroll(actor, flags, roll) {
 async function postAttackCard({
   actor, weapon, attack, attackIndex = null, roll, mods, outcome, options,
   wield = null, isMelee = null, discardedNatural = null, rerolled = false,
-  ammo = null, trade = 0
+  ammo = null, trade = 0, tradeKey = null
 }) {
   const isNpc = attack != null;
 
@@ -1135,6 +1197,16 @@ async function postAttackCard({
          * indistinguishable to anybody auditing a card.
          */
         trade,
+        /**
+         * And WHICH trade, because a character may hold two for the same kind
+         * of attack — Mighty Strikes and Tactical Guard are both melee, and
+         * they buy different things with the same penalty. Re-deriving it here
+         * by kind would pay out whichever the config happens to list first.
+         *
+         * Null on a card written before this existed, and `declaredTradeFor`
+         * falls back to the only trade its holder could have declared then.
+         */
+        tradeKey,
         attackIndex,
         outcome,
         /**

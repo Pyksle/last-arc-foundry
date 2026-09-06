@@ -152,11 +152,20 @@
           {{localize "LASTARC.Derived.WieldCategory"}}
           <strong>{{localize (lookup config.wieldLabels wieldCategory)}}</strong>
           {{#if wieldChoice}}<em>{{localize "LASTARC.Derived.WieldChoice"}}</em>{{/if}}
+          {{#if versatileChoice}}<em>{{localize "LASTARC.Derived.VersatileChoice"}}</em>{{/if}}
           — {{localize "LASTARC.Derived.StrMultiplier"}} ×{{strMultiplier}}
         </p>
       {{else}}
         <p class="la-note">{{localize "LASTARC.Note.WieldNeedsActor"}}</p>
       {{/if}}
+
+      {{!-- One hand or two, for the weapons whose entry says either (#92). The
+            grip itself is the select below; this only says the choice exists. --}}
+      <label class="la-check" data-tooltip="{{localize 'LASTARC.Tooltip.Versatile'}}">
+        <input type="checkbox" name="system.versatile"
+               {{#if system.versatile}}checked{{/if}}>
+        {{localize "LASTARC.Field.Versatile"}}
+      </label>
 
       {{!-- Which of the two skills a light weapon rolls with (#63). The rule
             has always been implemented — the system took whichever was higher —
@@ -181,7 +190,7 @@
                {{#if system.tradeCountsAsTwoHanded}}checked{{/if}}>
         {{localize "LASTARC.Field.TradeCountsAsTwoHanded"}}
       </label>
-      <p class="la-note">{{localize "LASTARC.Note.WieldSkillOnlyLight"}}</p>
+      <p class="la-note">{{localize "LASTARC.Note.WieldSkillWhenChoice"}}</p>
     </section>
   {{/if}}
 

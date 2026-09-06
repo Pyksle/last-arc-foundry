@@ -543,6 +543,17 @@ LASTARC.technickFlags = [
    */
   "amplification",
   "beastShape",
+  /**
+   * Tactical Guard and Careful Shot: declared trades that buy Reflex rather
+   * than damage, melee and ranged respectively.
+   *
+   * Flags rather than `grants` entries for the same reason Mighty Strikes is
+   * one — what they change is a choice available at the moment of an attack,
+   * and `grants` only carries numbers added to derived stats. Both are rows in
+   * `declaredTrades`; the flag is only how a character says they have it.
+   */
+  "tacticalGuard",
+  "carefulShot",
   "arcaneStudy",          // +1+Int spells known per taking (minimum 1)
   "bardicStudy"           // +1+Int performances known per taking (minimum 1)
 ];
@@ -1289,15 +1300,22 @@ LASTARC.declaredTradeMax = 5;
  * `multiplier` is what each point buys; `doubleTwoHanded` doubles it instead
  * when the attack resolved two-handed.
  *
- * NOT HERE YET: two more buy a Reflex bonus that lasts until the start of your
- * next turn. That is a lasting effect rather than a payout on the roll being
- * made, and it needs duration handling this does not have — see `buys`, which
- * exists so those can join as rows rather than as a second mechanism.
+ * `buys` is what the points turn into, and there are two kinds. A damage trade
+ * pays out on the roll being made and is over. A `reflex` trade is a STANCE:
+ * the penalty and the bonus both last until the start of your next turn, so
+ * they are held as a temporary effect the way Fight Defensively is. Those two
+ * waited a release for the expiry machinery that landed with it.
+ *
+ * A character may hold more than one trade for the same kind of attack — a
+ * melee fighter with both Mighty Strikes and Tactical Guard has to say which
+ * they are declaring, which is why the lookup returns a list.
  */
 LASTARC.declaredTrades = Object.freeze({
   mightyStrikes: { on: "melee",  buys: "weaponDamage", cap: "level", doubleTwoHanded: true },
   planOfAttack:  { on: "ranged", buys: "weaponDamage", cap: "level" },
-  amplification: { on: "spell",  buys: "spellDamage",  cap: 5, multiplier: 2 }
+  amplification: { on: "spell",  buys: "spellDamage",  cap: 5, multiplier: 2 },
+  tacticalGuard: { on: "melee",  buys: "reflex",       cap: "level" },
+  carefulShot:   { on: "ranged", buys: "reflex",       cap: "level" }
 });
 
 /** Character levels per step of that cap: 1 at 1st, +1 at 4th and every 4 after. */

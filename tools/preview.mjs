@@ -634,6 +634,7 @@ export function itemContext(type) {
     noDamageType: false,
     wieldCategory: "oneHanded",
     wieldChoice: null,
+    versatileChoice: null,
     strMultiplier: 1,
     decayText: "",
     fitsText: "",
@@ -655,12 +656,13 @@ export function itemContext(type) {
       { value: "oneHanded", label: "LASTARC.Skill.oneHanded" },
       { value: "twoHanded", label: "LASTARC.Skill.twoHanded" }
     ],
-    // The light-weapon skill picker (#63). Built from the same three rows the
-    // sheet offers, so the offline render exercises the select for real.
+    // The wield skill / grip picker (#63, #92). Built from the same four rows
+    // the sheet offers, so the offline render exercises the select for real.
     wieldSkillOptions: [
       { value: "", label: "LASTARC.WieldSkill.auto" },
       { value: "lightWeapon", label: "LASTARC.Skill.lightWeapon" },
-      { value: "oneHanded", label: "LASTARC.Skill.oneHanded" }
+      { value: "oneHanded", label: "LASTARC.Skill.oneHanded" },
+      { value: "twoHanded", label: "LASTARC.Skill.twoHanded" }
     ],
     languagesText: "",
     prereqAttributes: [],

@@ -923,6 +923,23 @@ export function overAttributeCap(total = 0, cap = 0) {
  * made to block or parry, which is why this returns the penalty rather than
  * applying it — only the attack pipeline knows which kind of roll it is.
  */
+/**
+ * What a `reflex` trade buys: an equal and opposite pair.
+ *
+ * The penalty and the bonus are the same number by rule — "take up to a −1
+ * penalty, gaining an equal bonus toward your Reflex defence" — so they are
+ * returned together rather than computed twice. Signed as they are applied, so
+ * no caller has to remember which way round they go.
+ */
+export function reflexTradeStance(trade = 0, { level = 1, spec = null } = {}) {
+  if (!spec || spec.buys !== "reflex") return { ref: 0, attackPenalty: 0 };
+  const spent = Math.min(
+    Math.max(0, Math.trunc(trade)), declaredTradeCap(level, spec.cap));
+  // `-spent` on zero is −0, which prints as "-0" and fails a strict comparison
+  // against 0. Nothing downstream should ever have to know that.
+  return { ref: spent, attackPenalty: spent ? -spent : 0 };
+}
+
 export function fightDefensivelyBonus({ noAttacks = false, acrobatics = false } = {}) {
   const cfg = LASTARC.fightDefensively;
   const tier = acrobatics ? "trained" : "untrained";
@@ -955,11 +972,31 @@ export function declaredTradeCap(level = 1, cap = "level") {
  * a melee trade is never offered on a bow and the next row in the table needs
  * no branch anywhere.
  */
-export function declaredTradeFor(kind, hasFlag = () => false) {
-  for (const [key, spec] of Object.entries(LASTARC.declaredTrades)) {
-    if (spec.on === kind && hasFlag(key)) return { key, ...spec };
+export function declaredTradesFor(kind, hasFlag = () => false) {
+  return Object.entries(LASTARC.declaredTrades)
+    .filter(([key, spec]) => spec.on === kind && hasFlag(key))
+    .map(([key, spec]) => ({ key, ...spec }));
+}
+
+/**
+ * The ONE trade a roll is declaring, out of however many the character holds.
+ *
+ * A melee fighter may hold Mighty Strikes and Tactical Guard at once, and they
+ * buy different things with the same penalty, so the roll has to say which.
+ * `wanted` is that answer, carried on the attack card so the damage step pays
+ * out the trade that was actually declared rather than re-guessing by kind.
+ *
+ * Falls back to the first available rather than to nothing. Cards written
+ * before this existed carry no key, and their trade was necessarily the only
+ * one their holder could declare.
+ */
+export function declaredTradeFor(kind, hasFlag = () => false, wanted = null) {
+  const available = declaredTradesFor(kind, hasFlag);
+  if (wanted) {
+    const match = available.find((t) => t.key === wanted);
+    if (match) return match;
   }
-  return null;
+  return available[0] ?? null;
 }
 
 /**
@@ -987,6 +1024,13 @@ export function tradeDamageBonus(trade = 0, {
    * anyway. Caught in a live Foundry, not by the maths.
    */
   if (!spec) return 0;
+  /**
+   * And a trade that does not buy DAMAGE pays nothing here. Tactical Guard and
+   * Careful Shot charge the same attack penalty and spend it on Reflex; paying
+   * them out on the damage roll as well would hand a character both halves of
+   * a choice the book asks them to make.
+   */
+  if (spec.buys !== "weaponDamage" && spec.buys !== "spellDamage") return 0;
   const s = spec;
   const spent = Math.min(
     Math.max(0, Math.trunc(trade)), declaredTradeCap(level, s.cap));
@@ -1462,7 +1506,9 @@ export function speedAfterPenalties(base, reductionFractions = []) {
  *
  * @returns {"light"|"oneHanded"|"twoHanded"|"ranged"|"unusable"}
  */
-export function wieldCategory(actorSize, weaponSize, weaponCategory = null) {
+export function wieldCategory(
+  actorSize, weaponSize, weaponCategory = null, { versatile = false, grip = "" } = {}
+) {
   const a = LASTARC.sizeOrder.indexOf(actorSize);
   const w = LASTARC.sizeOrder.indexOf(weaponSize);
   if (a < 0) throw new Error(`Unknown actor size: ${actorSize}`);
@@ -1475,7 +1521,15 @@ export function wieldCategory(actorSize, weaponSize, weaponCategory = null) {
   // Knuckles are worn, not wielded, and roll Unarmed at any size (#62).
   if (weaponCategory && LASTARC.unarmedWeaponCategories.has(weaponCategory)) return "unarmed";
   if (delta === 1) return "twoHanded";
-  if (delta === 0) return "oneHanded";
+  if (delta === 0) {
+    // A versatile weapon held in both hands. The grip is STATED, never inferred:
+    // unlike the light-weapon choice next door it carries riders in both
+    // directions — two hands double Strength on damage and occupy the hand a
+    // shield wants — so there is something to weigh and the wielder weighs it.
+    return versatileAllowsChoice(actorSize, weaponSize, versatile) && grip === "twoHanded"
+      ? "twoHanded"
+      : "oneHanded";
+  }
   if (delta === -1) return "light";      // may use 1-Handed OR Light Weapon
   return "light";                         // two+ smaller: MUST use Light Weapon
 }
@@ -1503,6 +1557,28 @@ export function weaponSkillFor(wieldCat) {
 
   if (!key) throw new Error(`No weapon skill maps to wield category "${wieldCat}".`);
   return key;
+}
+
+/**
+ * True when a versatile weapon may be held in one hand OR two.
+ *
+ * The errata prints this on a dozen weapons as "Medium creatures may treat this
+ * as either a 1-handed or 2-handed weapon" — a battle axe, a warhammer, most of
+ * the gun hybrids. Size alone cannot express it: the table gives one answer per
+ * size pairing, so the only way to make a battle axe two-handed was to declare
+ * it a size larger, which also makes it unusable by anyone smaller and a
+ * two-hander for everyone. That is what was reported (#92).
+ *
+ * The choice exists only at the wielder's OWN size, which is where the book
+ * puts it. One size larger is already two-handed and one smaller is already a
+ * light-weapon choice; neither needs a second opinion.
+ */
+export function versatileAllowsChoice(actorSize, weaponSize, versatile = false) {
+  if (!versatile) return false;
+  const a = LASTARC.sizeOrder.indexOf(actorSize);
+  const w = LASTARC.sizeOrder.indexOf(weaponSize);
+  if (a < 0 || w < 0) return false;
+  return w - a === 0;
 }
 
 /** True when the wielder may choose between 1-Handed and Light Weapon (§5.4). */

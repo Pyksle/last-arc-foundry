@@ -34,6 +34,7 @@ import * as AMMOSTORE from "./dice/ammunition.mjs";
 import * as LAYOUT from "./sheets/sheet-layout-controls.mjs";
 import * as GUARD from "./status-guard.mjs";
 import * as FD from "./fight-defensively.mjs";
+import * as STANCE from "./declared-stance.mjs";
 import * as D_EFFECTS from "./effects.mjs";
 import * as BS from "./beast-shape.mjs";
 import { learnForm, forgetForm, transformInto, revertForm } from "./beast-shape-actions.mjs";
@@ -5873,5 +5874,150 @@ function registerTemporaryEffectBatch(quench) {
       });
     },
     { displayName: "Last Arc — Temporary effects" }
+  );
+
+  /* ------------------------------------------------------------------------ */
+  /*  #92 versatile weapons, and the two trades that buy Reflex               */
+  /* ------------------------------------------------------------------------ */
+
+  quench.registerBatch(
+    `${SYSTEM_ID}.versatileAndStance`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      /** A medium axe on a medium wielder — the reported battle axe's shape. */
+      const axeData = (over = {}) => ({
+        name: "ZZ Versatile", type: "weapon",
+        system: {
+          category: "axes", size: "medium", damage: "1d10",
+          damageType: ["slashing"], ...over
+        }
+      });
+
+      describe("§ #92 the grip a versatile weapon is held in", function () {
+        it("is one-handed until the wielder says otherwise", async function () {
+          await withActor({
+            system: { classes: [{ name: "warrior", levels: 1 }],
+                      attributes: { str: { base: 18 } } }
+          }, async (actor) => {
+            const [axe] = await actor.createEmbeddedDocuments(
+              "Item", [axeData({ versatile: true })]);
+            const profile = ATK.weaponProfileFor(actor, axe);
+            assert.equal(profile.wield, "oneHanded",
+              "ticking versatile must not silently arm everyone two-handed");
+          });
+        });
+
+        it("becomes two-handed, and pays two-handed damage, when they do", async function () {
+          await withActor({
+            system: { classes: [{ name: "warrior", levels: 1 }],
+                      attributes: { str: { base: 18 } } }
+          }, async (actor) => {
+            const [axe] = await actor.createEmbeddedDocuments(
+              "Item", [axeData({ versatile: true, wieldSkill: "twoHanded" })]);
+
+            const profile = ATK.weaponProfileFor(actor, axe);
+            assert.equal(profile.wield, "twoHanded");
+            assert.equal(profile.skillKey, "twoHanded", "it rolls the wrong skill");
+
+            const strMod = actor.system.attributes.str.mod;
+            assert.equal(profile.damage.flat, strMod * 2,
+              "the grip reached the skill and not the damage — the half-fix");
+          });
+        });
+
+        /**
+         * The field has to SURVIVE a save. `_prepareSubmitData` cleans every
+         * key the schema does not declare, and a field added to the model but
+         * not to the template is written and then deleted on the next edit.
+         */
+        it("survives being written to the document", async function () {
+          await withActor({}, async (actor) => {
+            const [axe] = await actor.createEmbeddedDocuments("Item", [axeData()]);
+            await axe.update({ "system.versatile": true, "system.wieldSkill": "twoHanded" });
+            assert.equal(axe.system.versatile, true);
+            assert.equal(axe.system.wieldSkill, "twoHanded",
+              "the schema rejected the grip, so the picker cannot save one");
+          });
+        });
+
+        it("the item sheet opens and reports the grip", async function () {
+          await withActor({ system: { details: { size: "medium" } } }, async (actor) => {
+            const [axe] = await actor.createEmbeddedDocuments(
+              "Item", [axeData({ versatile: true, wieldSkill: "twoHanded" })]);
+            const sheet = axe.sheet;
+            await sheet.render(true);
+            try {
+              const ctx = await sheet._prepareContext({});
+              assert.equal(ctx.wieldCategory, "twoHanded",
+                "the readout still describes the size table's answer");
+              assert.equal(ctx.strMultiplier, 2);
+              assert.isTrue(ctx.versatileChoice, "the sheet never says a choice exists");
+            } finally {
+              await sheet.close();
+            }
+          });
+        });
+      });
+
+      describe("§ Tactical Guard holds its bonus for a round", function () {
+        const guard = LASTARC.declaredTrades.tacticalGuard;
+
+        it("raises Reflex and costs the next attack", async function () {
+          await withEncounter(async (combat, a) => {
+            await startEncounter(combat);
+            const before = a.system.defences.ref.value;
+
+            await STANCE.declareStance(a, { spec: { ...guard, key: "tacticalGuard" },
+                                            points: 1, level: 1 });
+            await settle();
+
+            assert.equal(a.system.defences.ref.value, before + 1,
+              "the stance applied no bonus at all");
+            assert.equal(STANCE.stancePenalty(a), -1,
+              "and charges nothing for it, which is half a bargain");
+          });
+        });
+
+        it("only one stance stands at a time", async function () {
+          await withEncounter(async (combat, a) => {
+            await startEncounter(combat);
+            const before = a.system.defences.ref.value;
+
+            await STANCE.declareStance(a, { spec: { ...guard, key: "tacticalGuard" },
+                                            points: 1, level: 1 });
+            await settle();
+            await STANCE.declareStance(a, { spec: { ...guard, key: "tacticalGuard" },
+                                            points: 1, level: 1 });
+            await settle();
+
+            assert.equal(a.system.defences.ref.value, before + 1,
+              "declaring twice stacked the bonus");
+          });
+        });
+
+        it("and it wears off with the round", async function () {
+          await withEncounter(async (combat, a) => {
+            await startEncounter(combat);
+            const before = a.system.defences.ref.value;
+
+            await STANCE.declareStance(a, { spec: { ...guard, key: "tacticalGuard" },
+                                            points: 1, level: 1 });
+            await settle();
+            await advanceRound(combat);
+            await until(() => a.system.defences.ref.value === before,
+              { tries: 60, wait: 50 });
+
+            assert.equal(a.system.defences.ref.value, before,
+              "the stance never ends, so the bonus is permanent");
+            assert.isNull(STANCE.currentStance(a),
+              "a disabled stance is still reading as standing");
+            assert.equal(STANCE.stancePenalty(a), 0,
+              "and is still charging for itself");
+          });
+        });
+      });
+    },
+    { displayName: "Last Arc — Versatile weapons and declared stances" }
   );
 }

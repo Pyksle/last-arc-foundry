@@ -309,8 +309,10 @@ describe("§ the wiring the maths cannot hold", () => {
    */
   test("the prompt offers the trade that matches the roll, if any", () => {
     const actions = read("module/item-actions.mjs");
-    assert.match(actions, /declaredTradeFor\(isRanged \? "ranged" : "melee"/,
+    assert.match(actions, /const kind = isRanged \? "ranged" : "melee";/,
       "the attack prompt is not choosing a trade by the kind of attack");
+    assert.match(actions, /declaredTradesFor\(kind,/,
+      "the prompt must ask for ALL of this kind — a character can hold two");
     assert.match(actions, /declaredTradeFor\("spell"/,
       "a caster is never offered a trade");
     assert.match(actions, /hasTechnickFlag\(actor, flag\)/,

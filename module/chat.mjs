@@ -685,7 +685,10 @@ async function onRollDamage(button, message) {
     isMelee: isMelee ?? true,
     // What the attack roll already paid for. A card that never declared one
     // has no flag, which reads as 0 — not as "unknown".
-    trade: flags.trade ?? 0
+    trade: flags.trade ?? 0,
+    // And which trade, so a character holding two melee ones is paid for the
+    // one they actually declared. Null on cards predating the flag.
+    tradeKey: flags.tradeKey ?? null
   });
 
   // Null means the damage-type picker was dismissed. Posting a card anyway
