@@ -3188,17 +3188,35 @@ function registerAmmunitionBatch(quench) {
                 await AMMOSTORE.setLoadedAmmo(kit.xbow, { ammoId: kit.bolts.id, count: 5 });
 
                 const result = await ATK.rollAttack(pc, kit.xbow);
-                try {
-                  assert.exists(result, "a loaded crossbow should fire");
-                  assert.equal(result.ammo.spent, 1);
-                  assert.equal(AMMOSTORE.loadedAmmo(kit.xbow).count, 4);
+                assert.exists(result, "a loaded crossbow should fire");
+                assert.equal(result.ammo.spent, 1);
+                assert.equal(AMMOSTORE.loadedAmmo(kit.xbow).count, 4);
 
-                  const card = game.messages.contents.at(-1);
-                  assert.include(card.content, "ZZ bolts",
-                    "the card should say what the shot cost");
-                } finally {
-                  await game.messages.contents.at(-1)?.delete();
-                }
+                const card = game.messages.contents.at(-1);
+                assert.include(card.content, "ZZ bolts",
+                  "the card should say what the shot cost");
+
+                /**
+                 * THE CARD IS LEFT WHERE IT LANDS.
+                 *
+                 * These two tests used to delete the message they had just
+                 * made, and they were the only two in the suite that did. That
+                 * is what produced the pair of "Cannot set properties of null
+                 * (setting 'hidden')" errors that appeared in run after run and
+                 * quietly failed the exit code of every one.
+                 *
+                 * `ChatLog#postNotification` renders the transient card, awaits
+                 * a spacer animation, then re-queries the card by message id to
+                 * unhide it. Delete the message inside that window — a few
+                 * hundred milliseconds, not the 100ms the animation suggests —
+                 * and the re-query returns null and Foundry throws. Its DELETE
+                 * path guards with `?.`; its INSERT path does not.
+                 *
+                 * Waiting longer would only make the race rarer, and a duration
+                 * chosen to beat someone else's render is a flake waiting to
+                 * happen. The other thirty-five messages a run creates are left
+                 * behind too, so tidying these two bought nothing.
+                 */
               });
             });
           });
@@ -3208,12 +3226,9 @@ function registerAmmunitionBatch(quench) {
             await withAmmoTracking("off", async () => {
               await withArcher(async (pc, kit) => {
                 const result = await ATK.rollAttack(pc, kit.xbow);
-                try {
-                  assert.exists(result, "an opted-out table must be unaffected");
-                  assert.isNull(result.ammo);
-                } finally {
-                  await game.messages.contents.at(-1)?.delete();
-                }
+                assert.exists(result, "an opted-out table must be unaffected");
+                // Its card is left in place too — see the note on the test above.
+                assert.isNull(result.ammo);
               });
             });
           });

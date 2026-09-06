@@ -69,7 +69,21 @@ const consoleErrors = [];
 page.on("console", (msg) => {
   if (msg.type() === "error") consoleErrors.push(msg.text());
 });
-page.on("pageerror", (err) => consoleErrors.push(`Uncaught: ${err.message}`));
+/**
+ * WITH THE STACK.
+ *
+ * The message alone is not actionable, and two of these — "Cannot set
+ * properties of null (setting 'hidden')" — sat in the output of run after run
+ * precisely because there was nothing to chase. The first line of the stack
+ * named `ChatLog#postNotification` and the cause fell out in a minute: two
+ * tests deleting a chat message inside the window where Foundry is still
+ * animating its transient card in.
+ *
+ * A run is FAILED by these (see the exit code below), so an unexplained
+ * uncaught error is never cosmetic — it also masks the next one.
+ */
+page.on("pageerror", (err) => consoleErrors.push(
+  `Uncaught: ${err.message}\n${(err.stack ?? "").split("\n").slice(1, 7).join("\n")}`));
 
 let exitCode = 0;
 
