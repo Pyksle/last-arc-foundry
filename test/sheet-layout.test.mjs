@@ -343,15 +343,17 @@ describe("both sheets declare every action the shared partials emit", () => {
       .flatMap((src) => [...uncomment(src).matchAll(/data-action="(\w+)"/g)].map((m) => m[1]))
   )];
 
-  test("the partials emit the four controls this feature is", () => {
+  const CONTROLS = ["deleteLayoutProfile", "moveSection", "resetLayout",
+    "saveLayoutProfile", "switchLayoutProfile", "toggleLayoutLock", "toggleSection"];
+
+  test("the partials emit every control this feature is", () => {
     // Guards the guard: if the extraction silently found nothing, every
     // assertion below would pass vacuously.
-    assert.deepEqual(emitted.sort(),
-      ["moveSection", "resetLayout", "toggleLayoutLock", "toggleSection"]);
+    assert.deepEqual(emitted.sort(), CONTROLS);
   });
 
   for (const [name, src] of [["character", charSheet], ["npc", npcSheet]]) {
-    for (const action of ["toggleSection", "moveSection", "toggleLayoutLock", "resetLayout"]) {
+    for (const action of CONTROLS) {
       test(`${name} sheet declares ${action}`, () => {
         assert.match(src, new RegExp(`\\b${action}:\\s*LastArc\\w+Sheet\\.#on`));
       });

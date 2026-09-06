@@ -22,7 +22,8 @@ import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
 import {
   applyLayout, sectionLabels, toggleSection, moveSection, toggleLayoutLock, resetLayout,
-  rememberScroll, restoreScroll
+  rememberScroll, restoreScroll,
+  saveLayoutProfile, switchLayoutProfile, deleteLayoutProfile
 } from "./sheet-layout-controls.mjs";
 import { markStatuses, toggleStatus } from "./status-palette.mjs";
 import { damageModTexts, repackDamageMods } from "./damage-mods.mjs";
@@ -105,7 +106,10 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       toggleSection: LastArcNpcSheet.#onToggleSection,
       moveSection: LastArcNpcSheet.#onMoveSection,
       toggleLayoutLock: LastArcNpcSheet.#onToggleLayoutLock,
-      resetLayout: LastArcNpcSheet.#onResetLayout
+      resetLayout: LastArcNpcSheet.#onResetLayout,
+      saveLayoutProfile: LastArcNpcSheet.#onSaveLayoutProfile,
+      switchLayoutProfile: LastArcNpcSheet.#onSwitchLayoutProfile,
+      deleteLayoutProfile: LastArcNpcSheet.#onDeleteLayoutProfile
     }
   };
 
@@ -607,5 +611,19 @@ export class LastArcNpcSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   static async #onResetLayout() {
     await resetLayout(this, "npc");
+  }
+
+  /* -- saved arrangements (#93) -------------------------------------------- */
+
+  static async #onSaveLayoutProfile() {
+    await saveLayoutProfile(this, "npc");
+  }
+
+  static async #onSwitchLayoutProfile(event, target) {
+    await switchLayoutProfile(this, "npc", target);
+  }
+
+  static async #onDeleteLayoutProfile() {
+    await deleteLayoutProfile(this, "npc");
   }
 }

@@ -425,7 +425,9 @@
   align-self: start;
 }
 .la-layout__toggle,
-.la-layout__reset {
+.la-layout__reset,
+.la-layout__save,
+.la-layout__delete {
   padding: 0.2rem 0.5rem;
   background: none;
   border: 1px dashed var(--la-rule);
@@ -440,7 +442,9 @@
   width: auto;
 }
 .la-layout__toggle:hover,
-.la-layout__reset:hover {
+.la-layout__reset:hover,
+.la-layout__save:hover:not(:disabled),
+.la-layout__delete:hover:not(:disabled) {
   color: var(--la-bronze);
   border-color: var(--la-bronze);
   border-style: solid;
@@ -453,6 +457,46 @@
   color: var(--la-bronze);
   border-color: var(--la-bronze);
   border-style: solid;
+}
+
+/* Saved arrangements (#93).
+
+   The PICKER stays visible while the sheet is locked — swapping to an
+   arrangement you built is the whole request, and it is not the accidental
+   gesture the lock exists to prevent. Saving and forgetting are the ones that
+   change what is stored, so they live behind Arrange with the move arrows. */
+.la-layout__profiles {
+  display: flex;
+}
+.la-layout__profile {
+  width: 100%;
+  padding: 0.15rem 0.3rem;
+  background: none;
+  border: 1px dashed var(--la-rule);
+  border-radius: var(--la-radius);
+  color: var(--la-ink-faint);
+  font-family: var(--la-font-head);
+  font-size: 0.58rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+.la-layout__profile:hover {
+  color: var(--la-bronze);
+  border-color: var(--la-bronze);
+  border-style: solid;
+}
+/* `[hidden]` on the wrapper has to beat the `display: flex` above, which it
+   would not on specificity alone — the same shape the reset button uses. */
+.la-layout__profiles[hidden] { display: none; }
+
+.la-layout__save,
+.la-layout__delete { display: none; }
+.is-layout-unlocked .la-layout__save,
+.is-layout-unlocked .la-layout__delete { display: block; }
+.la-layout__save:disabled,
+.la-layout__delete:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 /* -------------------------------------------------------------------------- */
