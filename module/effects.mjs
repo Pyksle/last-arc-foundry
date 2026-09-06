@@ -64,6 +64,17 @@ export const defenceTarget = (key, actorType = "character") =>
 export const supportsSkillEffects = (actorType) => actorType !== "npc";
 
 /**
+ * Where damage reduction is granted from, per actor type.
+ *
+ * A character's `dr` is DERIVED — armour plus grants — so an effect must feed
+ * the `drMisc` slot beside it or be overwritten on the next prepare. A
+ * statblock's is a printed number nobody derives, so it takes the effect
+ * directly.
+ */
+export const drTarget = (actorType = "character") =>
+  actorType === "npc" ? "system.damageMods.dr" : "system.damageMods.drMisc";
+
+/**
  * Every path an effect may write, as flat rows for a picker.
  *
  * Built from the same config the sheets and the rules engine read, so a skill
@@ -87,6 +98,15 @@ export function effectTargets(actorType = "character") {
       label: `LASTARC.Defence.${key}`, group: "defence"
     });
   }
+
+  /**
+   * Damage reduction (#88). On the DEFENCE group because that is what a player
+   * looking for "make me harder to hurt" reads, even though it is not one of
+   * the three opposable defences.
+   */
+  out.push({
+    path: drTarget(actorType), label: "LASTARC.Field.DR", group: "defence"
+  });
 
   if (supportsSkillEffects(actorType)) {
     for (const [key, cfg] of Object.entries(LASTARC.allSkills)) {
@@ -166,6 +186,10 @@ export function scopeTargets(scope, actorType = "character") {
     return { paths: [defenceTarget(scope, actorType)], reason: null };
   }
 
+  // Damage reduction (#88). Named per model for the same reason the defences
+  // are: a character's is derived and a statblock's is printed.
+  if (scope === "dr") return { paths: [drTarget(actorType)], reason: null };
+
   /**
    * Every remaining scope is skill-shaped, and a statblock cannot take one —
    * its skills are printed values in an array with no per-skill slot to write.
@@ -223,7 +247,9 @@ export function customEffectTargets(actorType = "character") {
   const out = [
     ...Object.entries(LASTARC.attributes).map(([k, cfg]) => row(k, cfg.label, "attribute")),
     ...LASTARC.opposableDefences.map((k) => row(k, `LASTARC.Defence.${k}`, "defence")),
-    row("allDefences", "LASTARC.PerformScope.allDefences", "defence")
+    row("allDefences", "LASTARC.PerformScope.allDefences", "defence"),
+    // Temporary damage reduction (#88) — a spell that hardens you for a round.
+    row("dr", "LASTARC.Field.DR", "defence")
   ];
 
   // A statblock's skills are printed values in an array with no per-skill slot,
@@ -240,6 +266,59 @@ export function customEffectTargets(actorType = "character") {
   }
 
   return out;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Expiry (#86, #88)                                                          */
+/* -------------------------------------------------------------------------- */
+
+/** Flag marking an effect this system switched off because its time ran out. */
+export const AUTO_EXPIRED = "autoExpired";
+
+/**
+ * Which of these effects have run out and are still applying.
+ *
+ * FOUNDRY DOES NOT STOP APPLYING AN EXPIRED EFFECT. It counts the duration down
+ * and reports `remaining: 0`, and then goes on adding the bonus for the rest of
+ * the campaign — verified on a live actor: a one-round +5 to Reflex was still
+ * there in round 3. So the rounds box on the Add Effect dialog has been
+ * decorative since it was written, and every "temporary" buff in every world
+ * using this system is permanent.
+ *
+ * DISABLED, not deleted. A GM looking at the panel should be able to see what
+ * expired and turn it back on if the table rules otherwise; deleting it takes
+ * that away and loses the wording with it.
+ *
+ * Takes plain snapshots so the decision is unit tested rather than discovered
+ * in a world.
+ *
+ * @param {Array<{id:string, disabled:boolean, remaining:?number, autoExpired:boolean}>} effects
+ */
+export function effectsToExpire(effects = []) {
+  return (effects ?? [])
+    .filter((e) => e
+      && !e.disabled
+      // No duration is not an expired duration. `remaining` is null for an
+      // effect that simply lasts until somebody removes it.
+      && Number.isFinite(e.remaining)
+      && e.remaining <= 0
+      /**
+       * Never twice. Without this, a GM who switches an expired effect back on
+       * — because the table ruled the spell lasts — has it switched off again
+       * at the next turn boundary, for as long as they keep trying.
+       */
+      && !e.autoExpired)
+    .map((e) => e.id);
+}
+
+/** The snapshot `effectsToExpire` reads, taken from a live ActiveEffect. */
+export function expirySnapshot(effect, flagScope) {
+  return {
+    id: effect.id,
+    disabled: !!effect.disabled,
+    remaining: effect.duration?.remaining ?? null,
+    autoExpired: !!effect.getFlag?.(flagScope, AUTO_EXPIRED)
+  };
 }
 
 /* -------------------------------------------------------------------------- */

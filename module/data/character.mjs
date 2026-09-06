@@ -275,7 +275,20 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
         resistance: new fields.ArrayField(new fields.StringField(), { initial: [] }),
         immunity: new fields.ArrayField(new fields.StringField(), { initial: [] }),
         weakness: new fields.ArrayField(new fields.StringField(), { initial: [] }),
-        dr: new fields.NumberField({ initial: 0, integer: true, min: 0 })
+        /**
+         * DERIVED — equipped armour plus grants plus `drMisc`. Assigned on
+         * every prepare, so it has no input and never should have one.
+         */
+        dr: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
+        /**
+         * The slot an Active Effect feeds (#88).
+         *
+         * `dr` itself is assigned in prepareDerivedData, so an effect written
+         * there is overwritten before anybody sees it — the trap in this
+         * class's own docstring. A temporary spell granting damage reduction
+         * had nowhere to land at all; this is where it lands.
+         */
+        drMisc: new fields.NumberField({ initial: 0, integer: true })
       }),
 
       /**
@@ -630,7 +643,7 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
      * exemption suppressed the one check that would have caught it. An
      * allowlist entry is an assertion about the code and can be wrong.
      */
-    this.damageMods.dr = Math.max(0, armour.dr + grants.dr);
+    this.damageMods.dr = Math.max(0, armour.dr + grants.dr + this.damageMods.drMisc);
 
     // The Heroic technick raises the cap via its `grants.heroPoints` payload,
     // so it is counted once here rather than by name-matching.

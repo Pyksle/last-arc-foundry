@@ -27,7 +27,7 @@
  * and can be unit tested — the bug it exists to fix was invisible to the unit
  * suite precisely because it lived where only Foundry runs.
  */
-function setPath(target, path, value) {
+export function setPath(target, path, value) {
   const keys = path.split(".");
   let node = target;
   for (const key of keys.slice(0, -1)) {
@@ -39,7 +39,7 @@ function setPath(target, path, value) {
 }
 
 /** The raw value of one form control, before validation cleaned it away. */
-function rawField(formData, key) {
+export function rawField(formData, key) {
   return formData?.object?.[key];
 }
 

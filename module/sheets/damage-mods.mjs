@@ -26,6 +26,7 @@
  */
 
 import { LASTARC } from "../config.mjs";
+import * as LISTS from "./form-lists.mjs";
 
 /** The three keys, in the order the sheets show them. */
 export const DAMAGE_MOD_KEYS = Object.freeze(["weakness", "resistance", "immunity"]);
@@ -75,10 +76,21 @@ export function parseDamageMods(raw) {
  *
  * Mutates and returns `submit`, matching what both sheets already did.
  */
-export function repackDamageMods(submit) {
+export function repackDamageMods(formData, submit) {
   for (const key of DAMAGE_MOD_KEYS) {
     const path = `system.damageMods.${key}`;
-    const raw = submit[path];
+    /**
+     * FROM THE RAW FORM DATA, and written back as a NESTED path.
+     *
+     * This read `submit[path]` — a flat dotted key on an object that is
+     * expanded — so the branch never ran. These three boxes ARE schema fields,
+     * unlike the `*Text` boxes, so validation did not delete them: it took the
+     * whole string and stored it as a single array entry. A character resistant
+     * to "fire, cold" was resistant to one damage type of that name, which is
+     * to say to nothing at all, and one written "fire" worked by accident. The
+     * unknown-type warning never fired either.
+     */
+    const raw = LISTS.rawField(formData, path);
     if (typeof raw !== "string") continue;
 
     const { valid, unknown } = parseDamageMods(raw);
@@ -87,7 +99,7 @@ export function repackDamageMods(submit) {
         game.i18n.format("LASTARC.Warning.UnknownDamageType", { types: unknown.join(", ") })
       );
     }
-    submit[path] = valid;
+    LISTS.setPath(submit, path, valid);
   }
   return submit;
 }

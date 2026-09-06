@@ -1065,5 +1065,14 @@
   "LASTARC.TechnickFlag.planOfAttack": "Plan of Attack",
   "LASTARC.TechnickFlagHint.planOfAttack": "Before a ranged attack, this character may take up to a penalty for an equal bonus to damage. The limit rises with level. Alt-click the attack to declare it.",
   "LASTARC.TechnickFlag.amplification": "Amplification",
-  "LASTARC.TechnickFlagHint.amplification": "When casting a damaging spell, this character may take up to a −5 penalty on the Spellcraft check, adding twice that number as damage. The limit is 5 whatever their level. Alt-click the spell to declare it."
+  "LASTARC.TechnickFlagHint.amplification": "When casting a damaging spell, this character may take up to a −5 penalty on the Spellcraft check, adding twice that number as damage. The limit is 5 whatever their level. Alt-click the spell to declare it.",
+  "LASTARC.Mod.fightDefensively": "Fighting defensively",
+  "LASTARC.FightDefensively.Attacking": "Fighting defensively",
+  "LASTARC.FightDefensively.NoAttacks": "Fighting defensively (no attacks)",
+  "LASTARC.FightDefensively.Label": "Fight defensively",
+  "LASTARC.FightDefensively.Off": "Not fighting defensively",
+  "LASTARC.FightDefensively.Tooltip": "Fight more cautiously as part of an attack: a −5 penalty on all attack rolls for a bonus to Reflex until the start of your next turn. Electing to make no attacks raises the bonus instead. Both are better if you are trained in Acrobatics. While fighting defensively you may only shift, not move your full speed.",
+  "LASTARC.FightDefensively.NoAttacksTooltip": "Make no attacks at all until your next turn, counterattacks included, for the larger Reflex bonus.",
+  "LASTARC.Field.DrMisc": "Misc DR",
+  "LASTARC.Tooltip.DrMisc": "Damage reduction on top of armour and traits. This is the slot temporary effects write to — the total beside it is derived and cannot be typed into."
 }

@@ -909,6 +909,30 @@ export function overAttributeCap(total = 0, cap = 0) {
 }
 
 /**
+ * What Fight Defensively is worth to this character (#86).
+ *
+ * "Taking a −5 penalty on all attack rolls and gaining a +2 bonus to your Ref
+ * Defence until the start of your next turn. Should you elect to make no
+ * attacks until your next turn (including counterattacks), then your Reflex
+ * Defence bonus is increased to a +5… If you are trained in Acrobatics, this
+ * bonus increases to +5 and +10, respectively."
+ *
+ * The penalty is ZERO in the no-attacks election, not −5: there are no attacks
+ * left for it to apply to, and reporting one would put a line on a card for a
+ * roll the character has given up making. The book also exempts opposed rolls
+ * made to block or parry, which is why this returns the penalty rather than
+ * applying it — only the attack pipeline knows which kind of roll it is.
+ */
+export function fightDefensivelyBonus({ noAttacks = false, acrobatics = false } = {}) {
+  const cfg = LASTARC.fightDefensively;
+  const tier = acrobatics ? "trained" : "untrained";
+  return {
+    ref: (noAttacks ? cfg.refNoAttacks : cfg.ref)[tier],
+    attackPenalty: noAttacks ? 0 : cfg.attackPenalty
+  };
+}
+
+/**
  * The most a declared trade may be set to at this level.
  *
  * 1 at first level, rising by 1 at 4th and every 4 thereafter, to a maximum of

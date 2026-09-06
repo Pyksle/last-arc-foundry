@@ -483,6 +483,15 @@ export function buildContext() {
     // Race-granted senses, shown beside the character's own box (#65). Set so
     // the offline render exercises the branch rather than proving nothing.
     raceSenses: "ZZ low-light vision",
+    hasDrMisc: true,
+    /**
+     * Fight Defensively (#86), shown ACTIVE — the panel has two states and the
+     * one a fixture of defaults never reaches is the interesting one.
+     */
+    fightDefensively: {
+      active: true, noAttacks: false, acrobatics: true,
+      attacking: 5, total: 10, penalty: -5
+    },
     /**
      * Beast Shape, with a form ACTIVE — the panel has two states and the one
      * that only appears mid-encounter is the one nobody would otherwise look

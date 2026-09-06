@@ -12,6 +12,7 @@ import * as INIT from "./initiative.mjs";
 import * as AE from "./action-economy.mjs";
 import * as ATK from "./dice/attack.mjs";
 import * as D from "./derivation.mjs";
+import * as EFFECTS from "./effects.mjs";
 import { rollCheckD20 } from "./dice/d20.mjs";
 
 const SYSTEM_ID = "last-arc";
@@ -234,12 +235,55 @@ export function registerCombat() {
      * flat-footed "until its NEXT turn" — clearing here would hand back the
      * Agility on the single turn the ambush was meant to cost.
      */
+    /**
+     * Switch off what has run out.
+     *
+     * BEFORE the turn-start statuses and the fresh slots, so an effect whose
+     * last round was the one just ending is already gone by the time anything
+     * reads a defence — and so the barrier the tests wait on, which is the
+     * write at the end of this handler, still comes last.
+     *
+     * Every combatant, not just the one acting: a buff on the creature waiting
+     * three places down the order runs out on the same round boundary.
+     */
+    await expireFinishedEffects(combat);
+
     if (!startedThisUpdate) await endTurnStartStatuses(combatant);
 
     // Fresh slots for the INCOMING combatant — but banked minor progress
     // survives the turn boundary, per §9.
     await setTurnState(combatant, AE.beginTurn(getTurnState(combatant)));
   });
+
+  /**
+   * Disable every effect whose duration has run out.
+   *
+   * Foundry counts a duration down and then keeps applying the effect anyway —
+   * `remaining` reaches 0 and the bonus stays for the rest of the campaign.
+   * Verified on a live actor: a one-round +5 to Reflex was still there in round
+   * 3, which made the rounds box on the Add Effect dialog decorative and every
+   * temporary buff permanent.
+   *
+   * The GM's copy only, like the rest of this handler — every client watching
+   * the same combat would otherwise race to write the same flag.
+   */
+  async function expireFinishedEffects(combat) {
+    for (const combatant of combat.combatants) {
+      const actor = combatant.actor;
+      if (!actor?.effects?.size) continue;
+
+      const ids = EFFECTS.effectsToExpire(
+        [...actor.effects].map((e) => EFFECTS.expirySnapshot(e, SYSTEM_ID)));
+      if (!ids.length) continue;
+
+      await actor.updateEmbeddedDocuments("ActiveEffect", ids.map((_id) => ({
+        _id,
+        disabled: true,
+        // Marked, so a GM who switches it back on keeps it on.
+        [`flags.${SYSTEM_ID}.${EFFECTS.AUTO_EXPIRED}`]: true
+      })));
+    }
+  }
 
   // Surface genuine ties for a coin flip rather than settling them invisibly.
   Hooks.on("renderCombatTracker", (app, element) => {
