@@ -263,15 +263,8 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
        * otherwise show three unticked boxes with no hint of why it matches
        * nothing, and no way to clear the entry that is doing it.
        */
-      const stray = (sys.fits ?? []).filter((k) => !LASTARC.ammunitionCategories.has(k));
-      context.ammoFitsOptions = [
-        ...[...LASTARC.ammunitionCategories].map((value) => ({
-          value, label: `LASTARC.WeaponCategory.${value}`,
-          selected: (sys.fits ?? []).includes(value), unknown: false
-        })),
-        ...stray.map((value) => ({ value, label: value, selected: true, unknown: true }))
-      ];
-      context.ammoFitsStray = stray.length > 0;
+      context.ammoFitsOptions = ROWS.ammoFitsOptions(sys.fits ?? []);
+      context.ammoFitsStray = context.ammoFitsOptions.some((o) => o.unknown);
       context.ammoFitsAll = (sys.fits ?? []).length === 0;
       // Offered on every ammunition item, not only when the world uses the
       // die. A GM setting up a stack should not have to switch the world

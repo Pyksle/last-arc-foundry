@@ -24,6 +24,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { LASTARC } from "../module/config.mjs";
 import * as AMMO from "../module/ammunition.mjs";
+import * as ROWS from "../module/sheet-rows.mjs";
 
 const read = (p) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.url)), "utf8");
 const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
@@ -97,6 +98,41 @@ describe("§ #91 the control is ticks, not typing", () => {
     assert.match(body, /\.\.\.LASTARC\.ammunitionCategories/);
     assert.match(body, /this\.document\.system\.fits/,
       "the valid list ignores what the document already holds");
+  });
+
+  test("the rows are BUILT, not asserted about", () => {
+    /**
+     * The previous version of this grepped the sheet for the word `stray` and
+     * passed with the stray list hardcoded to empty — a guard that read the
+     * shape of the code and never its answer. The builder is Foundry-free, so
+     * it can simply be called.
+     */
+    const rows = ROWS.ammoFitsOptions(["crossbows"]);
+    assert.deepEqual(rows.map((r) => r.value), ["bows", "crossbows", "guns"]);
+    assert.deepEqual(rows.map((r) => r.selected), [false, true, false]);
+    assert.ok(rows.every((r) => !r.unknown));
+  });
+
+  test("a stray value gets a ticked row of its own, marked unknown", () => {
+    const rows = ROWS.ammoFitsOptions(["arrows"]);
+    assert.equal(rows.length, 4, "the value that fits nothing is not shown at all");
+
+    const odd = rows.find((r) => r.value === "arrows");
+    assert.ok(odd, "\"arrows\" is invisible, so nothing explains why the quiver "
+      + "matches no weapon");
+    assert.equal(odd.selected, true);
+    assert.equal(odd.unknown, true);
+    assert.equal(odd.label, "arrows", "an unknown value has no translation key");
+
+    // …and the three real ones are all unticked, which is the state that
+    // produced the report.
+    assert.ok(rows.filter((r) => !r.unknown).every((r) => !r.selected));
+  });
+
+  test("an empty list ticks nothing and invents nothing", () => {
+    const rows = ROWS.ammoFitsOptions([]);
+    assert.equal(rows.length, 3);
+    assert.ok(rows.every((r) => !r.selected && !r.unknown));
   });
 
   test("and it is drawn differently, with a note saying why", () => {

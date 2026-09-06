@@ -328,6 +328,34 @@ export function gaugePercent(value, max) {
  *
  * Pure config-to-options mapping, so there is nothing here worth two copies.
  */
+/**
+ * Which weapons a stack of ammunition fits, as tick rows (#91).
+ *
+ * FOUNDRY-FREE and here rather than in the sheet, because the interesting part
+ * is not the three known categories — it is what to do with a value that is not
+ * one of them. The field used to be a free-text comma box and the reporter
+ * typed "arrows" into it, which is the obvious thing to write on an arrow and
+ * matches no weapon category, so the stack fitted nothing at all.
+ *
+ * A stray value therefore gets a row of its own, ticked and marked, so it is
+ * visible and can be cleared. Dropping it from the list instead would leave
+ * three unticked boxes above a quiver that still matched nothing, with no hint
+ * of why — which is the state that produced the report.
+ */
+export function ammoFitsOptions(fits = []) {
+  const known = [...LASTARC.ammunitionCategories].map((value) => ({
+    value,
+    label: `LASTARC.WeaponCategory.${value}`,
+    selected: fits.includes(value),
+    unknown: false
+  }));
+  const stray = fits
+    .filter((k) => !LASTARC.ammunitionCategories.has(k))
+    .map((value) => ({ value, label: value, selected: true, unknown: true }));
+
+  return [...known, ...stray];
+}
+
 export function itemChoiceOptions() {
   return {
     availabilityOptions: Object.keys(LASTARC.availability)
