@@ -409,6 +409,15 @@
             <span class="la-skill__attr">{{localize this.attrAbbr}}</span>
           </button>
           <span class="la-skill__total">{{lasignal this.total}}</span>
+          {{!-- A trait letting another skill answer this check, when that one
+                is better. On the ROW, not saved for the card: a player whose
+                Medicine reads +3 and rolls +9 has to see why before they roll,
+                or the number on their sheet is simply wrong to them. --}}
+          {{#if this.substitutedBy}}
+            <span class="la-skill__via"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.SkillVia'}}">{{localize
+                  this.substitutedBy.label}} {{lasignal this.substitutedBy.total}}</span>
+          {{/if}}
           <span class="la-skill__cell">{{this.halfLevel}}</span>
           <span class="la-skill__cell">{{lasignal this.attrMod}}</span>
           {{!-- The checkbox writes the PLAYER's own training and reflects only
@@ -962,6 +971,15 @@
             <span class="la-skill__attr">{{localize this.attrAbbr}}</span>
           </button>
           <span class="la-skill__total">{{lasignal this.total}}</span>
+          {{!-- A trait letting another skill answer this check, when that one
+                is better. On the ROW, not saved for the card: a player whose
+                Medicine reads +3 and rolls +9 has to see why before they roll,
+                or the number on their sheet is simply wrong to them. --}}
+          {{#if this.substitutedBy}}
+            <span class="la-skill__via"
+                  data-tooltip="{{localize 'LASTARC.Tooltip.SkillVia'}}">{{localize
+                  this.substitutedBy.label}} {{lasignal this.substitutedBy.total}}</span>
+          {{/if}}
           <span class="la-skill__cell">{{this.halfLevel}}</span>
           <span class="la-skill__cell">{{lasignal this.attrMod}}</span>
           {{!-- The checkbox writes the PLAYER's own training and reflects only

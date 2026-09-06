@@ -409,6 +409,36 @@ function grantsSchema() {
      * ANY method. A per-rest counter would be a second limit with no rule
      * behind it, which is what issue #46 was about.
      */
+    /**
+     * "You may use your X check in place of a Y check."
+     *
+     * Seven talents in the demo and errata say some version of this —
+     * Spellcraft for Deception, for Medicine, for Survival; Pilot for Stealth;
+     * Deception for Acrobatics when tumbling — and none of them could be
+     * recorded at all. A character with one simply had a skill row that was
+     * wrong and a GM adjusting it by hand.
+     *
+     * ONE per item, like `reroll` beside it, rather than an array. Every
+     * printed instance grants exactly one substitution, and a repeatable talent
+     * is two items.
+     *
+     * DISTINCT FROM `defenceAttribute`, which swaps the ATTRIBUTE feeding a
+     * defence. This swaps the whole skill: `use`'s total is rolled, carrying
+     * its own training, focus and armour penalty, because that is what "use
+     * your Spellcraft check" means. A trait that swapped only the attribute
+     * inside a skill — "your Str in place of Chr on Persuasion" — is a
+     * different shape and is not this field.
+     */
+    skillSubstitution: new fields.SchemaField({
+      /** The skill actually rolled. */
+      use: new fields.StringField({
+        initial: "", blank: true, choices: ["", ...Object.keys(LASTARC.allSkills)]
+      }),
+      /** The skill it may stand in for. */
+      insteadOf: new fields.StringField({
+        initial: "", blank: true, choices: ["", ...Object.keys(LASTARC.allSkills)]
+      })
+    }),
     reroll: new fields.SchemaField({
       ...Object.fromEntries(LASTARC.grantableRerollKinds.map((kind) => [
         kind, new fields.BooleanField({ initial: false })

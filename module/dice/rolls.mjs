@@ -44,10 +44,34 @@ export async function rollSkill(actor, skillKey, options = {}) {
   const skill = actor.system.skills?.[skillKey];
   if (!skill) throw new Error(`Actor ${actor.name} has no skill "${skillKey}"`);
 
+  /**
+   * Which skill is actually rolled, once substitutions are counted.
+   *
+   * "You may use your Spellcraft check in place of a Medicine check" — the
+   * substitute's own total, with its own training and armour penalty, and only
+   * when it beats the named skill. See `resolveSkillCheck`.
+   */
+  const chosen = D.resolveSkillCheck(
+    skillKey, actor.system.skills, actor.system.skillSubstitutions ?? [],
+    { blocked: actor.system.statuses?.blocksSkills }
+  );
+  const rolledCfg = LASTARC.allSkills[chosen.key] ?? cfg;
+
   // Lore and Perform are eight ordinary skills now (issue #35), so there is no
   // container to unwrap and no free-text specialisation name to resolve.
-  const mod = skill.total;
-  const label = game.i18n.localize(cfg.label);
+  const mod = chosen.total;
+  /**
+   * The card names BOTH. "Medicine (via Spellcraft)" — the check the player
+   * asked for and the skill that answered it. A card showing only one of them
+   * is unauditable: the named skill with the wrong number, or the substitute
+   * with no explanation of why a healer rolled Spellcraft.
+   */
+  const label = chosen.via
+    ? game.i18n.format("LASTARC.Roll.SkillVia", {
+      skill: game.i18n.localize(cfg.label),
+      via: game.i18n.localize(rolledCfg.label)
+    })
+    : game.i18n.localize(cfg.label);
 
   // Refuse to roll for an incapacitated actor rather than producing a number
   // that implies they acted.
@@ -75,9 +99,16 @@ export async function rollSkill(actor, skillKey, options = {}) {
     label: label + situationalSuffix(situationalNote, situational),
     mod: mod + situational,
     dc,
-    isWeaponSkill: !!cfg.weapon,
+    // Of the skill actually ROLLED. A weapon skill answering for a non-weapon
+    // one is not a case the book produces, but the card's rules follow the die.
+    isWeaponSkill: !!rolledCfg.weapon,
     flavourKey: "LASTARC.Roll.SkillCheck",
-    skillKey
+    /**
+     * The skill ROLLED, so a reroll grant scoped to Spellcraft offers itself on
+     * a check Spellcraft actually answered — and one scoped to Medicine does
+     * not offer itself on a die Medicine never touched.
+     */
+    skillKey: chosen.key
   });
 }
 
@@ -261,5 +292,11 @@ export function takeN(actor, skillKey, n) {
     ui.notifications?.warn(game.i18n.localize("LASTARC.Warning.WeaponSkillTakeN"));
     return null;
   }
-  return (actor.system.skills?.[skillKey]?.total ?? 0) + n;
+  // Substituted too. Taking 10 on a check you may make with another skill is
+  // the same check; leaving this out would make Take N quietly the worse route.
+  const chosen = D.resolveSkillCheck(
+    skillKey, actor.system.skills, actor.system.skillSubstitutions ?? [],
+    { blocked: actor.system.statuses?.blocksSkills }
+  );
+  return chosen.total + n;
 }

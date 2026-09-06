@@ -6021,6 +6021,161 @@ function registerTemporaryEffectBatch(quench) {
   );
 
   /* ------------------------------------------------------------------------ */
+  /*  Skill substitution — "use your X check in place of a Y check"           */
+  /* ------------------------------------------------------------------------ */
+
+  quench.registerBatch(
+    `${SYSTEM_ID}.skillSubstitution`,
+    (context) => {
+      const { describe, it, assert } = context;
+
+      /** A character whose trait lets Spellcraft answer for Medicine. */
+      async function withSubstitute(fn, { use = "spellcraft", insteadOf = "medicine" } = {}) {
+        return withActor({
+          system: {
+            classes: [{ name: "mage", levels: 4 }],
+            attributes: { int: { base: 18 }, mnd: { base: 8 } },
+            skills: { spellcraft: { trained: true }, medicine: { trained: false } }
+          }
+        }, async (pc) => {
+          const [trait] = await pc.createEmbeddedDocuments("Item", [{
+            name: "ZZ substitution", type: "talent",
+            system: { active: true, grants: { skillSubstitution: { use, insteadOf } } }
+          }]);
+          return fn(pc, trait);
+        });
+      }
+
+      describe("§ the trait reaches the actor", function () {
+        this.timeout(20000);
+
+        it("survives being written to the document", async function () {
+          // `_prepareSubmitData` cleans every key the schema does not declare,
+          // so a field the model has and the template does not is written and
+          // deleted on the next edit. Nothing the unit suite can see.
+          await withSubstitute(async (pc, trait) => {
+            assert.equal(trait.system.grants.skillSubstitution.use, "spellcraft");
+            assert.equal(trait.system.grants.skillSubstitution.insteadOf, "medicine");
+          });
+        });
+
+        it("arrives on the actor as a list, with its source", async function () {
+          await withSubstitute((pc) => {
+            assert.deepEqual(
+              (pc.system.skillSubstitutions ?? []).map((x) => `${x.use}>${x.insteadOf}`),
+              ["spellcraft>medicine"]);
+            assert.equal(pc.system.skillSubstitutions[0].source, "ZZ substitution");
+          });
+        });
+
+        it("a switched-off trait grants nothing", async function () {
+          // Every conditional flag in this system is switched off when it does
+          // not apply, and a grant that ignored that would be a rule the player
+          // cannot turn off.
+          await withSubstitute(async (pc, trait) => {
+            await trait.update({ "system.active": false });
+            assert.deepEqual(pc.system.skillSubstitutions ?? [], []);
+          });
+        });
+      });
+
+      describe("§ the check rolls the better skill", function () {
+        this.timeout(20000);
+
+        it("and the sheet row says so before the roll", async function () {
+          await withSubstitute(async (pc) => {
+            const sheet = pc.sheet;
+            await sheet.render(true);
+            await settle();
+            try {
+              const ctx = await sheet._prepareContext({});
+              const row = ctx.skills.find((r) => r.key === "medicine");
+              assert.exists(row.substitutedBy,
+                "the row never mentions the substitution, so the total looks wrong");
+              assert.equal(row.substitutedBy.key, "spellcraft");
+              assert.isAbove(row.substitutedBy.total, row.total);
+            } finally {
+              await sheet.close();
+            }
+          });
+        });
+
+        it("the card names the skill asked for AND the one that answered",
+          async function () {
+            await withSubstitute(async (pc) => {
+              const before = game.messages.size;
+              const result = await ROLLS.rollSkill(pc, "medicine");
+              assert.exists(result, "the check did not roll at all");
+              assert.equal(game.messages.size, before + 1);
+
+              /**
+               * The LABEL, not the content. `content` is the rendered die
+               * total; the check's name rides in the flavour line and, for the
+               * reroll rebuild, in the card's own flag.
+               */
+              const card = game.messages.contents.at(-1);
+              const label = card.flags["last-arc"].label;
+              assert.include(label, "Medicine",
+                "the card does not say which check this was");
+              assert.include(label, "Spellcraft",
+                "the card does not say which skill answered it");
+              assert.include(card.flavor, "Medicine",
+                "the flavour line, which is what the table actually reads");
+
+              assert.equal(card.flags["last-arc"].skillKey, "spellcraft",
+                "a reroll scoped to Spellcraft could not match the die it rolled");
+            });
+          });
+
+        it("a check with no substitution is untouched", async function () {
+          await withSubstitute(async (pc) => {
+            const result = await ROLLS.rollSkill(pc, "acrobatics");
+            assert.exists(result);
+            const card = game.messages.contents.at(-1);
+            assert.equal(card.flags["last-arc"].label, "Acrobatics",
+              "an ordinary check is being labelled as a substitution");
+            assert.equal(card.flags["last-arc"].skillKey, "acrobatics");
+          });
+        });
+
+        it("Take N takes the better skill too", async function () {
+          await withSubstitute((pc) => {
+            const medicine = pc.system.skills.medicine.total;
+            const spellcraft = pc.system.skills.spellcraft.total;
+            assert.isAbove(spellcraft, medicine, "the fixture proves nothing");
+            assert.equal(ROLLS.takeN(pc, "medicine", 10), spellcraft + 10);
+          });
+        });
+      });
+
+      describe("§ the item sheet can author both ends", function () {
+        this.timeout(20000);
+
+        it("opens, and offers a select for each", async function () {
+          await withSubstitute(async (pc, trait) => {
+            const sheet = trait.sheet;
+            await sheet.render(true);
+            await settle();
+            try {
+              const use = sheet.element.querySelector(
+                '[name="system.grants.skillSubstitution.use"]');
+              const insteadOf = sheet.element.querySelector(
+                '[name="system.grants.skillSubstitution.insteadOf"]');
+              assert.exists(use, "there is no way to author the substitute");
+              assert.exists(insteadOf, "there is no way to author what it stands in for");
+              assert.equal(use.value, "spellcraft");
+              assert.equal(insteadOf.value, "medicine");
+            } finally {
+              await sheet.close();
+            }
+          });
+        });
+      });
+    },
+    { displayName: "Last Arc — Skill substitution" }
+  );
+
+  /* ------------------------------------------------------------------------ */
   /*  #92 versatile weapons, and the two trades that buy Reflex               */
   /* ------------------------------------------------------------------------ */
 

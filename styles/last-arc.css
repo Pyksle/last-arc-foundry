@@ -1118,6 +1118,16 @@
   text-transform: uppercase;
   color: var(--la-ink-faint);
 }
+/* A trait letting another skill answer this check. Bronze, like every other
+   "a grant is doing this, not you" marker on the sheet. */
+.la-skill__via {
+  font-family: var(--la-font-head);
+  font-size: 0.55rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--la-bronze);
+  white-space: nowrap;
+}
 .la-skill__total {
   font-family: var(--la-font-num);
   font-size: 1.05rem;

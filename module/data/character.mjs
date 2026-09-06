@@ -414,6 +414,16 @@ export class LastArcCharacterData extends foundry.abstract.TypeDataModel {
     this.bonusTechnicks = grants.bonusTechnicks;
 
     /**
+     * Skills this character's traits let them roll in place of others.
+     *
+     * A READOUT for the same reason the rerolls beside it are: the choice is
+     * made at the moment of a check, by `resolveSkillCheck`, and baking the
+     * substitution into the skill row would tell a reader their Medicine is +9
+     * when their Medicine is +3 and their Spellcraft is what is doing the work.
+     */
+    this.skillSubstitutions = grants.skillSubstitutions;
+
+    /**
      * Rerolls this character's traits offer (#48). Read-only, derived from the
      * items — see the class docstring on why nothing derived gets an input.
      *

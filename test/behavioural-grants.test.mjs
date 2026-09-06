@@ -59,6 +59,16 @@ const SOLE_PAYLOADS = {
   // much a payload.
   trainedSkills: { trainedSkills: 1 },
   bonusTechnicks: { bonusTechnicks: 1 },
+  /**
+   * A skill-for-skill substitution adds no number and is the entire content of
+   * the trait carrying it. BOTH halves in one case, because neither alone is a
+   * payload — a row with one select filled in is a trait half-authored, and
+   * `aggregateGrants` drops it.
+   */
+  "skillSubstitution.use": { skillSubstitution: { use: "spellcraft", insteadOf: "medicine" } },
+  "skillSubstitution.insteadOf": {
+    skillSubstitution: { use: "spellcraft", insteadOf: "medicine" }
+  },
   "skills.focus": { skills: [{ key: "athletics", focus: 1 }] },
   "skills.bonus": { skills: [{ key: "athletics", bonus: 2 }] },
   "skills.trained": { skills: [{ key: "athletics", trained: true }] },

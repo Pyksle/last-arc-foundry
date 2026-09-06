@@ -888,6 +888,11 @@
   "LASTARC.Reroll.OfferTooltip": "{kind}. Granted by {source}. One reroll per check, by any method.",
   "LASTARC.Reroll.Applied": "{source}: rolled {original}, then {rerolled} — kept {kept}.",
   "LASTARC.Field.RerollSkill": "Applies to",
+  "LASTARC.Field.SubstituteUse": "May roll this skill…",
+  "LASTARC.Field.SubstituteInsteadOf": "…in place of this one",
+  "LASTARC.Field.NoSubstitution": "— no substitution —",
+  "LASTARC.Tooltip.SkillSubstitution": "For a trait that lets this character make one kind of check with another skill. Both boxes or neither. The substitute is used only when it beats the skill asked for, and the card names both.",
+  "LASTARC.Roll.SkillVia": "{skill} (via {via})",
   "LASTARC.Field.RerollAnyRoll": "Any roll",
   "LASTARC.Tooltip.RerollSkill": "Limit the reroll to one skill. Most traits that grant a reroll name a single skill; leave this on \\u201cAny roll\\u201d only for one that does not.",
   "LASTARC.Section.Effects": "Effects",
@@ -1097,5 +1102,6 @@
   "LASTARC.FightDefensively.Tooltip": "Fight more cautiously as part of an attack: a −5 penalty on all attack rolls for a bonus to Reflex until the start of your next turn. Electing to make no attacks raises the bonus instead. Both are better if you are trained in Acrobatics. While fighting defensively you may only shift, not move your full speed.",
   "LASTARC.FightDefensively.NoAttacksTooltip": "Make no attacks at all until your next turn, counterattacks included, for the larger Reflex bonus.",
   "LASTARC.Field.DrMisc": "Misc DR",
-  "LASTARC.Tooltip.DrMisc": "Damage reduction on top of armour and traits. This is the slot temporary effects write to — the total beside it is derived and cannot be typed into."
+  "LASTARC.Tooltip.DrMisc": "Damage reduction on top of armour and traits. This is the slot temporary effects write to — the total beside it is derived and cannot be typed into.",
+  "LASTARC.Tooltip.SkillVia": "A trait lets this check be made with another skill, and that one is higher — so this is what will be rolled."
 }

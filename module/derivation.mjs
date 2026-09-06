@@ -791,7 +791,15 @@ export function aggregateGrants(grantsList = []) {
      * rule — and a grant that offered itself on every roll would be a quiet
      * upgrade to the trait.
      */
-    rerolls: []
+    rerolls: [],
+    /**
+     * Skill-for-skill substitutions (see `skillSubstitution` on the item).
+     *
+     * A LIST, for the same reason `rerolls` is one: each entry has to name its
+     * source, so the sheet can say which trait is why Medicine is being rolled
+     * with Spellcraft. Summing or de-duplicating them would lose that.
+     */
+    skillSubstitutions: []
   };
 
   for (const g of grantsList) {
@@ -852,6 +860,18 @@ export function aggregateGrants(grantsList = []) {
       out.recoveryMinorActions = out.recoveryMinorActions === null
         ? g.recoveryMinorActions
         : Math.min(out.recoveryMinorActions, g.recoveryMinorActions);
+    }
+
+    const sub = g.skillSubstitution ?? {};
+    // Both halves or neither. A row with one select filled in is a trait
+    // half-authored, and guessing the other end would invent the rule.
+    if (sub.use && sub.insteadOf && sub.use !== sub.insteadOf) {
+      out.skillSubstitutions.push({
+        use: sub.use,
+        insteadOf: sub.insteadOf,
+        source: g.__source ?? null,
+        sourceId: g.__sourceId ?? null
+      });
     }
 
     for (const s of g.skills ?? []) {
@@ -1187,6 +1207,11 @@ export function hasGrantPayload(grants) {
   // null is "does not change the Recovery action"; any number is a change.
   if (grants.recoveryMinorActions != null) return true;
   if (LASTARC.grantableRerollKinds.some((kind) => grants.reroll?.[kind])) return true;
+  // A substitution adds no number either, and it is the whole content of the
+  // trait that carries it — an "empty on purpose" note over one would be a lie
+  // in exactly the way #69's was.
+  const sub = grants.skillSubstitution ?? {};
+  if (sub.use && sub.insteadOf) return true;
 
   // A row with no skill chosen contributes nothing to the actor, so it is not
   // a payload here either — otherwise pressing Add Skill Grant would flip the
@@ -1444,6 +1469,47 @@ export function resolveReroll(original, rerolled, kind) {
  * passive Perception in a properly shape-aware way ten lines further down.
  * Shared so there is one answer.
  */
+/**
+ * Which skill a check is actually rolled with, once substitutions are counted.
+ *
+ * "You MAY use your Spellcraft check in place of a Medicine check" — so the
+ * character never takes the worse of the two, exactly as `substituteDefenceMod`
+ * reads the same permission for a defence. Deciding here rather than prompting
+ * follows the light-weapon choice next door: a permission with no rider
+ * attached is not a decision worth taxing every roll with.
+ *
+ * The substitute's OWN total is used, carrying its own training, focus and
+ * armour check penalty — that is what "use your Spellcraft check" means, and
+ * grafting the named skill's training onto it would be a different rule.
+ *
+ * `blocked` is the set of skills the actor may not roll at all (Silence stops
+ * Spellcraft outright). A blocked substitute is not offered; the named skill's
+ * own gate is left exactly where it was, so this can only ever withhold a
+ * substitution, never permit a roll that was already refused.
+ *
+ * @returns {{key: string, total: number, via: object|null}} `via` is the grant
+ *   that won, or null when the skill was rolled as itself.
+ */
+export function resolveSkillCheck(
+  skillKey, skills = {}, substitutions = [], { blocked = null } = {}
+) {
+  const own = skillTotalOf(skills, skillKey);
+  let best = { key: skillKey, total: own, via: null };
+
+  for (const sub of substitutions) {
+    if (sub?.insteadOf !== skillKey) continue;
+    if (!sub.use || sub.use === skillKey) continue;
+    if (blocked?.has?.(sub.use)) continue;
+
+    const total = skillTotalOf(skills, sub.use);
+    // Strictly better. A tie keeps the skill the player asked for, so an
+    // equal substitute never renames their roll for nothing.
+    if (total > best.total) best = { key: sub.use, total, via: sub };
+  }
+
+  return best;
+}
+
 export function skillTotalOf(skills, key) {
   if (!skills) return 0;
   if (Array.isArray(skills)) return skills.find((s) => s.key === key)?.value ?? 0;
