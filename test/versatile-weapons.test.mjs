@@ -181,9 +181,26 @@ describe("§ #92: the control is reachable", () => {
   test("the grip is offered in the picker", () => {
     // Widening the schema's `choices` without widening the select would leave
     // the grip unauthorable — the exact shape of issue #32.
-    assert.match(model, /choices: \["", "lightWeapon", "oneHanded", "twoHanded"\]/);
+    //
+    // Sliced to `wieldSkill`'s own declaration. The shield's `blockSkill` next
+    // door carries a `choices` list with the same four values, so an unscoped
+    // match went on passing with the weapon's narrowed back to two — a guard
+    // that reported on a field it was not looking at.
+    const field = model.slice(model.indexOf("wieldSkill: new fields.StringField"));
+    assert.match(field.slice(0, field.indexOf("}),")),
+      /choices: \["", "lightWeapon", "oneHanded", "twoHanded"\]/);
+
     const options = sheet.slice(sheet.indexOf("context.wieldSkillOptions"));
     assert.match(options.slice(0, options.indexOf("];")), /value: "twoHanded"/);
+  });
+
+  test("the sheet tells the reader when the choice is theirs", () => {
+    // The `<em>` beside the derived wield line is the only thing that says a
+    // versatile weapon HAS a second grip. Without it the picker offers
+    // Two-Handed on every weapon in the world and never says where it bites.
+    assert.match(sheet, /context\.versatileChoice =\s*\n?\s*D\.versatileAllowsChoice\(/);
+    assert.match(template, /\{\{#if versatileChoice\}\}/);
+    assert.ok(lang["LASTARC.Derived.VersatileChoice"]);
   });
 
   test("the sheet passes the grip to the readout", () => {
