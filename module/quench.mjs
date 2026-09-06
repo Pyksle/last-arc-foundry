@@ -1438,7 +1438,22 @@ function registerSheetBatch(quench) {
           // on the character sheet and dead on the statblock, which is the one
           // that prints "Immune: sleep, fear" in the first place.
           character: { statusImmunities: "ACTION — alt+click the status palette; see test/status-guard.test.mjs" },
-          npc: { statusImmunities: "ACTION — alt+click the status palette; see test/status-guard.test.mjs" }
+          npc: { statusImmunities: "ACTION — alt+click the status palette; see test/status-guard.test.mjs" },
+          /**
+           * The same shape, and for a stronger reason than the palette's (#91).
+           *
+           * `fits` holds WEAPON CATEGORY KEYS, and a comma box could not say so
+           * — the reporter typed "arrows", which matches nothing, and their
+           * quiver never appeared in the Reload picker. A free-text control for
+           * a closed list of three is the defect, not the missing guard.
+           *
+           * Ticks instead, written by `#toggleInArray` straight to the
+           * document. Not taken on trust: the ammunition batch clicks the real
+           * button and reads the document back, clicks it again to clear, and
+           * checks that a stray value is drawn, marked and removable —
+           * a stronger claim than "some input's name starts with fits".
+           */
+          ammunition: { fits: "ACTION — tick the weapon categories; see the ammunition batch" }
         };
 
         it("every array of plain values can be edited somehow", async function () {
@@ -5779,13 +5794,24 @@ function registerFormListBatch(quench) {
         return el;
       }
 
+      /**
+       * `ammunition.fits` USED TO BE HERE and is not a comma box any more (#91).
+       *
+       * It was the field the reporter could not make work: nothing on the sheet
+       * said the words it wanted were `bows` and `crossbows`, and "arrows" —
+       * the obvious thing to write on an arrow — matches no weapon category, so
+       * the stack silently fitted nothing. It is ticks now, which cannot be
+       * misspelled and which write straight to the document.
+       *
+       * Its replacement is covered in the ammunition batch: the tick reaching
+       * the document, clearing again, and a stray value being visible and
+       * removable.
+       */
       const ITEM_BOXES = [
         { type: "race", box: "system.sensesText", path: "senses",
           text: "Darkvision, Scent", want: ["Darkvision", "Scent"] },
         { type: "weapon", box: "system.featuresText", path: "features",
           text: "Reach, Finesse", want: ["Reach", "Finesse"] },
-        { type: "ammunition", box: "system.fitsText", path: "fits",
-          text: "bows, crossbows", want: ["bows", "crossbows"] },
         { type: "technick", box: "system.prerequisites.trainedSkillsText",
           path: "prerequisites.trainedSkills",
           text: "athletics, survival", want: ["athletics", "survival"] },
