@@ -26,7 +26,8 @@ import { orderBySort } from "../item-order.mjs";
 import { markOrder, moveItem } from "./reorder.mjs";
 import {
   applyLayout, sectionLabels, toggleSection, moveSection, toggleLayoutLock, resetLayout,
-  rememberScroll, restoreScroll
+  rememberScroll, restoreScroll,
+  saveLayoutProfile, switchLayoutProfile, deleteLayoutProfile
 } from "./sheet-layout-controls.mjs";
 import { markStatuses, toggleStatus } from "./status-palette.mjs";
 import { damageModTexts, repackDamageMods } from "./damage-mods.mjs";
@@ -106,7 +107,10 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
       toggleSection: LastArcCharacterSheet.#onToggleSection,
       moveSection: LastArcCharacterSheet.#onMoveSection,
       toggleLayoutLock: LastArcCharacterSheet.#onToggleLayoutLock,
-      resetLayout: LastArcCharacterSheet.#onResetLayout
+      resetLayout: LastArcCharacterSheet.#onResetLayout,
+      saveLayoutProfile: LastArcCharacterSheet.#onSaveLayoutProfile,
+      switchLayoutProfile: LastArcCharacterSheet.#onSwitchLayoutProfile,
+      deleteLayoutProfile: LastArcCharacterSheet.#onDeleteLayoutProfile
     }
   };
 
@@ -1450,6 +1454,20 @@ export class LastArcCharacterSheet extends HandlebarsApplicationMixin(ActorSheet
 
   static async #onResetLayout() {
     await resetLayout(this, "character");
+  }
+
+  /* -- saved arrangements (#93) -------------------------------------------- */
+
+  static async #onSaveLayoutProfile() {
+    await saveLayoutProfile(this, "character");
+  }
+
+  static async #onSwitchLayoutProfile(event, target) {
+    await switchLayoutProfile(this, "character", target);
+  }
+
+  static async #onDeleteLayoutProfile() {
+    await deleteLayoutProfile(this, "character");
   }
 
   /**

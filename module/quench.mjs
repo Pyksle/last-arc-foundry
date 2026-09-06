@@ -32,6 +32,7 @@ import { effectPanelRows, toggleEffect, deleteEffect } from "./sheets/effect-pan
 import * as AMMO from "./ammunition.mjs";
 import * as AMMOSTORE from "./dice/ammunition.mjs";
 import * as LAYOUT from "./sheets/sheet-layout-controls.mjs";
+import * as L from "./sheet-layout.mjs";
 import * as GUARD from "./status-guard.mjs";
 import * as FD from "./fight-defensively.mjs";
 import * as STANCE from "./declared-stance.mjs";
@@ -3453,6 +3454,134 @@ function registerAmmunitionBatch(quench) {
                   .map((s) => s.id).filter((id) => !CONDITIONAL.has(id)));
               assert.isUndefined(game.user.getFlag(SYSTEM_ID, `${FLAG}.${pc.id}`),
                 "reset must UNSET; setFlag merges and would leave the entry behind");
+            });
+          });
+        });
+      });
+
+      describe("saved arrangements (#93)", function () {
+        // Every test here renders a real sheet, which the 2s default does not cover.
+        this.timeout(20000);
+
+        const stored = (id) => game.user.getFlag(SYSTEM_ID, `${FLAG}.${id}`) ?? {};
+        const picker = (sheet) =>
+          sheet.element.querySelector('[data-action="switchLayoutProfile"]');
+
+        /** Save the arrangement on screen without going through the prompt. */
+        async function save(sheet, pc, name) {
+          const layout = LAYOUT.applyLayout(sheet, "character");
+          const now = stored(pc.id);
+          await game.user.setFlag(SYSTEM_ID, FLAG, {
+            [pc.id]: {
+              order: layout.order,
+              collapsed: now.collapsed ?? [],
+              locked: now.locked ?? true,
+              profiles: L.saveProfile(now.profiles ?? [], name, {
+                order: layout.order, collapsed: now.collapsed ?? []
+              }),
+              active: name
+            }
+          });
+          LAYOUT.applyLayout(sheet, "character");
+        }
+
+        it("the picker stays hidden until something is saved", async function () {
+          await withActor({}, async (pc) => {
+            await withSheet(pc, (sheet) => {
+              const wrap = sheet.element.querySelector(".la-layout__profiles");
+              assert.exists(wrap, "the picker is not in the toolbar at all");
+              assert.isTrue(wrap.hidden,
+                "an empty dropdown is offered on every untouched sheet");
+            });
+          });
+        });
+
+        it("a saved arrangement appears in the picker, and is selected", async function () {
+          await withActor({}, async (pc) => {
+            await withSheet(pc, async (sheet) => {
+              await save(sheet, pc, "Combat");
+
+              const wrap = sheet.element.querySelector(".la-layout__profiles");
+              assert.isFalse(wrap.hidden, "the picker is still hidden");
+
+              const names = [...picker(sheet).options].map((o) => o.value);
+              assert.deepEqual(names, ["", "Combat"]);
+              assert.equal(picker(sheet).value, "Combat",
+                "the arrangement just saved is not the one showing");
+            });
+          });
+        });
+
+        it("switching to one actually moves the panels", async function () {
+          await withActor({}, async (pc) => {
+            await withSheet(pc, async (sheet) => {
+              await LAYOUT.toggleLayoutLock(sheet, "character");
+
+              // Build an arrangement, name it, then put the sheet back and
+              // switch to it. The panels must follow.
+              sheet.element
+                .querySelector('.la-panel[data-section="biography"] [data-direction="up"]')
+                .click();
+              await settle();
+              const arranged = sections(sheet);
+              await save(sheet, pc, "Combat");
+
+              await LAYOUT.resetLayout(sheet, "character");
+              assert.notDeepEqual(sections(sheet), arranged, "reset did nothing");
+
+              const select = picker(sheet);
+              select.value = "Combat";
+              await LAYOUT.switchLayoutProfile(sheet, "character", select);
+              await settle();
+
+              assert.deepEqual(sections(sheet), arranged,
+                "the saved arrangement was not applied to the DOM");
+            });
+          });
+        });
+
+        it("folding a panel afterwards stops the picker claiming one", async function () {
+          await withActor({}, async (pc) => {
+            await withSheet(pc, async (sheet) => {
+              await save(sheet, pc, "Combat");
+              assert.equal(picker(sheet).value, "Combat");
+
+              sheet.element
+                .querySelector('.la-panel[data-section="skills"] [data-action="toggleSection"]')
+                .click();
+              await settle();
+
+              assert.equal(picker(sheet).value, "",
+                "the picker still names an arrangement that is no longer on screen");
+              assert.isNull(stored(pc.id).active ?? null);
+            });
+          });
+        });
+
+        it("Reset keeps the arrangements you named", async function () {
+          await withActor({}, async (pc) => {
+            await withSheet(pc, async (sheet) => {
+              await save(sheet, pc, "Combat");
+              await LAYOUT.resetLayout(sheet, "character");
+              await settle();
+
+              assert.deepEqual((stored(pc.id).profiles ?? []).map((x) => x.name),
+                ["Combat"], "Reset threw away work the reader named, with no undo");
+              assert.isFalse(sheet.element.querySelector(".la-layout__profiles").hidden,
+                "the picker went away with the arrangement");
+            });
+          });
+        });
+
+        it("forgetting one empties the picker again", async function () {
+          await withActor({}, async (pc) => {
+            await withSheet(pc, async (sheet) => {
+              await save(sheet, pc, "Combat");
+              await LAYOUT.deleteLayoutProfile(sheet, "character");
+              await settle();
+
+              assert.deepEqual(stored(pc.id).profiles ?? [], []);
+              assert.isTrue(sheet.element.querySelector(".la-layout__profiles").hidden);
             });
           });
         });

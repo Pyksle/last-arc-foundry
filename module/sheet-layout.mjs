@@ -44,8 +44,77 @@
 export const DEFAULT_LAYOUT = Object.freeze({
   order: Object.freeze([]),
   collapsed: Object.freeze([]),
-  locked: true
+  locked: true,
+  profiles: Object.freeze([]),
+  active: null
 });
+
+/**
+ * Saved arrangements a reader can swap between (#93).
+ *
+ * "If I could make my own tabs/folders to swap between when we're in combat or
+ * out of combat that would be cool." Not tabs in the end: a tab hides what is
+ * not in it, and this sheet's panels are already collapsible, orderable and
+ * sometimes absent. A PROFILE is a snapshot of the arrangement the reader has
+ * already built — the order and what is folded away — under a name, and
+ * swapping applies it. Nothing is hidden that could not already be folded, and
+ * a profile saved before a panel shipped still places that panel correctly,
+ * because applying one goes back through `normaliseOrder`.
+ *
+ * An ARRAY, for the reason `collapsed` is one and #53 is cited above: `setFlag`
+ * merges objects key by key, so deleting a profile from a map would leave it
+ * exactly where it was. Arrays are replaced wholesale.
+ */
+export const MAX_PROFILES = 8;
+
+/** Longest name the picker can show without the select going elastic. */
+export const MAX_PROFILE_NAME = 24;
+
+/** Trim, collapse runs of whitespace, cap the length. "" means unusable. */
+export function normaliseProfileName(name = "") {
+  return String(name ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_PROFILE_NAME);
+}
+
+/** Case-insensitively, because "Combat" and "combat" are one profile to a reader. */
+export function findProfile(profiles = [], name) {
+  const wanted = normaliseProfileName(name).toLowerCase();
+  if (!wanted) return null;
+  return profiles.find((p) => normaliseProfileName(p?.name).toLowerCase() === wanted) ?? null;
+}
+
+/**
+ * Save the current arrangement under a name.
+ *
+ * Overwrites a profile of the same name IN PLACE rather than appending, so
+ * re-saving "Combat" after nudging a panel updates it where it sits instead of
+ * adding a second row the picker cannot tell apart.
+ *
+ * @returns {Array|null} a new array, or null when the name is unusable or the
+ *   list is full and this would be a new entry
+ */
+export function saveProfile(profiles = [], name, { order = [], collapsed = [] } = {}) {
+  const clean = normaliseProfileName(name);
+  if (!clean) return null;
+
+  const entry = { name: clean, order: [...order], collapsed: [...collapsed] };
+  const at = profiles.findIndex(
+    (p) => normaliseProfileName(p?.name).toLowerCase() === clean.toLowerCase());
+
+  if (at >= 0) {
+    const next = [...profiles];
+    next[at] = entry;
+    return next;
+  }
+  if (profiles.length >= MAX_PROFILES) return null;
+  return [...profiles, entry];
+}
+
+/** Drop one by name. Returns a new array, unchanged when there was no match. */
+export function deleteProfile(profiles = [], name) {
+  const wanted = normaliseProfileName(name).toLowerCase();
+  return profiles.filter(
+    (p) => normaliseProfileName(p?.name).toLowerCase() !== wanted);
+}
 
 /**
  * Reconcile a saved order with the sections the system currently ships.
@@ -180,11 +249,32 @@ export function resolveLayout({ saved = null, canonical = [], present = null } =
   const first = visible[0] ?? null;
   const last = visible[visible.length - 1] ?? null;
 
+  /**
+   * `active` names the profile last APPLIED, and is cleared by any subsequent
+   * move or collapse — the picker would otherwise claim to be showing "Combat"
+   * over an arrangement the reader has since changed. An unrecognised name
+   * reads as none, so deleting the active profile leaves no dangling label.
+   */
+  const profiles = (flag.profiles ?? []).filter((p) => normaliseProfileName(p?.name));
+  // Resolved to the PROFILE'S OWN spelling, not the stored one. Names match
+  // case-insensitively, so "downtime" must select the row called "Downtime" —
+  // matching on the raw string leaves the picker with nothing highlighted.
+  const found = findProfile(profiles, flag.active);
+  const active = found ? normaliseProfileName(found.name) : null;
+
   return {
     // Anything other than an explicit `false` is locked, so a flag written by
     // an older version — or a half-written one — errs towards not moving.
     locked: flag.locked !== false,
     order,
+    profiles: profiles.map((p) => ({
+      name: normaliseProfileName(p.name),
+      isActive: normaliseProfileName(p.name) === active
+    })),
+    active,
+    // The picker is worth drawing at all only once something is in it, and the
+    // Save button only once the reader is arranging.
+    canSave: profiles.length < MAX_PROFILES,
     rows: order.map((id, index) => ({
       id,
       index,

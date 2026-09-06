@@ -83,7 +83,15 @@ async function store(actorId, patch) {
     order: patch.order ?? now.order ?? [],
     collapsed: patch.collapsed ?? now.collapsed ?? [],
     // `??` and not `||`: unlocking writes `false`, which is the whole point.
-    locked: patch.locked ?? now.locked ?? true
+    locked: patch.locked ?? now.locked ?? true,
+    profiles: patch.profiles ?? now.profiles ?? [],
+    /**
+     * `active` is the one key that must be able to become nothing, so it is
+     * written as an explicit `null` rather than left out — `??` would read a
+     * deliberate "no profile is showing any more" as "keep the old one", and
+     * the picker would go on naming an arrangement the reader has since moved.
+     */
+    active: patch.active === undefined ? (now.active ?? null) : patch.active
   };
   PENDING.set(actorId, next);
   try {
@@ -190,6 +198,8 @@ export function applyLayout(sheet, type) {
   root.classList.toggle("is-layout-unlocked", !layout.locked);
   reEnable(root);
 
+  paintProfiles(root, layout);
+
   const toggle = root.querySelector('[data-action="toggleLayoutLock"]');
   if (toggle) {
     const key = layout.locked ? "LASTARC.Layout.Arrange" : "LASTARC.Layout.Done";
@@ -292,7 +302,10 @@ export async function toggleSection(sheet, type, target) {
   panel?.classList.toggle("is-collapsed", isCollapsed);
   target.setAttribute("aria-expanded", String(!isCollapsed));
 
-  await store(sheet.document.id, { collapsed });
+  // `active: null` — the arrangement is no longer the profile that was applied,
+  // and a picker that still names one is lying about what is on screen (#93).
+  await store(sheet.document.id, { collapsed, active: null });
+  refreshProfiles(sheet, type);
 }
 
 /**
@@ -310,7 +323,7 @@ export async function moveSection(sheet, type, target) {
   const next = L.moveSection(layout.order, id, target.dataset.direction, present);
   if (!next) return;   // already at that end of what is on screen
 
-  await store(sheet.document.id, { order: next });
+  await store(sheet.document.id, { order: next, active: null });
   applyLayout(sheet, type);
 
   /**
@@ -320,6 +333,157 @@ export async function moveSection(sheet, type, target) {
    * alone when the panel is already visible, which is the common case.
    */
   target.closest(".la-panel")?.scrollIntoView({ block: "nearest" });
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*  Saved arrangements (#93)                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Fill the picker and set the buttons' availability.
+ *
+ * Written into the DOM rather than through the context, because nothing here
+ * re-renders — the whole point of #54's design is that a layout gesture never
+ * disturbs the scroll position, and re-rendering to redraw a `<select>` would
+ * throw away exactly what #55 asked to keep.
+ */
+function paintProfiles(root, layout) {
+  const wrap = root.querySelector(".la-layout__profiles");
+  if (!wrap) return;
+
+  // Hidden until there is something in it. A reader who has never saved an
+  // arrangement is offered a Save button and no empty dropdown beside it.
+  wrap.hidden = layout.profiles.length === 0;
+
+  const select = wrap.querySelector('[data-action="switchLayoutProfile"]');
+  if (select) {
+    const none = game.i18n.localize("LASTARC.Layout.NoProfile");
+    select.innerHTML = [`<option value="">${none}</option>`]
+      .concat(layout.profiles.map((profile) => {
+        const name = foundry.utils.escapeHTML?.(profile.name) ?? profile.name;
+        return `<option value="${name}"${profile.isActive ? " selected" : ""}>${name}</option>`;
+      }))
+      .join("");
+  }
+
+  const del = root.querySelector('[data-action="deleteLayoutProfile"]');
+  // Only the arrangement currently showing can be deleted, so the button never
+  // has to ask which — and it is unavailable when none is showing.
+  if (del) del.disabled = !layout.active;
+
+  const save = root.querySelector('[data-action="saveLayoutProfile"]');
+  if (save) save.disabled = !layout.canSave;
+}
+
+/** Repaint the picker after a write that did not move any panel. */
+function refreshProfiles(sheet, type) {
+  const root = sheet.element;
+  if (!root) return;
+  paintProfiles(root, currentLayout(sheet, type, [...panelsOf(sheet).keys()]));
+}
+
+/**
+ * Save the arrangement now on screen under a name the reader gives.
+ *
+ * The ORDER stored is the resolved one, not the raw flag: a reader who has
+ * never touched the arrows has no saved order at all, and storing `[]` would
+ * make the profile mean "whatever ships" for ever rather than "what I am
+ * looking at now".
+ */
+export async function saveLayoutProfile(sheet, type) {
+  const layout = currentLayout(sheet, type, null);
+  const now = saved(sheet.document.id) ?? {};
+
+  const name = await promptForName(layout.active);
+  if (name === null) return;   // dismissed — not the same as an empty name
+
+  const profiles = L.saveProfile(now.profiles ?? [], name, {
+    order: layout.order,
+    collapsed: now.collapsed ?? []
+  });
+
+  if (!profiles) {
+    ui.notifications?.warn(game.i18n.format("LASTARC.Layout.ProfileRefused",
+      { max: L.MAX_PROFILES }));
+    return;
+  }
+
+  await store(sheet.document.id, {
+    profiles, active: L.normaliseProfileName(name)
+  });
+  refreshProfiles(sheet, type);
+}
+
+/**
+ * Apply a saved arrangement.
+ *
+ * Through `normaliseOrder` by way of `applyLayout`, so a profile saved before a
+ * panel existed still places that panel where it was designed to go rather than
+ * dropping it or parking it under Biography.
+ */
+export async function switchLayoutProfile(sheet, type, target) {
+  const name = target.value;
+  const now = saved(sheet.document.id) ?? {};
+
+  // The blank row means "no saved arrangement", which changes nothing on screen
+  // — it only stops the picker claiming one is in force.
+  if (!name) {
+    await store(sheet.document.id, { active: null });
+    refreshProfiles(sheet, type);
+    return;
+  }
+
+  const profile = L.findProfile(now.profiles ?? [], name);
+  if (!profile) return;
+
+  await store(sheet.document.id, {
+    order: profile.order ?? [],
+    collapsed: profile.collapsed ?? [],
+    active: L.normaliseProfileName(profile.name)
+  });
+  applyLayout(sheet, type);
+}
+
+/** Forget the arrangement currently showing. */
+export async function deleteLayoutProfile(sheet, type) {
+  const now = saved(sheet.document.id) ?? {};
+  const layout = currentLayout(sheet, type, null);
+  if (!layout.active) return;
+
+  await store(sheet.document.id, {
+    profiles: L.deleteProfile(now.profiles ?? [], layout.active),
+    active: null
+  });
+  refreshProfiles(sheet, type);
+}
+
+/**
+ * Ask for a name.
+ *
+ * Returns null when the dialog was dismissed, which must not be read as an
+ * empty name — dismissing is "I did not mean to", and saving a profile called
+ * "" would be a row the picker cannot show.
+ */
+async function promptForName(current = null) {
+  const value = current ?? "";
+  const result = await foundry.applications.api.DialogV2.prompt({
+    window: { title: game.i18n.localize("LASTARC.Layout.SaveProfile") },
+    content: `<div class="la-situational">
+      <label>
+        <span>${game.i18n.localize("LASTARC.Layout.ProfileName")}</span>
+        <input type="text" name="name" value="${value}" autofocus
+               maxlength="${L.MAX_PROFILE_NAME}"
+               placeholder="${game.i18n.localize("LASTARC.Layout.ProfilePlaceholder")}">
+      </label>
+    </div>`,
+    ok: {
+      label: game.i18n.localize("LASTARC.Layout.Save"),
+      callback: (event, button) => button.form.elements.name.value
+    },
+    rejectClose: false
+  });
+  return result ?? null;
 }
 
 /** Take the catch off, or put it back on (#54). */
@@ -339,6 +503,25 @@ export async function toggleLayoutLock(sheet, type) {
  * which is the definition of "the way it ships".
  */
 export async function resetLayout(sheet, type) {
+  /**
+   * SAVED PROFILES SURVIVE IT (#93).
+   *
+   * Reset is about the arrangement on screen. A reader who has named two
+   * arrangements and reaches for Reset means "put this one back", not "throw
+   * away the work I named" — and there is no undo. With profiles to keep, the
+   * defaults are written in full instead; `store` states every key, so that is
+   * a complete overwrite rather than the half-cleared corpse the comment below
+   * warns about.
+   */
+  const kept = (saved(sheet.document.id) ?? {}).profiles ?? [];
+  if (kept.length) {
+    await store(sheet.document.id, {
+      order: [], collapsed: [], locked: true, profiles: kept, active: null
+    });
+    applyLayout(sheet, type);
+    return;
+  }
+
   // Drop the optimistic copy first, or a re-render mid-round-trip would restore
   // the arrangement this is removing.
   PENDING.delete(sheet.document.id);

@@ -18,4 +18,26 @@
           data-tooltip="{{localize 'LASTARC.Tooltip.Arrange'}}">{{localize "LASTARC.Layout.Arrange"}}</button>
   <button type="button" class="la-layout__reset" data-action="resetLayout"
           data-tooltip="{{localize 'LASTARC.Tooltip.ResetLayout'}}">{{localize "LASTARC.Layout.Reset"}}</button>
+
+  {{!-- Saved arrangements (#93): "make my own tabs/folders to swap between
+        when we're in combat or out of combat".
+
+        The PICKER stays available while the sheet is locked, because swapping
+        is the thing being asked for and it is not an accident waiting to
+        happen — it applies an arrangement the reader built and named. Saving
+        and deleting live behind Arrange with the move arrows, since those are
+        the gestures that change what is stored.
+
+        Filled by `paintProfiles` rather than from the context: nothing here
+        re-renders, and re-rendering to redraw a select would throw away the
+        scroll position #55 asked to keep. Hidden until the first one is saved. --}}
+  <span class="la-layout__profiles" hidden>
+    <select class="la-layout__profile" data-action="switchLayoutProfile"
+            data-tooltip="{{localize 'LASTARC.Tooltip.SwitchProfile'}}"
+            aria-label="{{localize 'LASTARC.Layout.Profiles'}}"></select>
+  </span>
+  <button type="button" class="la-layout__save" data-action="saveLayoutProfile"
+          data-tooltip="{{localize 'LASTARC.Tooltip.SaveProfile'}}">{{localize "LASTARC.Layout.SaveProfile"}}</button>
+  <button type="button" class="la-layout__delete" data-action="deleteLayoutProfile"
+          data-tooltip="{{localize 'LASTARC.Tooltip.DeleteProfile'}}">{{localize "LASTARC.Layout.DeleteProfile"}}</button>
 </div>
