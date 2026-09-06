@@ -633,11 +633,17 @@ export function itemContext(type) {
     isConsumable: false,
     noDamageType: false,
     wieldCategory: "oneHanded",
+    ammoFitsOptions: [
+      { value: "bows", label: "LASTARC.WeaponCategory.bows", selected: true, unknown: false },
+      { value: "crossbows", label: "LASTARC.WeaponCategory.crossbows",
+        selected: false, unknown: false }
+    ],
+    ammoFitsStray: false,
+    ammoFitsAll: false,
     wieldChoice: null,
     versatileChoice: null,
     strMultiplier: 1,
     decayText: "",
-    fitsText: "",
     // From the real state list, not stubbed as `[]` — an empty stub renders an
     // empty dropdown, which is exactly the lie the reachable-choices guard
     // exists to catch.

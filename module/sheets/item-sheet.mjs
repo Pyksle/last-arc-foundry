@@ -59,6 +59,7 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       addSkillGrant: LastArcItemSheet.#onAddSkillGrant,
       deleteSkillGrant: LastArcItemSheet.#onDeleteSkillGrant,
       toggleDamageType: LastArcItemSheet.#onToggleDamageType,
+      toggleAmmoFits: LastArcItemSheet.#onToggleAmmoFits,
       toggleTechnickFlag: LastArcItemSheet.#onToggleTechnickFlag,
       toggleGrantWeaponProf: LastArcItemSheet.#onToggleGrantWeaponProf,
       toggleGrantArmourProf: LastArcItemSheet.#onToggleGrantArmourProf
@@ -242,7 +243,29 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // row-adding widget. They are short, unordered lists of free text, and a
     // full editor for them would cost more clicks than typing.
     if (item.type === "ammunition") {
-      context.fitsText = sys.fits.join(", ");
+      /**
+       * WHICH WEAPONS THIS FITS, as ticks rather than as typing (#91).
+       *
+       * It was a comma box, and the reporter's complaint — "the fits option is
+       * defaulting back to arrows" — is really two: the box lost what they
+       * typed on an older build (#87 fixed that in 0.62.1), and there was no
+       * way to know that the words it wanted were `bows` and `crossbows`.
+       * "Arrows" is the obvious thing to type into a field on an arrow, and it
+       * matches no weapon category, so the quiver silently fits nothing.
+       *
+       * Ticks answer both. They name the three categories that eat ammunition,
+       * they cannot be misspelled, and — being written by `#toggleInArray`
+       * straight to the document — they never pass through the submit pipeline
+       * that ate the typing in the first place.
+       *
+       * ANY VALUE ALREADY ON THE DOCUMENT gets a tick of its own, even one
+       * this list does not recognise. A stack that says it fits "arrows" would
+       * otherwise show three unticked boxes with no hint of why it matches
+       * nothing, and no way to clear the entry that is doing it.
+       */
+      context.ammoFitsOptions = ROWS.ammoFitsOptions(sys.fits ?? []);
+      context.ammoFitsStray = context.ammoFitsOptions.some((o) => o.unknown);
+      context.ammoFitsAll = (sys.fits ?? []).length === 0;
       // Offered on every ammunition item, not only when the world uses the
       // die. A GM setting up a stack should not have to switch the world
       // setting on to be able to type into the field the schema declares —
@@ -406,7 +429,6 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
      * empty. See `form-lists.mjs`.
      */
     LISTS.repackTextLists(formData, submit, {
-      "system.fitsText": "system.fits",
       "system.sensesText": "system.senses",
       "system.languagesText": "system.languages",
       "system.featuresText": "system.features",
@@ -527,6 +549,22 @@ export class LastArcItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   static async #onToggleDamageType(event, target) {
     await this.#toggleInArray("damageType", target.dataset.key, LASTARC.allDamageTypes);
+  }
+
+  /**
+   * Which weapons a stack of ammunition fits (#91).
+   *
+   * Valid keys are the three ammunition categories PLUS whatever the document
+   * already holds — otherwise `#toggleInArray` refuses an unrecognised value
+   * and a stack that says it fits "arrows" could never be corrected, only
+   * deleted.
+   */
+  static async #onToggleAmmoFits(event, target) {
+    const valid = [
+      ...LASTARC.ammunitionCategories,
+      ...(this.document.system.fits ?? [])
+    ];
+    await this.#toggleInArray("fits", target.dataset.key, valid);
   }
 
   static async #onToggleTechnickFlag(event, target) {

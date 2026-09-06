@@ -1320,6 +1320,15 @@
   color: var(--la-ink-faint);
 }
 .la-prof__box.is-active .la-prof__tick { color: var(--la-bronze); }
+/* A value the list does not recognise — typed into the comma box this replaced,
+   and matching no weapon category, so the stack it is on fits nothing (#91).
+   Drawn in oxblood rather than bronze so it does not read as an ordinary tick:
+   the note under the grid says to untick it, and the marker has to agree. */
+.la-prof__box.is-unknown {
+  border-color: var(--la-oxblood);
+  background: color-mix(in srgb, var(--la-oxblood) 10%, transparent);
+}
+.la-prof__box.is-unknown .la-prof__tick { color: var(--la-oxblood); }
 .la-prof__title {
   font-size: 0.65rem;
   text-transform: uppercase;

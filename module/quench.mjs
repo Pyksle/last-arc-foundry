@@ -1438,7 +1438,22 @@ function registerSheetBatch(quench) {
           // on the character sheet and dead on the statblock, which is the one
           // that prints "Immune: sleep, fear" in the first place.
           character: { statusImmunities: "ACTION — alt+click the status palette; see test/status-guard.test.mjs" },
-          npc: { statusImmunities: "ACTION — alt+click the status palette; see test/status-guard.test.mjs" }
+          npc: { statusImmunities: "ACTION — alt+click the status palette; see test/status-guard.test.mjs" },
+          /**
+           * The same shape, and for a stronger reason than the palette's (#91).
+           *
+           * `fits` holds WEAPON CATEGORY KEYS, and a comma box could not say so
+           * — the reporter typed "arrows", which matches nothing, and their
+           * quiver never appeared in the Reload picker. A free-text control for
+           * a closed list of three is the defect, not the missing guard.
+           *
+           * Ticks instead, written by `#toggleInArray` straight to the
+           * document. Not taken on trust: the ammunition batch clicks the real
+           * button and reads the document back, clicks it again to clear, and
+           * checks that a stray value is drawn, marked and removable —
+           * a stronger claim than "some input's name starts with fits".
+           */
+          ammunition: { fits: "ACTION — tick the weapon categories; see the ammunition batch" }
         };
 
         it("every array of plain values can be edited somehow", async function () {
@@ -2826,6 +2841,94 @@ function registerAmmunitionBatch(quench) {
           });
         });
       }
+
+      describe("§ #91 which weapons a stack fits", function () {
+        this.timeout(20000);
+
+        async function withStack(fits, fn) {
+          return withActor({}, async (pc) => {
+            const [ammo] = await pc.createEmbeddedDocuments("Item", [
+              { name: "ZZ stack", type: "ammunition", system: { fits, quantity: 20 } }
+            ]);
+            const sheet = ammo.sheet;
+            await sheet.render(true);
+            await settle();
+            try {
+              return await fn(ammo, sheet, pc);
+            } finally {
+              await sheet.close();
+            }
+          });
+        }
+
+        it("ticks the categories the stack actually names", async function () {
+          await withStack(["crossbows"], async (ammo, sheet) => {
+            const ctx = await sheet._prepareContext({});
+            const ticked = ctx.ammoFitsOptions.filter((o) => o.selected).map((o) => o.value);
+            assert.deepEqual(ticked, ["crossbows"]);
+            assert.isFalse(ctx.ammoFitsStray);
+            assert.isFalse(ctx.ammoFitsAll);
+          });
+        });
+
+        it("a tick writes through, and survives the round trip", async function () {
+          /**
+           * The whole point of replacing the comma box: a tick goes straight to
+           * the document and never passes `_prepareSubmitData`, which is what
+           * ate the typing before 0.62.1.
+           */
+          await withStack([], async (ammo, sheet) => {
+            const button = sheet.element.querySelector(
+              '[data-action="toggleAmmoFits"][data-key="crossbows"]');
+            assert.exists(button, "there is no tick for crossbows to click");
+            button.click();
+            await settle();
+
+            assert.deepEqual(ammo.system.fits, ["crossbows"],
+              "the tick did not reach the document");
+          });
+        });
+
+        it("and clicking it again clears it", async function () {
+          await withStack(["crossbows"], async (ammo, sheet) => {
+            sheet.element.querySelector(
+              '[data-action="toggleAmmoFits"][data-key="crossbows"]').click();
+            await settle();
+            assert.deepEqual(ammo.system.fits, []);
+          });
+        });
+
+        it("a value that matches no weapon is shown, marked, and removable",
+          async function () {
+            // The reported state: "arrows" typed into the old box, matching
+            // nothing, with no way to see why the quiver never appears.
+            await withStack(["arrows"], async (ammo, sheet) => {
+              const ctx = await sheet._prepareContext({});
+              assert.isTrue(ctx.ammoFitsStray, "nothing warns that this fits nothing");
+
+              const odd = sheet.element.querySelector(
+                '[data-action="toggleAmmoFits"][data-key="arrows"]');
+              assert.exists(odd, "the offending value is invisible on the sheet");
+              odd.click();
+              await settle();
+              assert.deepEqual(ammo.system.fits, [],
+                "the bad value could be seen and not removed");
+            });
+          });
+
+        it("a stack that fits nothing in particular still reloads a crossbow",
+          async function () {
+            // Blank means everything, and that rule outlived the comma box.
+            await withStack([], async (ammo, sheet, pc) => {
+              const [xbow] = await pc.createEmbeddedDocuments("Item", [
+                { name: "ZZ xbow", type: "weapon",
+                  system: { category: "crossbows", capacity: 5, equipped: true } }
+              ]);
+              const offered = AMMOSTORE.ammunitionFor(pc, xbow).map((i) => i.name);
+              assert.include(offered, "ZZ stack");
+            });
+          });
+      });
 
       describe("the setting", function () {
         it("is registered and defaults to off", function () {
@@ -5691,13 +5794,24 @@ function registerFormListBatch(quench) {
         return el;
       }
 
+      /**
+       * `ammunition.fits` USED TO BE HERE and is not a comma box any more (#91).
+       *
+       * It was the field the reporter could not make work: nothing on the sheet
+       * said the words it wanted were `bows` and `crossbows`, and "arrows" —
+       * the obvious thing to write on an arrow — matches no weapon category, so
+       * the stack silently fitted nothing. It is ticks now, which cannot be
+       * misspelled and which write straight to the document.
+       *
+       * Its replacement is covered in the ammunition batch: the tick reaching
+       * the document, clearing again, and a stray value being visible and
+       * removable.
+       */
       const ITEM_BOXES = [
         { type: "race", box: "system.sensesText", path: "senses",
           text: "Darkvision, Scent", want: ["Darkvision", "Scent"] },
         { type: "weapon", box: "system.featuresText", path: "features",
           text: "Reach, Finesse", want: ["Reach", "Finesse"] },
-        { type: "ammunition", box: "system.fitsText", path: "fits",
-          text: "bows, crossbows", want: ["bows", "crossbows"] },
         { type: "technick", box: "system.prerequisites.trainedSkillsText",
           path: "prerequisites.trainedSkills",
           text: "athletics, survival", want: ["athletics", "survival"] },
